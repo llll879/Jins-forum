@@ -23,7 +23,7 @@ import secrets
 import socket
 import time
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlencode, urljoin, urlsplit
 from datetime import datetime, timezone
 
 import aiohttp
@@ -103,6 +103,12 @@ CREATE TABLE IF NOT EXISTS forum_notif_prefs(
 CREATE TABLE IF NOT EXISTS forum_reports(
     id SERIAL PRIMARY KEY, reporter_id BIGINT NOT NULL, kind CHAR(1) NOT NULL, target_id INT NOT NULL, reason TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS forum_profile_music(
+    id SERIAL PRIMARY KEY, user_id BIGINT NOT NULL, kind TEXT NOT NULL DEFAULT 'file', pos INT NOT NULL DEFAULT 0,
+    title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', duration INT NOT NULL DEFAULT 0,
+    ext_id TEXT, img TEXT NOT NULL DEFAULT '', audio BYTEA, mime TEXT, cover BYTEA, cover_mime TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS forum_profile_music_user_idx ON forum_profile_music(user_id, pos, id);
 """
 
 SEED_BOARDS = [("Новости", "📰", 1, True), ("Общий", "💬", 2, False), ("Вопросы", "❓", 3, False), ("Пиар", "📣", 4, False),
@@ -383,7 +389,7 @@ def _ranged(request, data, mime, headers):
     """Ответ с поддержкой Range — без него Safari/iOS не проигрывают <video>."""
     h = dict(headers, **{"Accept-Ranges": "bytes", "X-Content-Type-Options": "nosniff"})
     size = len(data)
-    m = re.match(r"bytes=(\d*)-(\d*)$", (request.headers.get("Range") or "").strip()) if mime.startswith("video/") else None
+    m = re.match(r"bytes=(\d*)-(\d*)$", (request.headers.get("Range") or "").strip()) if mime.startswith(("video/", "audio/")) else None
     if m and (m.group(1) or m.group(2)):
         a, b = m.groups()
         start, end = (max(size - int(b), 0), size - 1) if not a else (int(a), min(int(b), size - 1) if b else size - 1)
@@ -1653,6 +1659,264 @@ async def a_x_banner_delete(request):
 
 
 
+# ============================================================================ EXG Music
+# Музыка — из открытой библиотеки Audius (api.audius.co, без ключа). Клиент ходит туда напрямую; эти два эндпоинта — запасной путь,
+# если браузер до Audius не достучался: JSON-списки (кэш 10 мин) и редирект на поток трека.
+MU_API = "https://api.audius.co/v1"
+MU_APP = "EXG_MUSIC"
+MU_PATH_OK = re.compile(r"^(tracks/(trending|trending/underground|search)|playlists/trending)$")
+MU_PARAMS = {"query", "genre", "time", "limit", "offset"}
+_mu_cache: dict = {}      # url -> (monotonic, текст ответа)
+_mu_loc: dict = {}        # id трека -> (monotonic, адрес потока)
+_mu_rate: dict = {}       # uid -> [ts...]
+
+
+def _mu_session():
+    return aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=12), trust_env=False,
+                                 headers={"User-Agent": "EXG-Music/1.0", "Accept": "application/json"})
+
+
+@api
+async def a_music_get(request):
+    me = request["fuid"]
+    now = time.monotonic()
+    hist = [t for t in _mu_rate.get(me, []) if now - t < 60]
+    if len(hist) >= 60:
+        raise FErr(429, "too_fast", "Не так быстро")
+    hist.append(now)
+    _mu_rate[me] = hist
+    if len(_mu_rate) > 3000:
+        _mu_rate.clear()
+    path = (request.query.get("p") or "").strip("/")
+    if not MU_PATH_OK.match(path):
+        raise FErr(400, "bad_input", "Неверный запрос")
+    params = []
+    for k, v in request.query.items():
+        if k not in MU_PARAMS:
+            continue
+        v = v.strip()[:100]
+        if k in ("limit", "offset"):
+            if not v.isdigit():
+                continue
+            v = str(min(int(v), 50 if k == "limit" else 500))
+        params.append((k, v))
+    params.append(("app_name", MU_APP))
+    url = f"{MU_API}/{path}?{urlencode(params)}"
+    hit = _mu_cache.get(url)
+    if hit and now - hit[0] < 600:
+        return web.Response(text=hit[1], content_type="application/json", charset="utf-8")
+    try:
+        async with _mu_session() as ses:
+            async with ses.get(url) as resp:
+                if resp.status != 200:
+                    raise RuntimeError(f"audius {resp.status}")
+                text = await resp.text()
+        json.loads(text)
+    except Exception as e:
+        log.warning("music get failed: %s", e)
+        raise FErr(502, "music_unavailable", "Музыкальный сервис сейчас недоступен")
+    _mu_cache[url] = (time.monotonic(), text)
+    while len(_mu_cache) > 300:
+        _mu_cache.pop(next(iter(_mu_cache)))
+    return web.Response(text=text, content_type="application/json", charset="utf-8")
+
+
+@api(auth=False)
+async def a_music_stream(request):
+    tid = request.query.get("id") or ""
+    if not re.fullmatch(r"[A-Za-z0-9]{1,24}", tid):
+        raise FErr(400, "bad_input", "Неверный трек")
+    now = time.monotonic()
+    hit = _mu_loc.get(tid)
+    if hit and now - hit[0] < 300:
+        raise web.HTTPFound(hit[1])
+    url = f"{MU_API}/tracks/{tid}/stream?{urlencode({'app_name': MU_APP})}"
+    loc = ""
+    try:
+        async with _mu_session() as ses:
+            async with ses.get(url, allow_redirects=False) as resp:
+                if resp.status in (301, 302, 303, 307, 308):
+                    loc = urljoin(url, resp.headers.get("Location") or "")
+    except Exception as e:
+        log.warning("music stream failed: %s", e)
+    if not loc.startswith("https://"):
+        raise FErr(502, "music_unavailable", "Трек сейчас недоступен")
+    _mu_loc[tid] = (now, loc)
+    while len(_mu_loc) > 500:
+        _mu_loc.pop(next(iter(_mu_loc)))
+    raise web.HTTPFound(loc)
+
+
+# ============================================================================ музыка в профиле
+# Трек в профиле — либо загруженный файл (хранится в БД, как баннеры), либо ссылка на трек из EXG Music (Audius).
+PM_MAX = int(os.getenv("PROFILE_MUSIC_MAX", "10"))                           # треков на профиль
+PM_FILE_MAX = int(os.getenv("PROFILE_MUSIC_FILE_MB", "10")) * 1024 * 1024    # размер одного файла
+PM_COVER_MAX = 700 * 1024
+
+
+def _pm_audio_mime(data):
+    """Тип аудио определяем по содержимому, а не по заголовку от клиента."""
+    h = data[:16]
+    if len(h) < 12:
+        return None
+    if h[:3] == b"ID3":
+        return "audio/mpeg"
+    if h[0] == 0xFF and (h[1] & 0xE0) == 0xE0:
+        return "audio/aac" if (h[1] & 0xF6) == 0xF0 else "audio/mpeg"
+    if h[4:8] == b"ftyp" and h[8:12] not in _VIDEO_BAD_BRANDS:
+        return "audio/mp4"
+    if h[:4] == b"OggS":
+        return "audio/ogg"
+    if h[:4] == b"fLaC":
+        return "audio/flac"
+    if h[:4] == b"RIFF" and h[8:12] == b"WAVE":
+        return "audio/wav"
+    if h[:4] == b"\x1a\x45\xdf\xa3":
+        return "audio/webm"
+    return None
+
+
+def _pm_cover_mime(data):
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def _pm_text(v, n, default=""):
+    v = re.sub(r"[\x00-\x1f\x7f]+", " ", str(v or "")).strip()
+    return v[:n] or default
+
+
+PM_COLS = "id,kind,title,artist,duration,ext_id,img,(cover IS NOT NULL) has_cover"
+
+
+def _pm_json(r):
+    d = {"id": r["id"], "kind": r["kind"], "t": r["title"], "a": r["artist"], "d": r["duration"]}
+    if r["kind"] == "exg":
+        d["ext"] = r["ext_id"]
+        d["img"] = r["img"]
+    else:
+        d["src"] = f"/forum/api/pmusic/file/{r['id']}"
+        d["img"] = f"/forum/api/pmusic/cover/{r['id']}" if r["has_cover"] else ""
+    return d
+
+
+async def _pm_list(uid):
+    rows = await P().fetch(f"SELECT {PM_COLS} FROM forum_profile_music WHERE user_id=$1 ORDER BY pos,id", uid)
+    return [_pm_json(r) for r in rows]
+
+
+@api
+async def a_pmusic_list(request):
+    uid = to_int(request.query.get("id")) or request["fuid"]
+    return J({"tracks": await _pm_list(uid), "max": PM_MAX, "file_mb": PM_FILE_MAX // (1024 * 1024)})
+
+
+@api
+async def a_pmusic_add(request):
+    """Добавить трек в свой профиль: multipart (file, title, artist, duration, cover) — из файлов; JSON {ext,title,artist,duration,img} — из EXG Music."""
+    uid = request["fuid"]
+    if not bm.rate_ok(("pmadd", uid), 2):
+        raise FErr(429, "too_fast", "Не так быстро")
+    if await P().fetchval("SELECT count(*) FROM forum_profile_music WHERE user_id=$1", uid) >= PM_MAX:
+        raise FErr(400, "limit", f"В профиле может быть не больше {PM_MAX} треков — удалите лишние")
+    pos = await P().fetchval("SELECT COALESCE(MAX(pos),0)+1 FROM forum_profile_music WHERE user_id=$1", uid)
+    if (request.content_type or "").startswith("multipart/"):
+        form = await request.post()
+        f = form.get("file")
+        if f is None or not hasattr(f, "file"):
+            raise FErr(400, "no_file", "Файл не выбран")
+        data = f.file.read(PM_FILE_MAX + 1)
+        if not data or len(data) > PM_FILE_MAX:
+            raise FErr(400, "bad_audio", f"Файл слишком большой — до {PM_FILE_MAX // (1024 * 1024)} МБ")
+        mime = _pm_audio_mime(data)
+        if not mime:
+            raise FErr(400, "bad_audio", "Нужен аудиофайл: MP3, M4A, OGG, WAV, FLAC или WebM")
+        cover = cmime = None
+        c = form.get("cover")
+        if c is not None and hasattr(c, "file"):
+            cb = c.file.read(PM_COVER_MAX + 1)
+            if cb and len(cb) <= PM_COVER_MAX and _pm_cover_mime(cb):
+                cover, cmime = cb, _pm_cover_mime(cb)
+        name = re.sub(r"\.[A-Za-z0-9]{2,5}$", "", getattr(f, "filename", "") or "")
+        rid = await P().fetchval(
+            "INSERT INTO forum_profile_music(user_id,kind,pos,title,artist,duration,audio,mime,cover,cover_mime) "
+            "VALUES($1,'file',$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id",
+            uid, pos, _pm_text(form.get("title"), 120, _pm_text(name, 120, "Без названия")),
+            _pm_text(form.get("artist"), 120, "Неизвестный исполнитель"), max(0, min(to_int(form.get("duration")), 36000)), data, mime, cover, cmime)
+    else:
+        d = await jbody(request)
+        ext = str(d.get("ext") or "")
+        if not re.fullmatch(r"[A-Za-z0-9]{1,24}", ext):
+            raise FErr(400, "bad_input", "Неверный трек")
+        if await P().fetchval("SELECT 1 FROM forum_profile_music WHERE user_id=$1 AND ext_id=$2", uid, ext):
+            raise FErr(400, "dup", "Этот трек уже в вашем профиле")
+        img = str(d.get("img") or "")[:500]
+        if not img.startswith("https://"):
+            img = ""
+        rid = await P().fetchval(
+            "INSERT INTO forum_profile_music(user_id,kind,pos,title,artist,duration,ext_id,img) VALUES($1,'exg',$2,$3,$4,$5,$6,$7) RETURNING id",
+            uid, pos, _pm_text(d.get("title"), 120, "Без названия"), _pm_text(d.get("artist"), 120, "Неизвестный исполнитель"),
+            max(0, min(to_int(d.get("duration")), 36000)), ext, img)
+    r = await P().fetchrow(f"SELECT {PM_COLS} FROM forum_profile_music WHERE id=$1", rid)
+    return J({"track": _pm_json(r), "tracks": await _pm_list(uid)})
+
+
+@api
+async def a_pmusic_delete(request):
+    uid = request["fuid"]
+    d = await jbody(request)
+    await P().execute("DELETE FROM forum_profile_music WHERE id=$1 AND user_id=$2", to_int(d.get("id")), uid)
+    return J({"tracks": await _pm_list(uid)})
+
+
+@api
+async def a_pmusic_edit(request):
+    uid = request["fuid"]
+    d = await jbody(request)
+    await P().execute("UPDATE forum_profile_music SET title=$3, artist=$4 WHERE id=$1 AND user_id=$2", to_int(d.get("id")), uid,
+                      _pm_text(d.get("title"), 120, "Без названия"), _pm_text(d.get("artist"), 120, "Неизвестный исполнитель"))
+    return J({"tracks": await _pm_list(uid)})
+
+
+@api
+async def a_pmusic_move(request):
+    """Порядок треков: {ids:[...]} — новый порядок целиком, либо {id, first:true} — поставить трек первым."""
+    uid = request["fuid"]
+    d = await jbody(request)
+    cur = [r["id"] for r in await P().fetch("SELECT id FROM forum_profile_music WHERE user_id=$1 ORDER BY pos,id", uid)]
+    if d.get("first"):
+        tid = to_int(d.get("id"))
+        ids = ([tid] if tid in cur else []) + [i for i in cur if i != tid]
+    else:
+        want = [to_int(i) for i in (d.get("ids") or []) if to_int(i) in cur]
+        ids = list(dict.fromkeys(want)) + [i for i in cur if i not in want]
+    async with P().acquire() as con:
+        async with con.transaction():
+            for n, i in enumerate(ids, 1):
+                await con.execute("UPDATE forum_profile_music SET pos=$3 WHERE id=$1 AND user_id=$2", i, uid, n)
+    return J({"tracks": await _pm_list(uid)})
+
+
+async def a_pmusic_file(request):
+    r = await P().fetchrow("SELECT audio,mime FROM forum_profile_music WHERE id=$1 AND audio IS NOT NULL", to_int(request.match_info.get("pid")))
+    if not r:
+        raise web.HTTPNotFound()
+    return _ranged(request, bytes(r["audio"]), r["mime"] or "audio/mpeg", {"Cache-Control": "public, max-age=86400, immutable"})
+
+
+async def a_pmusic_cover(request):
+    r = await P().fetchrow("SELECT cover,cover_mime FROM forum_profile_music WHERE id=$1 AND cover IS NOT NULL", to_int(request.match_info.get("pid")))
+    if not r:
+        raise web.HTTPNotFound()
+    return web.Response(body=bytes(r["cover"]), content_type=r["cover_mime"] or "image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400, immutable", "X-Content-Type-Options": "nosniff"})
+
+
 def install(app, bot_module):
     global bm
     bm = bot_module
@@ -1702,6 +1966,15 @@ def install(app, bot_module):
     r.add_post(A + "/notifs/prefs", a_notif_prefs_set)
     r.add_get(A + "/ping", a_ping)
     r.add_get(A + "/search", a_search)
+    r.add_get(A + "/music/get", a_music_get)
+    r.add_get(A + "/music/stream", a_music_stream)
+    r.add_get(A + "/pmusic", a_pmusic_list)
+    r.add_post(A + "/pmusic/add", a_pmusic_add)
+    r.add_post(A + "/pmusic/delete", a_pmusic_delete)
+    r.add_post(A + "/pmusic/move", a_pmusic_move)
+    r.add_post(A + "/pmusic/edit", a_pmusic_edit)
+    r.add_get(A + "/pmusic/file/{pid}", a_pmusic_file)
+    r.add_get(A + "/pmusic/cover/{pid}", a_pmusic_cover)
     r.add_get(A + "/chats", a_chats)
     r.add_get(A + "/chats/search", a_chats_search)
     r.add_post(A + "/chats/pref", a_chat_pref)

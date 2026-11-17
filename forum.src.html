@@ -340,6 +340,7 @@ button.mf{border:0;background:none;padding:0;font:inherit;text-align:left;width:
 {{inc:editor/editor.css}}
 {{inc:groups/groups.css}}
 {{inc:chatstyle/chatstyle.css}}
+{{inc:music/music.css}}
 .supbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px;color:var(--dim)}
 
 /* ---------- новый пост ---------- */
@@ -1530,7 +1531,7 @@ async function viewFeed(el,p){
 /* ---------- разделы ---------- */
 function bIcon(b){const k=BIC[(b.name||'').trim().toLowerCase()];return k?IC[k]:`<span style="font-size:23px;line-height:1">${esc(b.emoji)}</span>`}
 async function viewBoards(el){
-  el.innerHTML=`${mast(false)}<div class="stitle" style="margin-top:-30px;position:relative;z-index:3">Разделы форума</div>${S.boards.map(b=>`<div class="grow glass" data-href="#/b/${b.id}"><span class="gi">${bIcon(b)}</span><span class="t"><b>${esc(b.name)}</b><small>${b.admin_only?'Пишут только админы':'Открытый раздел'}</small></span>${IC.chev}</div>`).join('')}
+  el.innerHTML=`${mast(false)}<div class="stitle" style="margin-top:-30px;position:relative;z-index:3">Разделы форума</div><div class="grow glass" data-href="#/music"><span class="gi gold">${IC.music}</span><span class="t"><b>EXG Music</b><small>Музыка: тренды, поиск, «Моя волна»</small></span>${IC.chev}</div>${S.boards.map(b=>`<div class="grow glass" data-href="#/b/${b.id}"><span class="gi">${bIcon(b)}</span><span class="t"><b>${esc(b.name)}</b><small>${b.admin_only?'Пишут только админы':'Открытый раздел'}</small></span>${IC.chev}</div>`).join('')}
   ${S.me.main?`<div class="grow glass" id="addB" style="justify-content:center;min-height:52px;color:#d6d1ee;gap:10px">${sm('plus',20)}Новый раздел</div>`:''}`;
   const ab=$('#addB',el);if(ab)ab.onclick=async()=>{const n=prompt('Название раздела');if(!n)return;const e=prompt('Эмодзи','💬')||'💬';try{await post_('/board',{name:n,emoji:e});await boot();viewBoards(el)}catch(x){toast(x.message,1)}}}
 async function viewBoard(el,id){
@@ -1764,9 +1765,11 @@ async function viewUser(el,id){
   ${x&&x.blocked_by_me?'<div class="blk-note">Вы заблокировали этого пользователя</div>':''}
   <div class="stats3"><div><b>${d.posts}</b><small>Постов</small></div><div data-href="#/fl/${u.id}/followers"><b id="fc">${num(d.followers)}</b><small>Подписчиков</small></div><div data-href="#/fl/${u.id}/following"><b>${num(d.following)}</b><small>Подписок</small></div></div>
   ${x?`<div class="stats3 alt"><div data-go="reviews"><b>${x.rating||'—'}</b><small>Рейтинг ★</small></div><div data-go="reviews"><b>${x.reviews}</b><small>Отзывов</small></div><div data-go="deals"><b>${x.completed_deals}</b><small>Сделок</small></div></div>`:''}</div>
+  <div id="pmBox"></div>
   <div id="prow">${roles.map(r=>`<div class="grow glass"><span class="gi role">${r[0]}</span><span class="t"><b>${r[1]}</b><small>${r[2]}</small></span></div>`).join('')}${own?`<div class="grow glass" data-href="#/saved"><span class="gi">${IC.bookmark}</span><span class="t"><b>Закладки</b><small>Сохранённые посты</small></span>${IC.chev}</div><div class="grow glass" data-href="#/blocks"><span class="gi">${IC.ban}</span><span class="t"><b>Чёрный список</b><small>Заблокированные пользователи</small></span>${IC.chev}</div><div class="grow glass" data-href="#/settings"><span class="gi">${IC.gear}</span><span class="t"><b>Настройки</b><small>Тема, акцентный цвет, выход</small></span>${IC.chev}</div>`:''}</div>
   <div class="ptabs" id="ptabs"><button class="tab on" data-t="posts">Посты</button>${x?`<button class="tab" data-t="reviews">Отзывы · ${x.reviews}</button><button class="tab" data-t="deals">Сделки</button>`:''}${x&&x.projects&&x.projects.length?`<button class="tab" data-t="projects">Проекты · ${x.projects.length}</button>`:''}</div><div id="ptab" style="margin-top:8px"></div></div>`;
   const pu=$('.puser[data-lnk]',el);if(pu)pu.onclick=()=>copyLink(pu.dataset.lnk);
+  api('/pmusic?id='+u.id).then(r=>{const b=$('#pmBox',el);if(b)MU.profile(b,r,{own})}).catch(()=>{});
   const avEl=$('.av.xl',el);if(avEl&&u.av){avEl.removeAttribute('data-href');avEl.dataset.lb=`/forum/api/avatar/${u.id}?v=${S.avv||0}`}
   const bt=$('#pbt',el);
   if(own){bt.innerHTML=`<button class="btn ghost sm" data-href="#/edit-profile">${sm('pencil',17)}Изменить</button>`}
@@ -1837,11 +1840,13 @@ async function viewEditProfile(el){
   <label class="lbl">Юзернейм</label>${nameField(u.own_name?u.username:'',u.username||'ваше_имя')}
   <p style="color:var(--dim);font-size:13px;margin:6px 2px 0">Ссылка на профиль: <b>exg/${esc(u.own_name?u.username:(u.username||'имя'))}</b>. Если оставить пустым, работает ник из Telegram${u.username&&!u.own_name?' (@'+esc(u.username)+')':''}. Латиница, цифры и «_», от 4 символов.</p>
   <label class="lbl">О себе</label><textarea class="inp" id="bio" maxlength="500" style="min-height:110px" placeholder="Расскажите о себе…">${esc(u.bio)}</textarea><div class="rcount"><span id="bc">${(u.bio||'').length}</span> / 500</div>
+  <label class="lbl">Музыка в профиле</label><p style="color:var(--dim);font-size:13px;margin:-4px 2px 8px">Загрузите свои треки или добавьте из EXG Music — они появятся в вашем профиле.</p><div id="pmEd"></div>
   <label class="lbl">Тема вашего профиля</label><p style="color:var(--dim);font-size:13px;margin:-4px 2px 10px">В какой теме люди увидят ваш профиль — независимо от их настроек.</p>
   <div class="tchips" id="ptc"></div>
   <label class="lbl">Акцентный цвет</label><div class="pal" id="acPal">${PAL.map(c=>`<i style="background:${c}" class="${c.toLowerCase()===ac.toLowerCase()?'on':''}" data-ac="${c}"></i>`).join('')}<input type="color" id="acCol" value="${/^#[0-9a-f]{6}$/i.test(ac)?ac:'#9d92e6'}" aria-label="Свой цвет"></div>
   <label class="lbl">Оформление интерфейса</label><div style="display:flex;gap:8px;flex-wrap:wrap">${[['dark','Тёмная'],['amoled','AMOLED'],['light','Светлая']].map(([k,n])=>`<button class="tab ${th===k?'on':''}" data-th="${k}">${n}</button>`).join('')}</div>
   <div style="margin-top:22px;display:flex;flex-direction:column;gap:10px">${x.can_badge?'<button class="btn ghost" id="myB">Значки рядом с ником</button>':''}<button class="btn ghost" data-href="#/notif-set">${IC.bell}Уведомления</button><button class="btn ghost" data-href="#/blocks">${IC.ban}Чёрный список</button></div></div>`;
+  api('/pmusic?id='+S.me.id).then(r=>{const b=$('#pmEd',el);if(b)MU.profile(b,r,{own:true,edit:true})}).catch(()=>{});
   const paintPT=()=>{$('#ptc',el).innerHTML=`<button class="tchip ${pt?'':'on'}" data-p=""><span style="background:linear-gradient(135deg,#08040f 50%,#eceafc 50%)"></span>Как у зрителя</button>`+Object.keys(PALS).map(k=>`<button class="tchip ${pt===k?'on':''}" data-p="${k}"><span style="background:${PALS[k].acc}"></span>${PALS[k].n}</button>`).join('')};paintPT();
   $('#ptc',el).onclick=async e=>{const b=e.target.closest('[data-p]');if(!b)return;try{await post_('/x/profile',{profile_theme:b.dataset.p});pt=b.dataset.p;paintPT();toast(pt?'Другие увидят профиль в теме «'+PALS[pt].n+'»':'Профиль будет в теме зрителя')}catch(x2){toast(x2.message,1)}};
   const setAcc=async c=>{ls.set('acc',c);applyTheme();$$('#acPal [data-ac]',el).forEach(i=>i.classList.toggle('on',i.dataset.ac.toLowerCase()===c.toLowerCase()));try{await post_('/x/profile',{accent:c});S.me.accent=c}catch(e){toast(e.message,1)}};
@@ -2375,6 +2380,7 @@ async function viewChat(el,peer,G){
 
 {{inc:groups/groups.js}}
 {{inc:chatstyle/chatstyle.js}}
+{{inc:music/music.js}}
 
 /* ---------- поиск ---------- */
 async function viewSearch(el,q){
@@ -2758,13 +2764,13 @@ async function render(){
   const my=++rid;clearInterval(chatT);applyTheme();LOCAL_URLS.splice(0).forEach(u=>{try{URL.revokeObjectURL(u)}catch(e){}});
   const h=(location.hash||'#/').replace(/^#\/?/,'');const [r,a,b]=h.split('/');
   if(!S.token&&r==='n'&&a)ls.set('pend_n',a);
-  if(!S.token||r==='login'){if(S.token&&r==='login'){location.hash='#/';return}$('#app').innerHTML='<div id="view" style="padding:0"></div>';$('#app').dataset.page='login';await viewLogin($('#view'));return}
+  if(!S.token||r==='login'){MU.stop();if(S.token&&r==='login'){location.hash='#/';return}$('#app').innerHTML='<div id="view" style="padding:0"></div>';$('#app').dataset.page='login';await viewLogin($('#view'));return}
   if(!S.me){try{await boot()}catch(e){$('#app').innerHTML=`<div class="login"><div class="logo">KMBP <b>FORUM</b></div><p style="color:var(--bad)">${esc(e.message)}</p><button class="btn" onclick="location.reload()">Повторить</button></div>`;return}}
   shell();const v=$('#view');
   const noNav=['c','g','p','post','edit','edit-profile','new'].includes(r);
   $('#nav').style.display=noNav?'none':'';$('#app').dataset.page=({'':'feed',feed:'feed',boards:'boards',chats:'chats',new:'new',edit:'new'})[r]||r;
-  v.style.paddingBottom=noNav?'0':'';
-  const nav=({'':'feed',boards:'boards',b:'boards',chats:'chats',me:'me',u:(a==S.me.id?'me':'')})[r];
+  v.style.paddingBottom=noNav?'0':'';MU.mount(noNav);
+  const nav=({'':'feed',boards:'boards',b:'boards',music:'boards',chats:'chats',me:'me',u:(a==S.me.id?'me':'')})[r];
   $$('#nav button[data-n]').forEach(x=>x.classList.toggle('on',x.dataset.n===nav));
   v.scrollTop=0;v.innerHTML='<div class="spin"></div>';
   try{
@@ -2772,6 +2778,7 @@ async function render(){
     let fn;
     if(r===''||r==='feed')fn=()=>viewFeed(t);
     else if(r==='boards')fn=()=>viewBoards(t);
+    else if(r==='music')fn=()=>viewMusic(t);
     else if(r==='b')fn=()=>viewBoard(t,a);
     else if(r==='p'||r==='post')fn=()=>viewPost(t,a);
     else if(r==='u')fn=()=>viewUser(t,a);
