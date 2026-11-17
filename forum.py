@@ -46,7 +46,10 @@ def P():
 
 def _base():
     """Публичный адрес ФОРУМА. Отдельный сервис -> задайте FORUM_URL; иначе берётся WEBAPP_URL (как раньше, когда всё было в одном процессе)."""
-    return (os.getenv("FORUM_URL") or bm.WEBAPP_URL or "").rstrip("/")
+    return (os.getenv("FORUM_URL") or _auto_base or bm.WEBAPP_URL or "").rstrip("/")
+
+
+_auto_base = ""      # адрес, по которому форум открыли в последний раз (если FORUM_URL не задан)
 
 
 class FErr(Exception):
@@ -1598,7 +1601,13 @@ def _page():
 
 
 async def page(request):
-    html = _page().replace("__BASE__", _base())
+    global _auto_base
+    if not os.getenv("FORUM_URL"):
+        proto = (request.headers.get("X-Forwarded-Proto") or request.scheme or "https").split(",")[0].strip()
+        host = (request.headers.get("X-Forwarded-Host") or request.host or "").split(",")[0].strip()
+        if host:
+            _auto_base = f"{proto}://{host}"
+    html = _page().replace("__BASE__", (os.getenv("FORUM_URL") or _auto_base or bm.WEBAPP_URL or "").rstrip("/"))
     hdr = {"Cache-Control": "no-cache"}
     if request.query.get("dl"):
         hdr["Content-Disposition"] = 'attachment; filename="kmbp-forum.html"'
@@ -1710,6 +1719,8 @@ def install(app, bot_module):
     forum_groups.install(r, A)
     import forum_gifs
     forum_gifs.install(r, A)
+    import forum_calls
+    forum_calls.install(r, A)                  # звонки: личные и групповые (WebRTC, сигнализация через long-poll)
     r.add_post(A + "/support/{act}", a_support_act)
     X = A + "/x"
     r.add_get(X + "/profile", bridge("api_profile"))
@@ -1740,4 +1751,6 @@ async def start(bot_module):
     if not await bm.pool.fetchval("SELECT 1 FROM forum_boards LIMIT 1"):
         for name, emoji, sort, admin_only in SEED_BOARDS:
             await bm.pool.execute("INSERT INTO forum_boards(name,emoji,sort,admin_only) VALUES($1,$2,$3,$4)", name, emoji, sort, admin_only)
+    import forum_calls
+    forum_calls.start()                            # фоновая уборка звонков (таймаут вызова, отвалившиеся участники)
     log.info("forum ready")
