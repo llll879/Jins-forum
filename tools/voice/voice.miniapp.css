@@ -1,0 +1,14 @@
+/* подгонка под пузыри мини-аппа */
+.cv-msg .vm{padding:0!important;width:min(268px,68vw);min-width:200px}
+.cv-msg.mine .vm{--kv-mine-ink:var(--acc)}
+.cv-msg.theirs .vm{--vc:var(--acc)}
+.cv-msg.has-voice{padding-bottom:7px}
+.cv-msg.has-voice>.tm{display:none}
+:root[data-theme="light"] .cv-msg.theirs .vm,:root[data-theme="lilac"] .cv-msg.theirs .vm{--vd:rgba(20,16,10,.2)}
+.cv-bar.kv-on .kv-mic{align-self:flex-end}
+.kv-rec{background:var(--card,#1b1826)}
+/* кружок без «пузыря» */
+.cv-msg.has-note{background:transparent!important;padding:0!important;box-shadow:none!important;border:0!important;overflow:visible;min-width:0}
+.cv-msg.has-note::before,.cv-msg.has-note::after{display:none!important}
+.cv-msg.has-note>.tm{display:none}
+.cv-msg.has-note .kn{margin:0}

@@ -1,0 +1,115 @@
+/* ===== голосовые сообщения (источник: tools/voice/voice.css) ===== */
+.vm{display:flex!important;align-items:center;gap:11px;width:min(292px,78vw);min-width:220px;padding:9px 14px 7px 9px!important;white-space:normal!important;
+  --vc:var(--acc,#9d92e6);--vd:rgba(255,255,255,.26)}
+.vm[data-mine="1"]{--vc:#fff;--vd:rgba(255,255,255,.4)}
+[data-theme=light] .vm:not([data-mine="1"]){--vd:rgba(20,16,10,.2)}
+.vm .vp{flex:none;width:44px;height:44px;border-radius:50%;border:0;padding:0;margin:0;display:grid;place-items:center;cursor:pointer;color:#fff;
+  background:linear-gradient(180deg,#9f95e4,#6d64b6);box-shadow:0 5px 14px -5px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.28);
+  transition:transform .28s cubic-bezier(.34,1.56,.64,1),box-shadow .25s}
+.vm .vp:active{transform:scale(.88)}
+.vm .vp svg{display:block;margin-left:1px}
+.vm.playing .vp svg{margin-left:0}
+.vm[data-mine="1"] .vp{background:#fff;color:var(--kv-mine-ink,#5d559c);box-shadow:0 5px 14px -6px rgba(0,0,0,.5)}
+.vm.playing .vp{box-shadow:0 0 0 5px color-mix(in srgb,var(--vc) 22%,transparent),0 5px 14px -5px rgba(0,0,0,.5)}
+.vm .vc{flex:1;min-width:0}
+.vm .vw{position:relative;height:34px;cursor:pointer;touch-action:none;--p:0;-webkit-user-select:none;user-select:none}
+.vm .vwv{display:block;width:100%;height:100%;
+  -webkit-mask:var(--m) center/100% 100% no-repeat;mask:var(--m) center/100% 100% no-repeat;
+  background:linear-gradient(90deg,var(--vc) calc(var(--p)*100%),var(--vd) calc(var(--p)*100%))}
+.vm .vi{display:flex;align-items:center;gap:6px;font-size:12px;line-height:1;margin-top:3px;min-height:16px}
+.vm .vt{font-variant-numeric:tabular-nums;opacity:.88}
+.vm .vi small{display:block;margin:0 0 0 auto!important;font-size:10.5px;opacity:.68;text-align:right;white-space:nowrap}
+.vm .vdot{display:none;flex:none;width:7px;height:7px;border-radius:50%;background:var(--vc)}
+.vm[data-heard="0"]:not([data-mine="1"]) .vdot{display:block}
+.vm .vs{border:0;border-radius:9px;padding:3px 7px;font-weight:700;font-size:11px;line-height:1;font-family:inherit;color:inherit;background:rgba(255,255,255,.18);cursor:pointer;min-width:30px}
+[data-theme=light] .vm:not([data-mine="1"]) .vs{background:rgba(20,16,10,.08)}
+.vm .vs[hidden]{display:none}
+.vm[data-pending]{opacity:.72}
+.vm[data-pending] .vp{pointer-events:none}
+.vm[data-pending] .vp svg{display:none}
+.vm[data-pending] .vp::after{content:"";width:20px;height:20px;border-radius:50%;border:2.5px solid currentColor;border-top-color:transparent;animation:kvspin .8s linear infinite}
+@keyframes kvspin{to{transform:rotate(360deg)}}
+
+/* кнопка микрофона вместо «отправить», когда поле пустое */
+.kv-txt .kv-mic{display:none!important}
+.kv-on:not(.kv-txt) .kv-sb{display:none!important}
+.kv-mic{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;position:relative;z-index:6;cursor:pointer;
+  transition:transform .22s cubic-bezier(.22,1,.36,1),background .2s,box-shadow .25s}
+.kv-mic svg{pointer-events:none}
+.kv-mic.hold{background:linear-gradient(180deg,#ff7482,#e0394c)!important;box-shadow:0 0 0 12px rgba(255,92,108,.18),0 8px 22px -6px rgba(255,92,108,.65)!important;animation:none!important}
+.kv-locked .kv-mic{animation:none}
+
+/* панель записи поверх поля ввода */
+.kv-rec{position:absolute;z-index:5;display:flex;align-items:center;gap:10px;padding:0 16px 0 12px;border-radius:26px;overflow:hidden;
+  background:var(--solid,var(--bg,#12101a));border:1px solid var(--line2,rgba(255,255,255,.18));box-shadow:0 10px 30px -14px #000;
+  opacity:0;transition:opacity .2s,transform .12s linear;transform:translateX(0)}
+.kv-rec.in{opacity:1;animation:kvIn .3s cubic-bezier(.22,1,.36,1)}
+@keyframes kvIn{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+.kv-rec[hidden],.kv-lock[hidden]{display:none!important}
+.kv-rec .kv-x{display:none;flex:none;width:36px;height:36px;border-radius:50%;border:0;padding:0;place-items:center;color:var(--bad,#ff5c6c);background:rgba(255,92,108,.12);cursor:pointer}
+.kv-rec.locked .kv-x{display:grid;margin-left:-4px}
+.kv-rec .kv-dot{flex:none;width:11px;height:11px;border-radius:50%;background:#ff4d5e;box-shadow:0 0 0 0 rgba(255,77,94,.55);animation:kvPulse 1.2s ease-out infinite}
+.kv-rec.locked .kv-dot{width:9px;height:9px}
+@keyframes kvPulse{0%{box-shadow:0 0 0 0 rgba(255,77,94,.55)}100%{box-shadow:0 0 0 10px rgba(255,77,94,0)}}
+.kv-rec .kv-t{flex:none;font-variant-numeric:tabular-nums;font-size:15.5px;font-weight:600;min-width:52px;color:var(--txt,#f4f2fb)}
+.kv-rec .kv-cv{flex:1;min-width:30px;height:60%;display:block}
+.kv-rec .kv-hint{flex:none;font-size:13.5px;color:var(--dim,#8f8aa6);white-space:nowrap;animation:kvHint 1.6s ease-in-out infinite;transition:color .15s}
+.kv-rec .kv-hint.bad{color:var(--bad,#ff5c6c)}
+.kv-rec.locked .kv-hint{display:none}
+@keyframes kvHint{0%,100%{transform:translateX(0)}50%{transform:translateX(-5px)}}
+.kv-lock{position:absolute;z-index:6;bottom:calc(100% + 6px);width:38px;height:62px;border-radius:19px;display:flex;align-items:flex-start;justify-content:center;padding-top:10px;
+  color:var(--txt,#f4f2fb);background:var(--solid,#12101a);border:1px solid var(--line2,rgba(255,255,255,.18));box-shadow:0 10px 24px -10px #000;
+  animation:kvLock .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes kvLock{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.kv-recording textarea{visibility:hidden}
+@media (prefers-reduced-motion:reduce){.kv-rec,.kv-rec *,.kv-lock{animation:none!important;transition:none!important}}
+
+/* ===== кружки (видеосообщения) ===== */
+.kn{display:block;position:relative;align-self:flex-start;margin:3px 0;-webkit-tap-highlight-color:transparent}
+.kn.me{align-self:flex-end}
+.kn .kn-c{position:relative;width:min(60vw,236px);aspect-ratio:1;border-radius:50%;cursor:pointer;--p:0;-webkit-user-select:none;user-select:none;
+  box-shadow:0 16px 36px -16px rgba(0,0,0,.8);transition:transform .38s cubic-bezier(.34,1.56,.64,1)}
+.kn.playing .kn-c{transform:scale(1.045)}
+.kn .kn-v{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover;box-sizing:border-box;border:2px solid rgba(255,255,255,.16);
+  background:radial-gradient(circle at 35% 30%,#2e2a46,#12101a)}
+.kn .kn-r{position:absolute;left:-6px;top:-6px;width:calc(100% + 12px);height:calc(100% + 12px);pointer-events:none;opacity:0;transform:rotate(-90deg);transition:opacity .25s}
+.kn.playing .kn-r{opacity:1}
+.kn .kn-r circle{fill:none;stroke:var(--acc,#9d92e6);stroke-width:2.8;stroke-linecap:round;stroke-dasharray:289;stroke-dashoffset:calc(289 - 289 * var(--p))}
+.kn .kn-t,.kn .kn-tm{position:absolute;display:flex;align-items:center;gap:6px;padding:3px 9px;border-radius:12px;color:#fff;font-weight:600;
+  background:rgba(10,8,18,.58);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);font-variant-numeric:tabular-nums;pointer-events:none}
+.kn .kn-t{left:10px;top:10px;font-size:12.5px}
+.kn .kn-tm{right:12px;bottom:12px;font-size:11px;font-weight:500;padding:2px 8px}
+.kn[data-heard="0"]:not([data-mine="1"]) .kn-t::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--acc,#9d92e6);box-shadow:0 0 0 2px rgba(255,255,255,.28)}
+.kn .kn-pl{position:absolute;left:0;right:0;top:0;bottom:0;margin:auto;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;color:#fff;pointer-events:none;
+  background:rgba(10,8,18,.46);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:opacity .2s,transform .3s cubic-bezier(.34,1.56,.64,1)}
+.kn .kn-pl svg{margin-left:2px}
+.kn.playing .kn-pl{opacity:0;transform:scale(.6)}
+.kn[data-pending] .kn-c{opacity:.8;cursor:default}
+.kn[data-pending] .kn-pl{background:transparent}
+.kn[data-pending] .kn-pl svg{display:none}
+.kn[data-pending] .kn-pl::after{content:"";width:30px;height:30px;border-radius:50%;border:3px solid #fff;border-top-color:transparent;animation:kvspin .8s linear infinite}
+
+/* превью при записи кружка + кольцо времени */
+.kv-circ{position:absolute;z-index:4;left:50%;bottom:calc(100% + 18px);width:min(66vw,264px);aspect-ratio:1;transform:translateX(-50%);animation:kvCirc .38s cubic-bezier(.34,1.56,.64,1)}
+@keyframes kvCirc{from{opacity:0;transform:translateX(-50%) scale(.5)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+.kv-circ[hidden]{display:none!important}
+.kv-circ video{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover;transform:scaleX(-1);background:#0c0a14;box-shadow:0 22px 54px -14px #000,0 0 0 3px rgba(255,255,255,.08)}
+.kv-circ svg{position:absolute;left:-7px;top:-7px;width:calc(100% + 14px);height:calc(100% + 14px);transform:rotate(-90deg);pointer-events:none}
+.kv-circ circle{fill:none;stroke-width:2.6;stroke-linecap:round}
+.kv-circ .bg{stroke:rgba(255,255,255,.16)}
+.kv-circ .fg{stroke:#ff4d5e;stroke-dasharray:301.6;stroke-dashoffset:301.6}
+.kv-mic.kv-swap svg{animation:kvSwap .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes kvSwap{from{transform:scale(.35) rotate(-70deg);opacity:0}to{transform:none;opacity:1}}
+/* подсказка у кнопки записи (как в Telegram) */
+.kv-tip{position:absolute;z-index:8;bottom:calc(100% + 10px);max-width:calc(100% - 16px);padding:10px 14px;border-radius:14px;pointer-events:none;
+  display:flex;flex-direction:column;gap:2px;text-align:left;font-size:13px;line-height:1.3;color:#f4f2fb;
+  background:rgba(28,25,42,.96);border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 34px -10px rgba(0,0,0,.7);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);opacity:0;transform:translateY(6px) scale(.96);transform-origin:calc(100% - var(--ax,24px)) 100%;
+  transition:opacity .22s,transform .3s cubic-bezier(.34,1.56,.64,1)}
+.kv-tip.in{opacity:1;transform:none}
+.kv-tip[hidden]{display:none}
+.kv-tip b{font-weight:650;font-size:13.5px;white-space:nowrap}
+.kv-tip span{opacity:.72;white-space:nowrap}
+.kv-tip::after{content:"";position:absolute;right:calc(var(--ax,24px) - 6px);bottom:-6px;width:12px;height:12px;background:inherit;border:inherit;border-width:0 1px 1px 0;border-radius:0 0 4px 0;transform:rotate(45deg)}
+[data-theme=light] .kv-tip{background:rgba(32,28,44,.95)}
+@media (prefers-reduced-motion:reduce){.kv-tip{transition:opacity .15s;transform:none}}
