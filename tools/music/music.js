@@ -18,13 +18,17 @@ const MI={
  rep1:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10l1-.7V14"/>'),
  wave:I('<path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4"/>'),
  lyr:I('<path d="M4 6h16M4 12h10M4 18h14"/>'),
- moon:I('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>')
+ moon:I('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
+ eq:I('<path d="M5 14v4M9 9v9M13 4v14M17 8v10M21 11v4" stroke-width="2.6"/>'),
+ mic:I('<rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/><path d="M12 6h.01" stroke-width="3"/>'),
+ globe:I('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9S14.6 18.4 12 21c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3z"/>'),
+ clock:I('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>')
 };
 IC.music=MI.note;IC.moon=MI.moon;
 const A=new Audio();A.preload='auto';
 let Q=[],qi=-1,shuf=0,rep=0,wave=0,tryFb=0,fails=0,sessionSet=0;
 const st={tab:'home',genre:'',q:'',artist:null,ahist:[]};
-let redraw=null;
+let redraw=null,subsFn=null;
 const cache=new Map();
 const jget=(k,d)=>{try{const v=ls.get(k);return v?JSON.parse(v):d}catch(e){return d}};
 /* треки старой библиотеки (нецифровые id без файла) больше не играют — не тащим их из сохранённого */
@@ -81,7 +85,7 @@ function playAt(i){
   document.body.classList.add('mu-loading');
   A.src=t.src||t.u||fbUrl(t.id);
   const p=A.play();if(p&&p.catch)p.catch(e=>{if(e&&e.name==='NotAllowedError')paint()});
-  hist=[t].concat(hist.filter(x=>x.id!==t.id)).slice(0,40);ls.set('mu_hist',JSON.stringify(hist));
+  hist=[t].concat(hist.filter(x=>x.id!==t.id)).slice(0,40);ls.set('mu_hist',JSON.stringify(hist));if(subsFn)subsFn();
   paint();session()}
 function toggle(){if(qi<0)return;if(A.paused){const p=A.play();if(p&&p.catch)p.catch(()=>{})}else A.pause()}
 function next(auto){
@@ -103,7 +107,7 @@ async function loadWave(append){
     l=shuffled(l);if(!l.length)throw new Error('empty');
     if(append&&wave){Q=Q.concat(l);playAt(qi+1)}else{wave=1;Q=l;playAt(0)}}
   catch(e){document.body.classList.remove('mu-loading');toast('Не удалось загрузить «Мою волну»',1)}}
-function toggleLike(t){const i=likes.findIndex(x=>x.id===t.id);if(i>=0)likes.splice(i,1);else likes.unshift(t);likes=likes.slice(0,500);ls.set('mu_likes',JSON.stringify(likes));
+function toggleLike(t){const i=likes.findIndex(x=>x.id===t.id);if(i>=0)likes.splice(i,1);else likes.unshift(t);likes=likes.slice(0,500);ls.set('mu_likes',JSON.stringify(likes));if(subsFn)subsFn();
   $$('.mu-row').forEach(r=>{if(r.dataset.id===t.id){const b=$('.mu-lk',r);if(b)b.classList.toggle('on',isLiked(t.id))}});paint();
   toast(i>=0?'Убрано из любимого':'Добавлено в любимое')}
 function session(){
@@ -312,16 +316,32 @@ function paint(){
 function stop(){lyReset();slpClear();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;
   const a=$('#app');if(a)a.classList.remove('mu-on');document.body.classList.remove('mu-playing','mu-loading')}
 
+/* карточки-«рулетка» вместо поиска и вкладок: тап по боковой — докрутить, по кнопке на центральной — включить */
+const CARDS=[
+ {k:'karaoke',tab:'karaoke',t:'Караоке 2007',ic:'mic',pl:1,q:'караоке хиты 2007 русские',fb:'popularity_total'},
+ {k:'wave',tab:'home',t:'Моя волна',ic:'eq',pl:1,big:1},
+ {k:'nostalg',tab:'nostalg',t:'Ностальгия 2010-х',ic:'eq',pl:1,q:'русские хиты 2010-х ностальгия',fb:'popularity_month'},
+ {k:'world',tab:'world',t:'Зарубежное',ic:'globe',sub:'Хиты со всего мира'},
+ {k:'likes',tab:'likes',t:'Любимое',ic:'heart'},
+ {k:'hist',tab:'hist',t:'История',ic:'clock'},
+ {k:'search',tab:'search',t:'Поиск',ic:'search',sub:'Трек, исполнитель, текст'}];
+const cardOf=tab=>Math.max(0,CARDS.findIndex(c=>c.tab===tab));
+const plural=n=>n%10===1&&n%100!==11?'трек':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'трека':'треков');
+const subTxt=c=>c.k==='likes'?(likes.length?likes.length+' '+plural(likes.length):'Отмечайте сердечком'):c.k==='hist'?(hist.length?hist.length+' '+plural(hist.length):'Пока пусто'):(c.sub||'');
+const plMemo=new Map();
+
 /* ---------- экран «EXG Music» ---------- */
 function view(el){
   if(!st.go){st.artist=null;st.ahist=[]}st.go=0;
+  const cardHtml=(c,i)=>`<div class="mu-cd${c.big?' big':''}" data-i="${i}" data-k="${c.k}" role="button" tabindex="0" aria-label="${esc(c.t)}"><span class="cd-ic">${MI[c.ic]||IC[c.ic]}</span><b>${esc(c.t)}</b><span class="cd-bt">${c.pl?`<span class="cd-go" data-go="1" role="button" aria-label="Включить">${MI.play}</span>`:`<small data-sub="${c.k}">${esc(subTxt(c))}</small>`}</span></div>`;
   el.innerHTML=`<div class="mu">
   <div class="mu-top"><button class="ib round" data-href="#/boards" aria-label="Назад">${IC.back}</button><span class="mu-logo">${MI.note}</span><div><h2>EXG <b>Music</b></h2><small>Русская музыка без рекламы</small></div></div>
-  <div class="mu-search">${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, текст песни" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
-  <div class="mu-tabs" ${st.q?'hidden style="display:none"':''}>${[['home','Главное'],['world','Зарубежное'],['likes','Любимое'],['hist','История']].map(([k,n])=>`<button class="tab ${st.tab===k?'on':''}" data-t="${k}">${n}</button>`).join('')}</div>
+  <div class="mu-search" ${st.q||st.tab==='search'?'':'hidden'}>${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, текст песни" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
+  <div class="mu-rl-w" id="muRlw"><div class="mu-pod"></div><div class="mu-rl" id="muRl"><span class="mu-rl-sp"></span>${CARDS.map(cardHtml).join('')}<span class="mu-rl-sp"></span></div></div>
+  <div class="mu-dots" id="muDots">${CARDS.map((c,i)=>`<button data-i="${i}" aria-label="${esc(c.t)}"></button>`).join('')}</div>
   <div id="muBody"></div>
   <p class="mu-note">Каталог — Яндекс Музыка, запасной — Jamendo (независимые исполнители). Полные треки зависят от подписки аккаунта сервера. Любимое и история хранятся на этом устройстве.</p></div>`;
-  const body=$('#muBody',el),inp=$('#muQ',el),x=$('.mu-x',el),tabs=$('.mu-tabs',el);
+  const body=$('#muBody',el),inp=$('#muQ',el),x=$('.mu-x',el),sb=$('.mu-search',el),rlw=$('#muRlw',el),rl=$('#muRl',el),dots=$('#muDots',el);
   let seq=0,timer=0;
   const fail=(msg,retry)=>{body.innerHTML=`<div class="empty">${msg}<br><br><button class="btn ghost" id="muRetry">Повторить</button></div>`;$('#muRetry',body).onclick=retry};
   const chips=(cur_)=>`<div class="mu-chips">${GENRES.map(([k,n])=>`<button class="mu-chip ${cur_===k?'on':''}" data-g="${esc(k)}">${esc(n)}</button>`).join('')}</div>`;
@@ -334,15 +354,13 @@ function view(el){
     try{const l=await fn();if(my!==seq)return;if(l.length){el.innerHTML=listHtml(l);wire(el,l)}else drop()}catch(e){if(my===seq)drop()}}
   async function home(){
     const my=++seq,g=st.genre;
-    body.innerHTML=`<div class="mu-wave" id="muWave"><div class="bars"><i></i><i></i><i></i><i></i><i></i></div><b>Моя волна</b><span>Бесконечный микс русских треков — популярное и новое</span><button class="go" aria-label="Включить">${MI.play}</button></div>
-    ${chips(g)}
+    body.innerHTML=`${chips(g)}
     <div class="mu-h"><h3>${g?'Русское в тренде: '+esc(gname(g)):'Русское — сейчас в тренде'}</h3></div><div id="muTr">${skel(6)}</div>
     ${g?'':`<div class="mu-h"><h3>Новинки на русском</h3></div><div id="muNew"></div>
     <div class="mu-h"><h3>Русское — лучшее за всё время</h3></div><div id="muTop"></div>
     <div class="mu-h"><h3>Зарубежная подборка</h3><button class="btn sm ghost" id="muWorld">Все</button></div><div id="muWd"></div>`}`;
-    $('#muWave',body).onclick=()=>{loadWave(false)};
     $$('.mu-chip',body).forEach(b=>b.onclick=()=>{st.genre=b.dataset.g;home()});
-    const w=$('#muWorld',body);if(w)w.onclick=()=>{st.tab='world';draw()};
+    const w=$('#muWorld',body);if(w)w.onclick=()=>goCard(cardOf('world'));
     const tr=$('#muTr',body);
     try{let l=await ymOr(g?{k:'search',q:GQ[g]||g}:{k:'chart',c:'russia'},()=>trending(g,30));if(my!==seq)return;
       if(l.length<5){const m=await catalog(RU,'popularity_total',g,30);if(my!==seq)return;if(m.length>l.length)l=m}
@@ -361,6 +379,25 @@ function view(el){
       if(l.length<5){const m=await catalog(WORLD,'popularity_total',g,30);if(my!==seq)return;if(m.length>l.length)l=m}
       if(!l.length){tr.innerHTML='<div class="empty" style="padding:24px">Здесь пока пусто</div>'}else{tr.innerHTML=listHtml(l);wire(tr,l)}}
     catch(e){if(my===seq)bad(tr,world)}}
+  /* подборки-карточки «Караоке 2007», «Ностальгия 2010-х»: поиск по Яндексу, запасной — каталог Jamendo */
+  const plData=c=>{let p=plMemo.get(c.k);if(p&&Date.now()-p.t<600000)return p.p;
+    p={t:Date.now(),p:ymOr({k:'search',q:c.q,limit:40},()=>catalog(RU,c.fb,'',40))};plMemo.set(c.k,p);p.p.catch(()=>plMemo.delete(c.k));return p.p};
+  async function plist(c){
+    const my=++seq;
+    body.innerHTML=`<div class="mu-h"><h3>${esc(c.t)}</h3><button class="btn sm" id="muAll" hidden>${MI.play}Слушать</button><button class="btn sm ghost" id="muSh" hidden>${MI.shuf}</button></div><div id="muLs">${skel(7)}</div>`;
+    const ls_=$('#muLs',body);
+    try{const l=await plData(c);if(my!==seq)return;
+      if(!l.length){ls_.innerHTML='<div class="empty" style="padding:24px">Здесь пока пусто</div>';return}
+      ls_.innerHTML=listHtml(l);wire(ls_,l);
+      const a=$('#muAll',body),h=$('#muSh',body);a.hidden=h.hidden=false;a.onclick=()=>start(l,0);h.onclick=()=>start(shuffled(l),0)}
+    catch(e){if(my===seq)bad(ls_,()=>plist(c))}}
+  async function playCard(c){
+    if(c.k==='wave'){loadWave(false);return}
+    if(!c.q)return;
+    document.body.classList.add('mu-loading');
+    try{const l=await plData(c);document.body.classList.remove('mu-loading');
+      if(l.length)start(shuffled(l),0);else toast('Подборка пока пустая',1)}
+    catch(e){document.body.classList.remove('mu-loading');toast('Не удалось загрузить подборку',1)}}
   function collection(arr,empty,withBtns){
     if(!arr.length){body.innerHTML=emptyBox('music',empty);return}
     body.innerHTML=`${withBtns?`<div class="mu-h"><h3>${arr.length} ${arr.length%10===1&&arr.length%100!==11?'трек':(arr.length%10>=2&&arr.length%10<=4&&(arr.length%100<10||arr.length%100>=20)?'трека':'треков')}</h3><button class="btn sm" id="muAll">${MI.play}Слушать</button><button class="btn sm ghost" id="muSh">${MI.shuf}</button></div>`:'<div style="height:8px"></div>'}<div id="muLs"></div>`;
@@ -429,20 +466,71 @@ function view(el){
     const vw=$('#view');if(vw)vw.scrollTop=0}
   function artistBack(){st.artist=st.ahist.pop()||null;draw()}
   function draw(){
-    const q=st.q.trim();
-    tabs.hidden=!!q||!!st.artist;tabs.style.display=(q||st.artist)?'none':'';x.hidden=!st.q;
+    const q=st.q.trim(),art=!!st.artist,srch=st.tab==='search'||!!st.q;
+    rlw.hidden=dots.hidden=art;sb.hidden=!srch||art;x.hidden=!st.q;
+    if(!art)requestAnimationFrame(()=>fit());
     if(q.length>=2)return search(q);
     if(q){body.innerHTML='';return}
-    if(st.artist)return artistPage(st.artist);
-    $$('.tab',tabs).forEach(b=>b.classList.toggle('on',b.dataset.t===st.tab));
-    if(st.tab==='likes')collection(likes,'Отмечайте треки сердечком — они появятся здесь',true);
+    if(art)return artistPage(st.artist);
+    if(st.tab==='search'){seq++;body.innerHTML=`<div class="empty" style="padding:28px 24px">Введите название трека, исполнителя<br>или строчку из песни</div>`;return}
+    const pc=CARDS.find(c=>c.tab===st.tab&&c.q);
+    if(pc)plist(pc);
+    else if(st.tab==='likes')collection(likes,'Отмечайте треки сердечком — они появятся здесь',true);
     else if(st.tab==='hist')collection(hist,'Вы пока ничего не слушали',false);
     else if(st.tab==='world')world();
     else home()}
-  $$('.tab',tabs).forEach(b=>b.onclick=()=>{st.tab=b.dataset.t;st.artist=null;st.ahist=[];draw()});
+  /* ---- рулетка: карточки едут по дуге, центральная крупная, боковые наклонены и уходят вглубь ---- */
+  let geo=[],cw=0,curI=cardOf(st.tab),raf2=0,stTm=0,lastI=-1;
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const cds=()=>$$('.mu-cd',rl);
+  function measure(){
+    const cs=cds();if(!cs.length||!rl.clientWidth)return false;
+    cw=cs[0].offsetWidth;const pad=Math.max(0,(rl.clientWidth-cw)/2);
+    $$('.mu-rl-sp',rl).forEach(e=>e.style.width=pad+'px');
+    geo=cs.map(c=>c.offsetLeft+c.offsetWidth/2);return true}
+  const posOf=i=>geo[i]-rl.clientWidth/2;
+  function paintCards(){
+    raf2=0;if(!geo.length)return;
+    const mid=rl.scrollLeft+rl.clientWidth/2,step=cw+14,cs=cds();let best=0,bd=1e9;
+    cs.forEach((c,i)=>{
+      const d=(geo[i]-mid)/step,ad=Math.abs(d);if(ad<bd){bd=ad;best=i}
+      const rot=clamp(-d*44,-64,64),sc=1-Math.min(ad,2)*.15,tx=-Math.sign(d)*Math.min(ad,2.2)*step*.25,ty=Math.min(ad,2.5)*Math.min(ad,2.5)*5;
+      c.style.transform=`translate3d(${tx.toFixed(1)}px,${ty.toFixed(1)}px,${(-Math.min(ad,2.5)*80).toFixed(0)}px) rotateY(${rot.toFixed(1)}deg) scale(${sc.toFixed(3)})`;
+      c.style.opacity=(1-Math.min(ad,2.2)*.21).toFixed(2);c.style.zIndex=100-Math.round(ad*10);
+      const on=ad<.5;if(on!==c.classList.contains('on'))c.classList.toggle('on',on)});
+    if(best!==lastI){if(lastI>=0){try{navigator.vibrate&&navigator.vibrate(5)}catch(e){}}lastI=best;
+      $$('button',dots).forEach((b,i)=>b.classList.toggle('on',i===best))}}
+  const schedule=()=>{if(!raf2)raf2=requestAnimationFrame(paintCards)};
+  function fit(){
+    if(rlw.hidden||!measure())return;
+    rl.scrollTo({left:posOf(curI),behavior:'auto'});paintCards()}
+  function goCard(i){if(!geo.length)measure();rl.scrollTo({left:posOf(i),behavior:'smooth'})}
+  /* когда прокрутка остановилась — открываем раздел центральной карточки */
+  function settle(){
+    if(rlw.hidden||!geo.length)return;
+    const mid=rl.scrollLeft+rl.clientWidth/2;let i=0,bd=1e9;geo.forEach((g,k)=>{const d=Math.abs(g-mid);if(d<bd){bd=d;i=k}});
+    if(i===curI)return;
+    curI=i;const c=CARDS[i];
+    if(st.q&&c.k!=='search'){st.q='';inp.value=''}
+    st.tab=c.tab;st.artist=null;st.ahist=[];draw();
+    if(c.k==='search')setTimeout(()=>{try{inp.focus({preventScroll:true})}catch(e){}},250)}
+  rl.addEventListener('scroll',()=>{schedule();clearTimeout(stTm);stTm=setTimeout(settle,140)},{passive:true});
+  rl.onclick=e=>{const c=e.target.closest('.mu-cd');if(!c)return;const i=+c.dataset.i;
+    if(i!==curI&&!c.classList.contains('on')){goCard(i);return}
+    if(e.target.closest('[data-go]'))playCard(CARDS[i])};
+  rl.onkeydown=e=>{const c=e.target.closest('.mu-cd');if(!c)return;
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();c.click()}
+    else if(e.key==='ArrowRight'&&curI<CARDS.length-1){e.preventDefault();goCard(curI+1)}
+    else if(e.key==='ArrowLeft'&&curI>0){e.preventDefault();goCard(curI-1)}};
+  dots.onclick=e=>{const b=e.target.closest('button[data-i]');if(b)goCard(+b.dataset.i)};
+  /* карточка может быть ещё не в документе (экран собирается заранее) — ждём, пока появится ширина */
+  let tries=0;const init=()=>{if(measure()){fit();if('ResizeObserver' in window)new ResizeObserver(()=>{if(measure())fit()}).observe(rl)}else if(++tries<90)requestAnimationFrame(init)};init();
+  /* счётчики на карточках «Любимое»/«История» */
+  const subs=()=>CARDS.forEach(c=>{const n=$('[data-sub="'+c.k+'"]',rl);if(n)n.textContent=subTxt(c)});
   inp.oninput=()=>{st.q=inp.value;x.hidden=!st.q;clearTimeout(timer);timer=setTimeout(draw,450)};
   inp.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(timer);inp.blur();draw()}};
   x.onclick=()=>{st.q='';inp.value='';clearTimeout(timer);draw()};
+  subsFn=subs;
   redraw=draw;draw()}
 
 /* ---------- исполнитель: открыть карточку откуда угодно (список, полный плеер) ---------- */
