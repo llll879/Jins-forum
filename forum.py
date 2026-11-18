@@ -1695,8 +1695,10 @@ def _mu_norm(rows):
             dur = max(0, int(r.get("duration") or 0))
         except (TypeError, ValueError):
             dur = 0
+        aid = str(r.get("artist_id") or "")
         out.append({"id": tid, "t": str(r.get("name") or "")[:200], "a": str(r.get("artist_name") or "")[:200],
-                    "img": img if img.startswith("https://") else "", "d": dur, "u": audio})
+                    "img": img if img.startswith("https://") else "", "d": dur, "u": audio,
+                    "ai": "j" + aid if aid.isdigit() else ""})
     return out
 
 
@@ -1711,7 +1713,8 @@ def _ym_norm(tracks):
                 continue
             title = (t.title or "") + (f" ({t.version})" if getattr(t, "version", None) else "")
             cu = getattr(t, "cover_uri", None) or ""
-            out.append({"id": "y" + tid, "t": title[:200], "a": ", ".join(a.name for a in (t.artists or []) if a.name)[:200],
+            first = next((a for a in (t.artists or []) if a.id), None)
+            out.append({"id": "y" + tid, "ai": ("y" + str(first.id)) if first else "", "t": title[:200], "a": ", ".join(a.name for a in (t.artists or []) if a.name)[:200],
                         "img": "https://" + cu.replace("%%", "300x300") if cu else "",
                         "d": max(0, int((getattr(t, "duration_ms", 0) or 0) // 1000)), "u": ""})
         except Exception:
@@ -1748,6 +1751,123 @@ async def _ym_list(q, limit):
     else:
         raise FErr(400, "bad_input", "Неверный запрос")
     return _ym_norm(tracks[:limit])
+
+
+def _ym_img(uri, size="400x400"):
+    return "https://" + str(uri).replace("%%", size) if uri else ""
+
+
+def _num_ru(n):
+    return f"{int(n):,}".replace(",", "\u202f")
+
+
+async def _ym_artist(aid):
+    """Карточка исполнителя из Яндекса: инфо, популярное, все песни, похожие исполнители и треки похожих."""
+    c = await _ym()
+    bi = await c.artists_brief_info(aid)
+    a = bi.artist
+    cov = getattr(a, "cover", None)
+    img = _ym_img(getattr(cov, "uri", None) or getattr(a, "og_image", None))
+    sub = []
+    rt = getattr(a, "ratings", None)
+    if rt and getattr(rt, "month", None):
+        sub.append(f"{_num_ru(rt.month)} слушателей в месяц")
+    elif getattr(a, "likes_count", None):
+        sub.append(f"{_num_ru(a.likes_count)} лайков")
+    genres = [str(g) for g in (getattr(a, "genres", None) or [])][:3]
+    top = _ym_norm(getattr(bi, "popular_tracks", None) or [])
+    try:
+        at = await c.artists_tracks(aid, page=0, page_size=50)
+        tracks = _ym_norm(getattr(at, "tracks", None) or []) or top
+    except Exception as e:
+        log.warning("ym artist tracks failed: %s", e)
+        tracks = top
+    sims = [x for x in (getattr(bi, "similar_artists", None) or []) if getattr(x, "id", None) and x.name][:12]
+    sim_artists = [{"id": "y" + str(x.id), "name": x.name,
+                    "img": _ym_img(getattr(getattr(x, "cover", None), "uri", None) or getattr(x, "og_image", None), "200x200")} for x in sims]
+
+    async def one(x):
+        b = await c.artists_brief_info(x.id)
+        return _ym_norm((getattr(b, "popular_tracks", None) or [])[:4])
+    res = await asyncio.gather(*[one(x) for x in sims[:4]], return_exceptions=True)
+    lists = [r for r in res if isinstance(r, list)]
+    similar = [lists[j][i] for i in range(4) for j in range(len(lists)) if i < len(lists[j])]
+    return {"artist": {"id": "y" + str(aid), "name": a.name or "", "img": img, "sub": " · ".join(sub), "genres": genres},
+            "top": top[:10] or tracks[:10], "tracks": tracks, "similar": similar, "sim_artists": sim_artists}
+
+
+async def _jm_fetch(path, params):
+    url = f"{MU_API}/{path}/?{urlencode([('client_id', MU_KEY), ('format', 'json')] + params)}"
+    async with _mu_session() as ses:
+        async with ses.get(url) as resp:
+            if resp.status != 200:
+                raise RuntimeError(f"jamendo http {resp.status}")
+            d = json.loads(await resp.text())
+    if (d.get("headers") or {}).get("status") != "success":
+        raise RuntimeError("jamendo error")
+    return d.get("results") or []
+
+
+async def _jm_artist(num):
+    """Карточка исполнителя из Jamendo. «Похожее» — популярные треки того же жанра (у Jamendo нет связей между исполнителями)."""
+    info = (await _jm_fetch("artists", [("id", num)]) or [{}])[0]
+    base = [("audioformat", "mp32"), ("imagesize", "300")]
+    raw = await _jm_fetch("tracks", [("artist_id", num), ("order", "popularity_total"), ("limit", "50"), ("include", "musicinfo")] + base)
+    tracks = _mu_norm(raw)
+    genre = ""
+    for r in raw:
+        g = (((r.get("musicinfo") or {}).get("tags") or {}).get("genres") or [])
+        if g:
+            genre = str(g[0])
+            break
+    similar, sim_artists = [], []
+    if genre and re.fullmatch(r"[a-z0-9_+-]{1,40}", genre):
+        try:
+            sim = [t for t in _mu_norm(await _jm_fetch("tracks", [("tags", genre), ("order", "popularity_week"), ("limit", "30"), ("groupby", "artist_id")] + base))
+                   if t.get("ai") != "j" + num]
+            similar = sim[:20]
+            seen = set()
+            for t in sim:
+                if t["ai"] and t["ai"] not in seen:
+                    seen.add(t["ai"])
+                    sim_artists.append({"id": t["ai"], "name": t["a"], "img": t["img"]})
+        except Exception as e:
+            log.warning("jamendo similar failed: %s", e)
+    img = str(info.get("image") or "")
+    return {"artist": {"id": "j" + num, "name": str(info.get("name") or (tracks[0]["a"] if tracks else "Исполнитель"))[:200],
+                       "img": img if img.startswith("https://") else (tracks[0]["img"] if tracks else ""),
+                       "sub": f"{len(tracks)} треков на Jamendo" if tracks else "", "genres": [genre] if genre else []},
+            "top": tracks[:10], "tracks": tracks, "similar": similar, "sim_artists": sim_artists[:12]}
+
+
+@api
+async def a_music_artist(request):
+    """Карточка исполнителя: ?id=y123 (Яндекс) | j456 (Jamendo)."""
+    me = request["fuid"]
+    now = time.monotonic()
+    hist = [t for t in _mu_rate.get(me, []) if now - t < 60]
+    if len(hist) >= 60:
+        raise FErr(429, "too_fast", "Не так быстро")
+    hist.append(now)
+    _mu_rate[me] = hist
+    aid = request.query.get("id", "")
+    m = re.fullmatch(r"([yj])([0-9]{1,12})", aid)
+    if not m or not (YM_TOKEN if m.group(1) == "y" else MU_KEY):
+        raise FErr(400, "bad_input", "Исполнитель недоступен")
+    ck = "artist?" + aid
+    hit = _mu_cache.get(ck)
+    if hit and now - hit[0] < 600:
+        return web.Response(text=hit[1], content_type="application/json", charset="utf-8")
+    try:
+        data = await (_ym_artist(m.group(2)) if m.group(1) == "y" else _jm_artist(m.group(2)))
+        text = json.dumps(data, ensure_ascii=False)
+    except Exception as e:
+        log.warning("music artist failed: %s", e)
+        raise FErr(502, "music_unavailable", "Не удалось загрузить исполнителя")
+    _mu_cache[ck] = (time.monotonic(), text)
+    while len(_mu_cache) > 300:
+        _mu_cache.pop(next(iter(_mu_cache)))
+    return web.Response(text=text, content_type="application/json", charset="utf-8")
 
 
 @api
@@ -2102,6 +2222,7 @@ def install(app, bot_module):
     r.add_get(A + "/ping", a_ping)
     r.add_get(A + "/search", a_search)
     r.add_get(A + "/music/get", a_music_get)
+    r.add_get(A + "/music/artist", a_music_artist)
     r.add_get(A + "/music/stream", a_music_stream)
     r.add_get(A + "/pmusic", a_pmusic_list)
     r.add_post(A + "/pmusic/add", a_pmusic_add)
