@@ -16,7 +16,8 @@ const MI={
  shuf:I('<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>'),
  rep:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>'),
  rep1:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10l1-.7V14"/>'),
- wave:I('<path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4"/>')
+ wave:I('<path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4"/>'),
+ lyr:I('<path d="M4 6h16M4 12h10M4 18h14"/>')
 };
 IC.music=MI.note;
 const A=new Audio();A.preload='auto';
@@ -51,9 +52,13 @@ const GQ={hiphop:'русский рэп',pop:'русский поп',rock:'ру�
 async function ymOr(p,fb){
   if(Date.now()>ymDown){try{const l=await tracks(Object.assign({src:'ym',limit:30},p));if(l.length)return l;ymDown=Date.now()+300000}catch(e){ymDown=Date.now()+300000}}
   return fb()}
-async function searchAll(q,n){
-  const [y,j]=await Promise.all([Date.now()>ymDown?tracks({src:'ym',k:'search',q,limit:n}).catch(()=>[]):[],tracks({search:q,order:'relevance',limit:n}).catch(()=>null)]);
-  if(!y.length&&j===null)throw new Error('search');return y.concat(j||[])}
+/* умный поиск: сервер сам чинит раскладку/транслит, берёт подсказки Яндекса; ai=1 — ещё и Gemini (при его сбое просто пусто) */
+const searchApi=(q,ai)=>api('/music/search?q='+encodeURIComponent(q)+(ai?'&ai=1':'')).then(d=>({artists:d.artists||[],tracks:(d.tracks||[]).map(norm),fixed:d.fixed||''}));
+const searchAll=async(q,n)=>(await searchApi(q)).tracks.slice(0,n);
+/* карточка исполнителя: портрет с именем поверх; без фото — цветной градиент и первая буква */
+const ini=n=>(String(n||'').trim().match(/[\p{L}\p{N}]/u)||['♪'])[0].toUpperCase();
+const arImg=(u,cls)=>u?`<img${cls?` class="${cls}"`:''} src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onload="this.classList.add('ok')" onerror="this.remove()">`:'';
+const cards=sa=>`<div class="ar-sim">${sa.map(x=>`<button class="ar-card" style="--h:${hue(x.id)}" data-ar="${esc(x.id)}"><em>${esc(ini(x.name))}</em>${arImg(x.img)}<span class="ar-ov"><b>${esc(x.name)}</b><small>Исполнитель</small></span></button>`).join('')}</div>`;
 const fbUrl=id=>BASE+'/forum/api/music/stream?id='+encodeURIComponent(id);
 const shuffled=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 
@@ -108,12 +113,13 @@ function session(){
   h('play',toggle);h('pause',toggle);h('nexttrack',()=>next(false));h('previoustrack',prev);
   h('seekto',d=>{if(d&&isFinite(d.seekTime))A.currentTime=d.seekTime})}
 
-A.addEventListener('playing',()=>{fails=0;document.body.classList.remove('mu-loading');document.body.classList.add('mu-playing');syncPP()});
+A.addEventListener('playing',()=>{lyRun();fails=0;document.body.classList.remove('mu-loading');document.body.classList.add('mu-playing');syncPP()});
 A.addEventListener('pause',()=>{document.body.classList.remove('mu-playing');syncPP()});
 A.addEventListener('waiting',()=>document.body.classList.add('mu-loading'));
 A.addEventListener('canplay',()=>document.body.classList.remove('mu-loading'));
 A.addEventListener('ended',()=>next(true));
 A.addEventListener('timeupdate',progress);
+A.addEventListener('seeked',()=>{lyI=-2;lyTick()});
 A.addEventListener('error',()=>{
   const t=cur();if(!t||!A.src)return;
   if(!tryFb){tryFb=1;A.src=fbUrl(t.id);const p=A.play();if(p&&p.catch)p.catch(()=>{});return}
@@ -121,15 +127,93 @@ A.addEventListener('error',()=>{
   if(++fails>=4){toast('Не удалось воспроизвести музыку. Проверьте интернет',1);try{A.pause()}catch(e){}return}
   toast('Трек недоступен — включаю следующий',1);setTimeout(()=>next(true),500)});
 
+/* ---------- тексты песен ---------- */
+/* Сервер: /music/lyrics -> {sync:[[сек,строка]…], plain, src}. Показываем в двух местах одновременно:
+   на обратной стороне перевёрнутой обложки и на второй «странице» полноэкранного плеера (листнуть вниз). Синхронный текст — как караоке:
+   текущая строка подсвечивается и «заливается» по ходу пения, список сам едет за ней, тап по строке — перемотка. */
+let LY={id:null,st:'',d:null},lyI=-2,lyUser=0,lyNeed=0,raf=0;
+const lyCache=new Map();
+const lySync=()=>LY.st==='ok'&&LY.d&&LY.d.sync&&LY.d.sync.length?LY.d.sync:null;
+function lyBody(){
+  if(LY.st==='load'||!LY.st)return '<div class="ly-in"><div class="ly-sk"><i></i><i></i><i></i><i></i><i></i></div></div>';
+  if(LY.st==='none')return `<div class="ly-in"><div class="ly-msg">${MI.lyr}<b>Текста пока нет</b><small>Для этой песни мы его не нашли</small></div></div>`;
+  if(LY.st==='err')return `<div class="ly-in"><div class="ly-msg">${MI.lyr}<b>Не удалось загрузить текст</b><button class="btn sm ghost" data-a="lyretry">Повторить</button></div></div>`;
+  const s=lySync();
+  if(s)return `<div class="ly-in">${s.map((l,i)=>l[1]?`<p class="ly-l" data-i="${i}" data-t="${l[0]}"><span>${esc(l[1])}</span></p>`:`<p class="ly-l ly-gap" data-i="${i}" data-t="${l[0]}"><span>• • •</span></p>`).join('')}</div>`;
+  return `<div class="ly-in ly-pl">${String(LY.d.plain||'').split(/\n\s*\n/).map(b=>`<p>${esc(b.trim())}</p>`).join('')}<small class="ly-note">Текст без синхронизации — его можно листать вручную</small></div>`}
+function lyRender(){
+  const f=$('#muFull');if(!f)return;
+  const h=lyBody(),src=LY.st==='ok'&&LY.d?(LY.d.src==='ym'?'Текст: Яндекс Музыка':'Текст: LRCLIB'):'';
+  $$('.ly',f).forEach(b=>{b.innerHTML=h;b.classList.toggle('sync',!!lySync());b.scrollTop=0;b.style.setProperty('--pad',Math.round(b.clientHeight*.4)+'px')});
+  const sr=$('.ly-src',f);if(sr)sr.textContent=src;
+  lyI=-2;lyTick(true)}
+function lyReset(){LY={id:null,st:'',d:null};lyI=-2;const f=$('#muFull');if(f){$$('.ly',f).forEach(b=>{b.innerHTML='';b.scrollTop=0});const s=$('.ly-src',f);if(s)s.textContent=''}}
+async function ensureLy(){
+  const t=cur();if(!t)return;
+  if(LY.id===t.id&&LY.st&&LY.st!=='err')return;
+  LY={id:t.id,st:'load',d:null};lyRender();
+  const c=lyCache.get(t.id);
+  if(c){LY.d=c;LY.st=(c.sync&&c.sync.length)||c.plain?'ok':'none';lyRender();lyRun();return}
+  try{
+    const d=await api('/music/lyrics?'+new URLSearchParams({id:t.id,t:t.t,a:t.a,d:t.d||0}));
+    if(!cur()||cur().id!==t.id)return;
+    const ok=d&&((d.sync&&d.sync.length)||d.plain);
+    if(ok){lyCache.set(t.id,d);if(lyCache.size>40)lyCache.delete(lyCache.keys().next().value)}
+    LY.d=ok?d:null;LY.st=ok?'ok':'none'}
+  catch(e){if(!cur()||cur().id!==t.id)return;LY.st='err'}
+  lyRender();lyRun()}
+function flipTo(on){
+  const f=$('#muFull');if(!f)return;const fl=$('.flip',f);
+  fl.classList.toggle('on',!!on);fl.setAttribute('aria-label',on?'Вернуть обложку':'Показать текст песни');
+  if(on){ensureLy();setTimeout(()=>{lyUser=0;lyI=-2;const b=$('.ly[data-ly="1"]',f);if(b)b.style.setProperty('--pad',Math.round(b.clientHeight*.4)+'px');lyTick(true)},520)}}
+function lySeek(t){
+  if(!isFinite(t))return;lyUser=0;A.currentTime=Math.max(0,t);
+  if(A.paused){const p=A.play();if(p&&p.catch)p.catch(()=>{})}
+  lyI=-2;lyTick(true)}
+/* какая строка сейчас поётся — двоичный поиск по таймкодам */
+function lyTick(force){
+  const s=lySync(),f=$('#muFull');if(!s||!f)return;
+  if(!force&&!f.classList.contains('open'))return;
+  const T=A.currentTime+.18;
+  let lo=0,hi=s.length-1,r=-1;while(lo<=hi){const m=(lo+hi)>>1;if(s[m][0]<=T){r=m;lo=m+1}else hi=m-1}
+  if(r!==lyI){const first=lyI===-2;lyI=r;
+    $$('.ly.sync',f).forEach(b=>{const ls=b.querySelectorAll('.ly-l');
+      for(let j=0;j<ls.length;j++){ls[j].classList.toggle('lyon',j===r);ls[j].classList.toggle('lypast',j<r);if(j!==r)ls[j].style.removeProperty('--lp')}
+      if(!lyCenter(b,r>=0?ls[r]:null,!first))lyNeed=1})}
+  else if(lyNeed&&r>=0&&Date.now()-lyUser>=3500){lyNeed=0;$$('.ly.sync',f).forEach(b=>lyCenter(b,b.querySelectorAll('.ly-l')[r],true))}
+  if(r>=0){
+    const a=s[r][0],nx=s[r+1]?s[r+1][0]:a+6,len=s[r][1].length,span=Math.max(.8,Math.min(nx-a-.05,len*.085+1.1)),p=Math.max(0,Math.min(1,(T-a)/span));
+    $$('.ly.sync .ly-l.lyon',f).forEach(l=>l.style.setProperty('--lp',(p*100).toFixed(1)+'%'))}}
+function lyCenter(b,el,smooth){            /* false — пользователь сам листает, вернёмся к строке позже */
+  if(!el)return true;
+  if(Date.now()-lyUser<3500)return false;
+  const f=$('#muFull'),beh=smooth?'smooth':'auto';
+  if(b.dataset.ly==='1'){                       /* обратная сторона обложки: свой скролл */
+    if(!$('.flip',f).classList.contains('on'))return true;
+    b.scrollTo({top:el.offsetTop-b.clientHeight/2+el.offsetHeight/2,behavior:beh});return true}
+  const sc=$('.mf-sc',f),p1=$('.mf-p1',f);       /* вторая страница: едет весь экран */
+  if(sc.scrollTop<p1.clientHeight*.35)return true;
+  const hh=$('.mf-p2h',f).offsetHeight,r=el.getBoundingClientRect(),sr=sc.getBoundingClientRect();
+  sc.scrollTo({top:sc.scrollTop+(r.top+r.height/2)-(sr.top+hh+(sc.clientHeight-hh)/2),behavior:beh});return true}
+function lyRun(){
+  if(raf)return;
+  const step=()=>{raf=0;const f=$('#muFull');if(!f||!f.classList.contains('open')||A.paused||!lySync())return;lyTick();raf=requestAnimationFrame(step)};
+  raf=requestAnimationFrame(step)}
+
 /* ---------- мини-плеер и полноэкранный ---------- */
 const MINI=`<div id="muMini"><span class="mu-cv"></span><span class="mu-ti"><b></b><small></small></span><button class="mb pp" data-a="pp" aria-label="Пуск/пауза"></button><button class="mb" data-a="next" aria-label="Дальше">${MI.next}</button><div class="prog"><i></i></div></div>`;
-const FULL=`<div id="muFull"><div class="bgc"></div>
+const FULL=`<div id="muFull"><div class="bgc"></div><div class="mf-sc">
+<section class="mf-p1">
 <div class="mf-top"><button class="ib" data-a="close" aria-label="Свернуть">${IC.chevd}</button><small>EXG Music</small><span style="width:42px"></span></div>
-<div class="mf-art"><span class="mu-cv"></span></div>
+<div class="mf-art"><div class="flip" data-a="flip" role="button" aria-label="Показать текст песни"><div class="face fr"><span class="cvh"></span><span class="fl-hint">${MI.lyr}Текст</span></div><div class="face bk"><div class="ly" data-ly="1"></div><button class="fl-back" data-a="flipb" aria-label="Вернуть обложку">${IC.close}</button></div></div></div>
 <div class="mf-info"><div class="mu-ti"><b></b><small></small></div><button class="mu-lk" data-a="topf" aria-label="В профиль">${IC.plus}</button><button class="mu-lk" data-a="like" aria-label="Нравится">${IC.heart}</button></div>
 <div class="mf-seek"><input type="range" min="0" max="1000" value="0" aria-label="Перемотка"><div><span class="tc">0:00</span><span class="td">0:00</span></div></div>
 <div class="mf-ctl"><button class="sm" data-a="shuf" aria-label="Вперемешку">${MI.shuf}</button><button data-a="prev" aria-label="Назад">${MI.prev}</button><button class="pp" data-a="pp" aria-label="Пуск/пауза"></button><button data-a="next" aria-label="Дальше">${MI.next}</button><button class="sm" data-a="rep" aria-label="Повтор">${MI.rep}</button></div>
-<div class="mf-nx"></div></div>`;
+<div class="mf-nx"></div>
+<button class="mf-more" data-a="down">${MI.lyr}Текст песни<span>${IC.chevd}</span></button>
+</section>
+<section class="mf-p2"><div class="mf-p2h"><span class="cvs"></span><span class="mu-ti"><b></b><small></small></span><button class="mb pp" data-a="pp" aria-label="Пуск/пауза"></button><button class="mb up" data-a="up" aria-label="К плееру">${IC.chevd}</button></div><div class="ly" data-ly="2"></div><div class="ly-src"></div></section>
+</div></div>`;
 function mount(noNav){
   const app=$('#app');if(!app)return;
   if(!$('#muMini',app)){app.insertAdjacentHTML('beforeend',MINI);app.insertAdjacentHTML('beforeend',FULL);bindUi(app)}
@@ -138,15 +222,26 @@ function mount(noNav){
   paint()}
 function bindUi(app){
   const mini=$('#muMini',app),full=$('#muFull',app);
+  const sc=$('.mf-sc',full);
   const act=a=>{if(a==='ar'){const t=cur();if(t&&t.ai){full.classList.remove('open');openArtist(t.ai)}return}
     if(a==='pp')toggle();else if(a==='next')next(false);else if(a==='prev')prev();
     else if(a==='close')full.classList.remove('open');
+    else if(a==='flip'||a==='flipb')flipTo(a==='flip'?!$('.flip',full).classList.contains('on'):false);
+    else if(a==='down'){ensureLy();sc.scrollTo({top:$('.mf-p2',full).offsetTop,behavior:'smooth'})}
+    else if(a==='up')sc.scrollTo({top:0,behavior:'smooth'});
+    else if(a==='lyretry'){LY.id=null;ensureLy()}
     else if(a==='like'){const t=cur();if(t)toggleLike(t)}
     else if(a==='topf'){const t=cur();if(t)addToProfile(t)}
     else if(a==='shuf'){shuf=shuf?0:1;paint()}
     else if(a==='rep'){rep=(rep+1)%3;paint()}};
-  mini.onclick=e=>{const b=e.target.closest('[data-a]');if(b){e.stopPropagation();act(b.dataset.a);return}full.classList.add('open')};
-  full.onclick=e=>{if(e.target.closest('[data-ar]')){act('ar');return}const b=e.target.closest('[data-a]');if(b)act(b.dataset.a)};
+  mini.onclick=e=>{const b=e.target.closest('[data-a]');if(b){e.stopPropagation();act(b.dataset.a);return}full.classList.add('open');ensureLy();lyRun()};
+  full.onclick=e=>{if(e.target.closest('[data-ar]')){act('ar');return}
+    const ln=e.target.closest('.ly-l[data-t]');if(ln){lySeek(+ln.dataset.t);return}
+    const b=e.target.closest('[data-a]');if(!b||(b.dataset.a==='flip'&&e.target.closest('.bk')))return;act(b.dataset.a)};
+  /* пока пользователь сам листает текст — автопрокрутку не трогаем */
+  ['wheel','touchstart','pointerdown'].forEach(ev=>sc.addEventListener(ev,()=>{lyUser=Date.now()},{passive:true}));
+  $('.ly[data-ly="1"]',full).addEventListener('touchstart',()=>{lyUser=Date.now()},{passive:true});
+  sc.addEventListener('scroll',()=>{if(sc.scrollTop>30)ensureLy()},{passive:true});
   const rg=$('input[type=range]',full);
   rg.oninput=()=>{const d=isFinite(A.duration)&&A.duration>0?A.duration:(cur()?cur().d:0);if(d){A.currentTime=rg.value/1000*d}};
   window.addEventListener('hashchange',()=>full.classList.remove('open'))}
@@ -156,6 +251,7 @@ function syncPP(){
   $$('#muMini [data-a=pp],#muFull [data-a=pp]').forEach(b=>{if(b._h!==html){b._h=html;b.innerHTML=html}})}
 function progress(){
   const t=cur();if(!t)return;
+  if(!raf)lyTick();
   const d=isFinite(A.duration)&&A.duration>0?A.duration:t.d||0,p=d?Math.min(1,A.currentTime/d):0;
   const bar=$('#muMini .prog i');if(bar)bar.style.width=(p*100).toFixed(1)+'%';
   $$('.pm-live.on .pm-prog i').forEach(i=>i.style.width=(p*100).toFixed(1)+'%');
@@ -172,8 +268,10 @@ function paint(){
   if(mini.dataset.id!==t.id){mini.dataset.id=t.id;
     mini.querySelector('.mu-cv').outerHTML=cover(t);
     $('.mu-ti b',mini).textContent=t.t;$('.mu-ti small',mini).textContent=t.a;
-    $('.mf-art',full).innerHTML=cover(t);
-    $('.mu-ti b',full).textContent=t.t;$('.mu-ti small',full).innerHTML=arName(t);
+    $('.mf-art .cvh',full).innerHTML=cover(t);$('.mf-p2h .cvs',full).innerHTML=cover(t);
+    $('.mf-info .mu-ti b',full).textContent=t.t;$('.mf-info .mu-ti small',full).innerHTML=arName(t);
+    $('.mf-p2h .mu-ti b',full).textContent=t.t;$('.mf-p2h .mu-ti small',full).textContent=t.a;
+    lyReset();if(full.classList.contains('open'))ensureLy();
     const bg=$('.bgc',full);bg.style.backgroundImage=t.img?`url("${t.img.replace(/"/g,'%22')}")`:'';
     const h=hue(t.id);if(!t.img)bg.style.backgroundImage=`linear-gradient(135deg,hsl(${h} 50% 30%),hsl(${(h+60)%360} 50% 12%))`;
     const n=Q[qi+1];$('.mf-nx',full).textContent=n?'Дальше: '+n.t+' — '+n.a:'';
@@ -182,7 +280,7 @@ function paint(){
   $('[data-a=topf]',full).style.display=t.src?'none':'';
   $('[data-a=shuf]',full).classList.toggle('on',!!shuf);
   const rb=$('[data-a=rep]',full);rb.classList.toggle('on',rep>0);rb.innerHTML=rep===2?MI.rep1:MI.rep}
-function stop(){try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;
+function stop(){lyReset();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;
   const a=$('#app');if(a)a.classList.remove('mu-on');document.body.classList.remove('mu-playing','mu-loading')}
 
 /* ---------- экран «EXG Music» ---------- */
@@ -190,7 +288,7 @@ function view(el){
   if(!st.go){st.artist=null;st.ahist=[]}st.go=0;
   el.innerHTML=`<div class="mu">
   <div class="mu-top"><button class="ib round" data-href="#/boards" aria-label="Назад">${IC.back}</button><span class="mu-logo">${MI.note}</span><div><h2>EXG <b>Music</b></h2><small>Русская музыка без рекламы</small></div></div>
-  <div class="mu-search">${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, жанр" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
+  <div class="mu-search">${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, текст песни" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
   <div class="mu-tabs" ${st.q?'hidden style="display:none"':''}>${[['home','Главное'],['world','Зарубежное'],['likes','Любимое'],['hist','История']].map(([k,n])=>`<button class="tab ${st.tab===k?'on':''}" data-t="${k}">${n}</button>`).join('')}</div>
   <div id="muBody"></div>
   <p class="mu-note">Каталог — Яндекс Музыка, запасной — Jamendo (независимые исполнители). Полные треки зависят от подписки аккаунта сервера. Любимое и история хранятся на этом устройстве.</p></div>`;
@@ -241,10 +339,29 @@ function view(el){
     if(withBtns){$('#muAll',body).onclick=()=>start(arr,0);$('#muSh',body).onclick=()=>start(shuffled(arr),0)}}
   async function search(q){
     const my=++seq;body.innerHTML=skel(7);
-    try{const l=await searchAll(q,30);if(my!==seq)return;
-      if(!l.length){body.innerHTML=emptyBox('search','Ничего не нашлось по запросу «'+esc(q)+'»');return}
-      body.innerHTML=`<div class="mu-h"><h3>Результаты</h3></div><div id="muLs"></div>`;const b=$('#muLs',body);b.innerHTML=listHtml(l);wire(b,l)}
-    catch(e){if(my===seq)fail('Поиск не удался.<br>Проверьте интернет',()=>search(q))}}
+    let d;
+    try{d=await searchApi(q);if(my!==seq)return}
+    catch(e){if(my===seq)fail('Поиск не удался.<br>Проверьте интернет',()=>search(q));return}
+    const none=!d.artists.length&&!d.tracks.length;
+    body.innerHTML=`${d.fixed?`<div class="mu-fix">Показано по запросу «${esc(d.fixed)}»</div>`:''}
+      ${d.artists.length?`<div class="mu-h"><h3>Исполнители</h3></div>${cards(d.artists)}`:''}
+      ${d.tracks.length?`<div class="mu-h"><h3>Треки</h3></div><div id="muLs"></div>`:''}
+      ${none?`<div id="muNone">${emptyBox('search','Ничего не нашлось по запросу «'+esc(q)+'»')}</div>`:''}
+      <div id="muAi"><div class="mu-ai"><span class="mu-aid"></span>Умный поиск ищет ещё…</div></div>`;
+    const sl=$('.ar-sim',body);if(sl)sl.onclick=e=>{const c=e.target.closest('[data-ar]');if(c)openArtist(c.dataset.ar)};
+    const lb=$('#muLs',body);if(lb){lb.innerHTML=listHtml(d.tracks);wire(lb,d.tracks)}
+    /* второй этап: ИИ (может быть недоступен/перегружен — тогда блок тихо исчезает) */
+    const ai=$('#muAi',body);
+    try{
+      const r=await searchApi(q,true);if(my!==seq)return;
+      const haveA=new Set(d.artists.map(x=>x.id)),haveT=new Set(d.tracks.map(x=>x.id));
+      const ea=r.artists.filter(x=>!haveA.has(x.id)),et=r.tracks.filter(x=>!haveT.has(x.id));
+      if(!ea.length&&!et.length){ai.remove();return}
+      const nn=$('#muNone',body);if(nn)nn.remove();
+      ai.innerHTML=`<div class="mu-h"><h3>Умный поиск</h3><small class="ar-cnt">возможно, вы искали</small></div>${ea.length?cards(ea):''}${et.length?'<div id="muAiL"></div>':''}`;
+      const c2=$('.ar-sim',ai);if(c2)c2.onclick=e=>{const c=e.target.closest('[data-ar]');if(c)openArtist(c.dataset.ar)};
+      const l2=$('#muAiL',ai);if(l2){l2.innerHTML=listHtml(et);wire(l2,et)}}
+    catch(e){if(my===seq&&ai)ai.remove()}}
   /* ---- карточка исполнителя ---- */
   const aCache=new Map();
   async function artistData(id){const c=aCache.get(id);if(c&&Date.now()-c.t<300000)return c.d;
@@ -259,15 +376,16 @@ function view(el){
     catch(e){if(my===seq){body.innerHTML=`<div class="ar-hero"><button class="ib round ar-back" data-ab="1" aria-label="Назад">${IC.back}</button></div><div class="empty">Не удалось загрузить исполнителя<br><br><button class="btn ghost" id="muRetry">Повторить</button></div>`;$('[data-ab]',body).onclick=artistBack;$('#muRetry',body).onclick=()=>artistPage(id)}return}
     const a=d.artist||{},all=(d.tracks||[]).map(norm),top=(d.top||[]).map(norm),sim=(d.similar||[]).map(norm),sa=d.sim_artists||[];
     const main=uniq(top.concat(all)),five=(top.length?top:all).slice(0,5),h=hue(a.id||'x');
-    const meta=[a.sub,(a.genres||[]).join(', ')].filter(Boolean).map(esc).join(' · ');
+    const chips=[a.sub].concat(a.genres||[]).filter(Boolean).map((x,i)=>`<span class="ar-chip${i?' g':''}">${esc(x)}</span>`).join('');
     body.innerHTML=`<div class="ar-hero" style="--h:${h}"><div class="ar-bg"${a.img?` style="background-image:url('${esc(a.img).replace(/'/g,'%27')}')"`:''}></div>
       <button class="ib round ar-back" data-ab="1" aria-label="Назад">${IC.back}</button>
-      <span class="ar-ph">${MI.note}${a.img?`<img src="${esc(a.img)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span>
-      <h2 class="ar-name">${esc(a.name||'Исполнитель')}</h2>${meta?`<div class="ar-meta">${meta}</div>`:''}
-      <div class="ar-act"><button class="btn" id="arPlay">${MI.play}Слушать</button><button class="btn ghost" id="arRadio">${MI.wave}Радио</button><button class="btn ghost ar-sh" id="arSh" aria-label="Вперемешку">${MI.shuf}</button></div></div>
-    ${five.length?`<div class="mu-h"><h3>Популярное</h3></div><div id="arTop"></div>`:''}
+      <span class="ar-ph"><span class="ar-pi"><em>${esc(ini(a.name))}</em>${arImg(a.img)}</span></span>
+      <div class="ar-kick">Исполнитель</div>
+      <h2 class="ar-name">${esc(a.name||'Исполнитель')}</h2>${chips?`<div class="ar-chips">${chips}</div>`:''}
+      <div class="ar-act"><button class="btn ar-play" id="arPlay">${MI.play}Слушать</button><button class="btn ghost ar-rd" id="arRadio">${MI.wave}Радио</button><button class="btn ghost ar-sh" id="arSh" aria-label="Вперемешку">${MI.shuf}</button></div></div>
+    ${five.length?`<div class="mu-h"><h3>Популярное</h3></div><div id="arTop" class="ar-rank"></div>`:''}
     ${all.length>five.length?`<div class="mu-h"><h3>Все песни</h3><small class="ar-cnt">${all.length}</small></div><div id="arAll"></div>`:''}
-    ${sa.length?`<div class="mu-h"><h3>Похожие исполнители</h3></div><div class="ar-sim">${sa.map(x=>`<button class="ar-card" data-ar="${esc(x.id)}"><span class="ar-av">${MI.note}${x.img?`<img src="${esc(x.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span><b>${esc(x.name)}</b></button>`).join('')}</div>`:''}
+    ${sa.length?`<div class="mu-h"><h3>Похожие исполнители</h3></div>${cards(sa)}`:''}
     ${sim.length?`<div class="mu-h"><h3>Похожие песни</h3><button class="btn sm ghost" id="arSimPlay">${MI.play}Слушать</button></div><div id="arSim"></div>`:''}
     ${!all.length&&!sim.length?'<div class="empty" style="padding:24px">Песен исполнителя пока нет</div>':''}`;
     $('[data-ab]',body).onclick=artistBack;
