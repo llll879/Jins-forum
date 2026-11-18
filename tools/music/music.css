@@ -103,6 +103,14 @@ body.mu-playing .mu-row.cur .mu-cv .eq i{animation-play-state:running}
 .mu-dots button.on{width:20px;background:#fff;box-shadow:0 0 10px rgba(255,255,255,.65)}
 [data-theme=light] .mu-dots button{background:rgba(20,16,10,.22)}
 [data-theme=light] .mu-dots button.on{background:#1c1a22;box-shadow:none}
+/* скачивание и офлайн */
+.mu-cd.offh{display:none}
+.mu-off .mu-rl-w{height:calc(var(--ch) + 102px)}
+.mu-offn{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;margin:24px 28px 0;color:var(--dim);font-size:14px;line-height:1.45}
+.mu-offn svg{width:34px;height:34px;color:var(--acc)}
+.mu-offn b{font-family:var(--serif);font-size:22px;font-weight:600;color:var(--txt)}
+.mf-info .mu-lk.on[data-a=dl]{color:#5ad19a}
+.mf-info .mu-lk[data-a=dl] .mu-aid{width:20px;height:20px}
 /* жанры и списки в духе макета */
 .mu-chips{padding:22px 14px 2px}
 .mu-chip{height:42px;padding:0 20px;border-radius:21px;font-size:15px;font-weight:600;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#e6e2f5;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
@@ -356,3 +364,31 @@ body.mu-loading .mu-spin{display:block}
 .mf-top .sleep i{display:none;position:absolute;right:2px;top:100%;margin-top:-4px;font-style:normal;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;padding:2px 8px;border-radius:9px;background:var(--acc-soft);color:var(--acc);white-space:nowrap;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--acc) 40%,transparent)}
 .mf-top .sleep.on{color:var(--acc);opacity:1}
 .mf-top .sleep.on i{display:block}
+
+/* ---------- волны ---------- */
+.wv-top{margin-bottom:2px}
+.wv-top .ar-cnt{font-size:13px;color:var(--dim)}
+.mu-wt-w{display:flex;gap:8px;padding:6px 14px 2px;overflow-x:auto;scrollbar-width:none}
+.mu-wt-w::-webkit-scrollbar{display:none}
+.mu-wt{flex:none;height:38px;padding:0 18px;border-radius:19px;font-size:14.5px;font-weight:600;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#e6e2f5;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.mu-wt.on{background:rgba(255,255,255,.1);border:1.5px solid #fff;color:#fff;box-shadow:0 0 18px -4px rgba(255,255,255,.55),inset 0 0 14px rgba(255,255,255,.1)}
+[data-theme=light] .mu-wt{color:var(--txt)}
+[data-theme=light] .mu-wt.on{border-color:var(--txt);box-shadow:none}
+.mu-wvs{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,86px);grid-auto-columns:132px;gap:10px;padding:10px 14px 6px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+.mu-wvs::-webkit-scrollbar{display:none}
+.mu-wv{position:relative;overflow:hidden;scroll-snap-align:start;display:flex;align-items:flex-end;text-align:left;padding:10px 12px;border-radius:22px;color:#fff;border:1px solid rgba(255,255,255,.2);
+  background:radial-gradient(90% 70% at 15% 0,rgba(255,255,255,.28),transparent 60%),linear-gradient(150deg,hsl(var(--h) 58% 40%),hsl(var(--h2) 55% 17%));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 14px 22px -16px rgba(0,0,0,.9);-webkit-tap-highlight-color:transparent;transition:transform .15s,box-shadow .25s}
+.mu-wv:active{transform:scale(.95)}
+.mu-wv b{position:relative;z-index:1;font-family:var(--serif);font-weight:600;font-size:17px;line-height:1.08;text-shadow:0 2px 10px rgba(0,0,0,.5);word-break:break-word}
+.mu-wv .wv-eq{position:absolute;top:11px;right:12px;display:flex;align-items:flex-end;gap:3px;height:20px;opacity:.75}
+.mu-wv .wv-eq i{width:3.5px;border-radius:2px;background:#fff;height:35%}
+.mu-wv .wv-eq i:nth-child(2){height:75%}.mu-wv .wv-eq i:nth-child(3){height:50%}.mu-wv .wv-eq i:nth-child(4){height:95%}.mu-wv .wv-eq i:nth-child(5){height:40%}
+.mu-wv.on{border-color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 0 26px -4px hsl(var(--h) 80% 60%),0 14px 22px -16px rgba(0,0,0,.9)}
+.mu-wv.on .wv-eq{opacity:1}
+body.mu-playing .mu-wv.on .wv-eq i{animation:muBar .9s ease-in-out infinite}
+body.mu-playing .mu-wv.on .wv-eq i:nth-child(2){animation-delay:-.2s}
+body.mu-playing .mu-wv.on .wv-eq i:nth-child(3){animation-delay:-.45s}
+body.mu-playing .mu-wv.on .wv-eq i:nth-child(4){animation-delay:-.65s}
+body.mu-playing .mu-wv.on .wv-eq i:nth-child(5){animation-delay:-.8s}
+@media (prefers-reduced-motion:reduce){.mu-wv{transition:none}body.mu-playing .mu-wv.on .wv-eq i{animation:none}}

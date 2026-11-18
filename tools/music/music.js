@@ -22,13 +22,15 @@ const MI={
  eq:I('<path d="M5 14v4M9 9v9M13 4v14M17 8v10M21 11v4" stroke-width="2.6"/>'),
  mic:I('<rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/><path d="M12 6h.01" stroke-width="3"/>'),
  globe:I('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9S14.6 18.4 12 21c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3z"/>'),
+ dl:I('<path d="M12 3.5v11m0 0-4-4m4 4 4-4M5 20h14"/>'),
+ ok:I('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
  clock:I('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>')
 };
 IC.music=MI.note;IC.moon=MI.moon;
 const A=new Audio();A.preload='auto';
-let Q=[],qi=-1,shuf=0,rep=0,wave=0,tryFb=0,fails=0,sessionSet=0;
-const st={tab:'home',genre:'',q:'',artist:null,ahist:[]};
-let redraw=null,subsFn=null;
+let Q=[],qi=-1,shuf=0,rep=0,wave=0,waveSel=null,tryFb=0,fails=0,sessionSet=0;
+const st={tab:'home',genre:'',q:'',artist:null,ahist:[],wg:'m'};
+let redraw=null,subsFn=null,netFn=null;
 const cache=new Map();
 const jget=(k,d)=>{try{const v=ls.get(k);return v?JSON.parse(v):d}catch(e){return d}};
 /* треки старой библиотеки (нецифровые id без файла) больше не играют — не тащим их из сохранённого */
@@ -36,6 +38,62 @@ const okT=x=>x&&(x.src||/^y?\d+$/.test(String(x.id)));
 let likes=jget('mu_likes',[]).filter(okT),hist=jget('mu_hist',[]).filter(okT);
 const isLiked=id=>likes.some(x=>x.id===id);
 const cur=()=>Q[qi]||null;
+
+/* ---------- скачанная музыка (офлайн) ----------
+   Файлы, обложки и данные трека лежат в Cache Storage («exg-dl-v1») — не стираются при выходе из аккаунта.
+   Скачанный трек играет с устройства (без трафика); без интернета доступна только «Моя волна» — она крутит скачанное вперемешку. */
+const offline=()=>{try{return NET.off||navigator.onLine===false}catch(e){return navigator.onLine===false}};
+const DLN='exg-dl-v1',dlMeta=new Map(),dlBusy=new Set();
+let dlCur='';
+const dlK=(k,id)=>location.origin+'/__dl/'+k+'/'+encodeURIComponent(id);
+const dlC=()=>typeof caches!=='undefined'?caches.open(DLN):Promise.reject(new Error('no cache'));
+const dlHas=id=>dlMeta.has(String(id));
+const dlMB=()=>{let n=0;dlMeta.forEach(m=>n+=m.size||0);return Math.max(1,Math.round(n/1048576))};
+const dlList=()=>[...dlMeta.values()].sort((a,b)=>(b.ts||0)-(a.ts||0)).map(m=>({id:m.id,t:m.t,a:m.a,img:m.imgL||m.img||'',d:m.d|0,u:'',ai:m.ai||''}));
+async function dlLoad(){
+  try{const c=await dlC(),ks=await c.keys();
+    for(const k of ks){if(!new URL(k.url).pathname.startsWith('/__dl/meta/'))continue;
+      try{const m=await (await c.match(k)).json();
+        const cv=await c.match(dlK('cover',m.id));if(cv){try{m.imgL=URL.createObjectURL(await cv.blob())}catch(e){}}
+        dlMeta.set(String(m.id),m)}catch(e){}}}
+  catch(e){}
+  if(subsFn)subsFn();paint()}
+async function dlUrl(id){
+  try{const c=await dlC(),r=await c.match(dlK('audio',id));if(!r)return '';
+    const b=await r.blob();if(dlCur){URL.revokeObjectURL(dlCur)}dlCur=URL.createObjectURL(b);return dlCur}
+  catch(e){return ''}}
+async function dlAdd(t,quiet){
+  if(t.src){if(!quiet)toast('Загруженные файлы уже хранятся в профиле',1);return false}
+  if(dlHas(t.id)||dlBusy.has(t.id))return true;
+  if(offline()){if(!quiet)toast('Нет интернета — скачать нельзя',1);return false}
+  dlBusy.add(t.id);paint();if(!quiet)toast('Скачиваю…');
+  try{
+    try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+    const r=await fetch(t.u||fbUrl(t.id));if(!r.ok)throw new Error('http');
+    const b=await r.blob();if(b.size<20000)throw new Error('small');
+    const c=await dlC();
+    await c.put(dlK('audio',t.id),new Response(b,{headers:{'Content-Type':b.type||'audio/mpeg'}}));
+    let imgL='';
+    if(t.img){try{const cr=await fetch(t.img,{referrerPolicy:'no-referrer'});if(cr.ok){const cb=await cr.blob();if(cb.size<600000){await c.put(dlK('cover',t.id),new Response(cb,{headers:{'Content-Type':cb.type||'image/jpeg'}}));imgL=URL.createObjectURL(cb)}}}catch(e){}}
+    const m={id:String(t.id),t:t.t,a:t.a,img:t.img||'',d:t.d|0,ai:t.ai||'',size:b.size,ts:Date.now()};
+    await c.put(dlK('meta',t.id),new Response(JSON.stringify(m),{headers:{'Content-Type':'application/json'}}));
+    m.imgL=imgL;dlMeta.set(m.id,m);dlBusy.delete(t.id);paint();if(subsFn)subsFn();
+    if(!quiet)toast('Скачано — доступно без интернета');return true}
+  catch(e){dlBusy.delete(t.id);paint();
+    try{const c=await dlC();await c.delete(dlK('audio',t.id));await c.delete(dlK('cover',t.id))}catch(x){}
+    if(!quiet)toast(offline()?'Нет интернета':'Не удалось скачать трек',1);return false}}
+async function dlRemove(id,quiet){
+  id=String(id);const m=dlMeta.get(id);dlMeta.delete(id);
+  try{const c=await dlC();for(const k of ['audio','cover','meta'])await c.delete(dlK(k,id))}catch(e){}
+  if(m&&m.imgL){try{URL.revokeObjectURL(m.imgL)}catch(e){}}
+  paint();if(subsFn)subsFn();if(!quiet)toast('Удалено из скачанного')}
+async function dlClear(){for(const id of [...dlMeta.keys()])await dlRemove(id,true);toast('Скачанное очищено')}
+async function dlToggle(t){if(dlHas(t.id))await dlRemove(t.id);else await dlAdd(t)}
+async function dlMany(arr){
+  const todo=arr.filter(t=>!t.src&&!dlHas(t.id));if(!todo.length){toast('Всё уже скачано');return}
+  toast('Скачиваю треков: '+todo.length+'…');let ok=0;
+  for(const t of todo){if(offline())break;if(await dlAdd(t,true))ok++}
+  toast(ok?'Скачано: '+ok+' из '+todo.length:'Не удалось скачать',!ok)}
 const fmt=s=>{s=Math.max(0,Math.round(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 const hue=id=>{let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))%360;return h};
 
@@ -54,6 +112,94 @@ const trending=(genre,limit,lang)=>catalog(lang||RU,'popularity_week',genre,limi
 /* Яндекс Музыка — основной источник; при любой ошибке/пустом ответе на 5 минут отключаем и берём Jamendo */
 let ymDown=0;
 const GQ={hiphop:'русский рэп',pop:'русский поп',rock:'русский рок',electronic:'русская электроника',indie:'русский инди',rnb:'русский r&b',lounge:'русский лаунж',jazz:'русский джаз',folk:'русский фолк',metal:'русский метал',ambient:'русский эмбиент'};
+/* ---------- волны: бесконечные радио по настроению, занятию, жанру, эпохе ----------
+   Строка: [id, название, группа, оттенок, поисковые запросы Яндекса (крутятся по очереди), тег Jamendo для запасного источника].
+   Группа w — зарубежное (запасной источник берёт en-каталог). */
+const WG=[['m','Настроение'],['a','Занятия'],['g','Жанры'],['e','Эпохи'],['w','Со всего мира']];
+const WAVES=[
+/* настроение */
+['bodro','Бодрая','m',45,['бодрые русские песни','энергичные хиты на русском','песни чтобы взбодриться'],'energetic'],
+['calm','Спокойная','m',200,['спокойная русская музыка','тихие нежные песни','расслабляющие песни на русском'],'relaxing'],
+['sad','Грустная','m',225,['грустные русские песни','песни про расставание','печальные хиты'],'sad'],
+['fun','Весёлая','m',330,['весёлые песни','песни для хорошего настроения','позитивные русские хиты'],'happy'],
+['love','Романтика','m',348,['романтичные русские песни','песни о любви','любовные баллады'],'romantic'],
+['motiv','Мотивация','m',18,['мотивирующие песни','песни про силу и цель','песни чтобы не сдаваться'],'energetic'],
+['dream','Мечтательная','m',265,['мечтательные песни','атмосферная русская музыка','дрим-поп на русском'],'dream'],
+['dark','Мрачная','m',282,['мрачные русские песни','тёмная атмосферная музыка','русский дарквейв и готик'],'dark'],
+['nostal','Ностальгия','m',32,['ностальгия русские песни','песни из детства','любимые песни прошлых лет'],''],
+['cozy','Уютная','m',26,['уютные песни','тёплая домашняя музыка','нежная акустика'],'acoustic'],
+['epic','Эпичная','m',6,['эпичная музыка','мощные песни с пафосом','эпичные саундтреки'],'epic'],
+['summer','Летняя','m',52,['летние песни','песни про лето','летние хиты на русском'],'summer'],
+/* занятия */
+['sport','Тренировка','a',10,['музыка для тренировки','песни для спортзала','музыка для бега'],'sport'],
+['road','В дорогу','a',150,['песни в дорогу','музыка для поездки на машине','песни для путешествия'],''],
+['work','Для работы','a',190,['музыка для работы','музыка для концентрации','фоновая музыка для офиса'],'ambient'],
+['study','Учёба','a',175,['музыка для учёбы','спокойная музыка для чтения','lofi для учёбы'],'lofi'],
+['cook','Готовка','a',36,['музыка для готовки','уютные песни на кухню','лёгкая музыка для дома'],'lounge'],
+['clean','Уборка','a',58,['песни для уборки','бодрая музыка для дома','весёлые песни для дома'],'happy'],
+['walk','Прогулка','a',122,['музыка для прогулки','песни для прогулки по городу','лёгкие песни на ходу'],'indie'],
+['sleep','Для сна','a',252,['музыка для сна','спокойные мелодии для засыпания','колыбельные для взрослых'],'ambient'],
+['party','Вечеринка','a',316,['песни для вечеринки','танцевальные хиты','клубные русские хиты'],'party'],
+['morning','Утро','a',42,['утренние песни','музыка для бодрого утра','песни чтобы проснуться'],'happy'],
+['evening','Вечер','a',292,['вечерняя музыка','расслабляющие песни на вечер','вечерний лаунж'],'chillout'],
+['rain','Дождь','a',210,['музыка под дождь','песни про дождь','осенние песни'],'ambient'],
+['gaming','Игры','a',140,['музыка для игр','электронная музыка для геймеров','синтвейв'],'electronic'],
+['medit','Медитация','a',168,['музыка для медитации','медитативная музыка','музыка для релаксации'],'meditation'],
+['kids','Детям','a',62,['детские песни','песни из мультфильмов','колыбельные песни'],'children'],
+['ny','Зима и Новый год','a',195,['новогодние песни','зимние песни','песни про новый год'],'christmas'],
+/* жанры */
+['rap','Рэп','g',14,['русский рэп','русский хип-хоп новинки','русский рэп классика'],'hiphop'],
+['trap','Трэп','g',2,['русский трэп','трэп хиты','мелодичный рэп'],'hiphop'],
+['phonk','Фонк','g',350,['фонк','русский фонк','drift phonk'],''],
+['pop','Поп','g',322,['русский поп','поп хиты россии','русская поп-музыка новинки'],'pop'],
+['rock','Рок','g',8,['русский рок','русский рок классика','рок-группы России'],'rock'],
+['punk','Панк','g',356,['русский панк-рок','панк рок классика','панк-группы'],'punk'],
+['metal','Метал','g',0,['русский метал','тяжёлая музыка','метал группы россии'],'metal'],
+['indie','Инди','g',166,['русский инди','инди-поп','инди группы россии'],'indie'],
+['electro','Электроника','g',196,['русская электроника','электронная музыка','синтипоп'],'electronic'],
+['house','Хаус','g',272,['house музыка','deep house','русский хаус'],'house'],
+['techno','Техно','g',240,['техно','techno','минимал техно'],'techno'],
+['disco','Диско','g',332,['диско хиты','итало диско','диско 80-х'],'disco'],
+['rnb','R&B','g',286,['русский r&b','r&b хиты','нео-соул на русском'],'rnb'],
+['jazz','Джаз','g',38,['русский джаз','джаз классика','вокальный джаз'],'jazz'],
+['blues','Блюз','g',222,['блюз','русский блюз','блюз-рок'],'blues'],
+['folk','Фолк','g',92,['русский фолк','народные песни современные','этно музыка'],'folk'],
+['reggae','Регги','g',108,['регги','ска и регги','reggae'],'reggae'],
+['lounge','Лаунж','g',182,['русский лаунж','чиллаут','лаунж для вечера'],'lounge'],
+['lofi','Lo-fi','g',256,['lofi hip hop','lo-fi beats','lofi chill'],'lofi'],
+['chanson','Шансон','g',28,['русский шансон','шансон хиты','душевный шансон'],''],
+['bard','Авторская песня','g',72,['авторская песня','бардовские песни','песни под гитару классика'],'folk'],
+['acoustic','Под гитару','g',34,['песни под гитару','акустические русские песни','дворовые песни под гитару'],'acoustic'],
+['classic','Классика','g',48,['классическая музыка','Чайковский','Бах Моцарт Бетховен'],'classical'],
+['ost','Саундтреки','g',302,['саундтреки к фильмам','музыка из кино','оригинальный саундтрек'],'soundtrack'],
+/* эпохи */
+['y70','70-е','e',46,['хиты 70-х','песни 70-х','ВИА 70-х'],''],
+['y80','80-е','e',332,['хиты 80-х','русские песни 80-х','поп-музыка 80-х'],''],
+['y90','90-е','e',300,['хиты 90-х','русские песни 90-х','поп-музыка 90-х'],''],
+['y00','2000-е','e',204,['хиты 2000-х','русские песни 2000-х','хиты нулевых'],''],
+['y10','2010-е','e',160,['хиты 2010-х','русские песни 2010-х','клубные хиты 2010-х'],''],
+['y20','Сейчас','e',130,['новые хиты','хиты 2026','русские новинки'],''],
+['sov','Советская эстрада','e',16,['советская эстрада','песни СССР','советские хиты'],''],
+['rock80','Русский рок 80-х','e',4,['русский рок 80-х','Кино ДДТ Наутилус','ленинградский рок-клуб'],'rock'],
+/* со всего мира */
+['wpop','Зарубежный поп','w',320,['pop hits','top pop songs','best pop music'],'pop'],
+['wrock','Зарубежный рок','w',8,['rock classics','best rock songs','alternative rock hits'],'rock'],
+['whh','Хип-хоп мира','w',24,['hip hop hits','rap hits','best rap songs'],'hiphop'],
+['wrnb','R&B и соул','w',286,['r&b hits','soul music','neo soul'],'rnb'],
+['wel','Dance и EDM','w',256,['electronic dance hits','edm','dance music'],'electronic'],
+['wjazz','Джаз мира','w',40,['jazz classics','smooth jazz','jazz standards'],'jazz'],
+['kpop','K-pop','w',336,['k-pop hits','kpop','korean pop'],''],
+['anime','Аниме','w',346,['anime openings','anime songs','j-pop'],''],
+['latin','Латино','w',16,['latin hits','reggaeton','latin pop'],'latin'],
+['french','Французская','w',216,['chanson française','french pop','musique française'],''],
+['italian','Итальянская','w',130,['canzoni italiane','italian pop','musica italiana'],''],
+['turk','Турецкая','w',4,['turkish pop','türkçe pop','turkish hits'],''],
+['arab','Восточная','w',22,['arabic pop','arabic music','eastern music'],''],
+['country','Кантри','w',34,['country hits','country music','folk country'],'country']
+].map(([id,t,g,h,q,j])=>({id,t,g,h,q,j,w:g==='w'}));
+const WQ=new Map();   /* очередь запросов волны: каждый запрос по разу, потом перемешиваем заново — чтобы треки не повторялись */
+const wavePick=w=>{let a=WQ.get(w.id);if(!a||!a.length){a=shuffled(w.q.map((_,i)=>i));WQ.set(w.id,a)}return w.q[a.pop()]};
+const markWave=()=>{const id=wave&&waveSel?waveSel.id:'';$$('.mu-wv').forEach(b=>b.classList.toggle('on',!!id&&b.dataset.w===id))};
 async function ymOr(p,fb){
   if(Date.now()>ymDown){try{const l=await tracks(Object.assign({src:'ym',limit:30},p));if(l.length)return l;ymDown=Date.now()+300000}catch(e){ymDown=Date.now()+300000}}
   return fb()}
@@ -79,12 +225,15 @@ const skel=n=>'<div class="mu-skel"></div>'.repeat(n||6);
 
 /* ---------- плеер ---------- */
 const uiOn=()=>{const a=$('#app');if(a)a.classList.add('mu-on')};
-function start(arr,i){wave=0;Q=arr.slice();playAt(i)}
+function start(arr,i){wave=0;waveSel=null;Q=arr.slice();playAt(i)}
 function playAt(i){
-  const t=Q[i];if(!t)return;qi=i;tryFb=(t.src||!t.u)?1:0;uiOn();
+  const t=Q[i];if(!t)return;qi=i;
+  if(NM()&&!permAsked){permAsked=1;try{window.EXGPerm&&EXGPerm.ensure('notif').then(()=>nat(true))}catch(e){}}   /* Android 13+: без разрешения на уведомления шторки с плеером не будет */
+ tryFb=(t.src||!t.u)?1:0;uiOn();
   document.body.classList.add('mu-loading');
-  A.src=t.src||t.u||fbUrl(t.id);
-  const p=A.play();if(p&&p.catch)p.catch(e=>{if(e&&e.name==='NotAllowedError')paint()});
+  const go=u=>{if(Q[qi]!==t)return;A.src=u;const p=A.play();if(p&&p.catch)p.catch(e=>{if(e&&e.name==='NotAllowedError')paint()})};
+  if(dlHas(t.id)){tryFb=1;dlUrl(t.id).then(u=>{if(u)go(u);else{tryFb=t.u?0:1;go(t.u||fbUrl(t.id))}})}   /* скачанное играет с устройства */
+  else go(t.src||t.u||fbUrl(t.id));
   hist=[t].concat(hist.filter(x=>x.id!==t.id)).slice(0,40);ls.set('mu_hist',JSON.stringify(hist));if(subsFn)subsFn();
   paint();session()}
 function toggle(){if(qi<0)return;if(A.paused){const p=A.play();if(p&&p.catch)p.catch(()=>{})}else A.pause()}
@@ -98,35 +247,95 @@ function next(auto){
     if(rep===1||!auto)n=0;else{try{A.pause()}catch(e){}A.currentTime=0;paint();return}}
   playAt(n)}
 function prev(){if(A.currentTime>3){A.currentTime=0;return}playAt(qi>0?qi-1:(Q.length?Q.length-1:0))}
-async function loadWave(append){
-  const pool=GENRES,g=pool[Math.floor(Math.random()*pool.length)][0];
+async function loadWave(append,w){
+  if(w===undefined)w=append?waveSel:null;          /* без аргумента — продолжаем текущую волну */
+  if(offline()){                                   /* без интернета «волна» крутит скачанное */
+    const l=shuffled(dlList());if(!l.length){toast('Нет скачанных треков. Скачайте музыку, пока есть интернет',1);return}
+    if(append&&wave){Q=Q.concat(l);playAt(qi+1)}else{wave=1;waveSel=null;Q=l;playAt(0)}return}
   document.body.classList.add('mu-loading');
   try{
-    let l=await ymOr({k:'search',q:GQ[g]||'русские хиты',limit:50},()=>catalog(RU,'popularity_month',g,40,Math.floor(Math.random()*3)*15));
-    if(l.length<5)l=await catalog(RU,'popularity_total','',40);
+    let l;
+    if(w){                                         /* тематическая волна: запрос Яндекса, запасной — каталог Jamendo по тегу */
+      const q=wavePick(w),lang=w.w?WORLD:RU,tag=w.j||'',off=Math.floor(Math.random()*3)*15;
+      l=await ymOr({k:'search',q,limit:50},()=>catalog(lang,'popularity_month',tag,40,off));
+      if(l.length<5)l=await catalog(lang,'popularity_total',tag,40,off)}
+    else{
+      const pool=GENRES,g=pool[Math.floor(Math.random()*pool.length)][0];
+      l=await ymOr({k:'search',q:GQ[g]||'русские хиты',limit:50},()=>catalog(RU,'popularity_month',g,40,Math.floor(Math.random()*3)*15));
+      if(l.length<5)l=await catalog(RU,'popularity_total','',40)}
     l=shuffled(l);if(!l.length)throw new Error('empty');
-    if(append&&wave){Q=Q.concat(l);playAt(qi+1)}else{wave=1;Q=l;playAt(0)}}
-  catch(e){document.body.classList.remove('mu-loading');toast('Не удалось загрузить «Мою волну»',1)}}
+    if(append&&wave){
+      const have=new Set(Q.map(x=>x.id)),f=l.filter(x=>!have.has(x.id));if(f.length>=3)l=f;
+      if(qi>60){Q=Q.slice(qi-10);qi=10}
+      Q=Q.concat(l);playAt(qi+1)}
+    else{wave=1;waveSel=w||null;Q=l;playAt(0);if(w)toast('Волна «'+w.t+'»')}}
+  catch(e){document.body.classList.remove('mu-loading');toast('Не удалось загрузить '+(w?'волну «'+w.t+'»':'«Мою волну»'),1)}}
 function toggleLike(t){const i=likes.findIndex(x=>x.id===t.id);if(i>=0)likes.splice(i,1);else likes.unshift(t);likes=likes.slice(0,500);ls.set('mu_likes',JSON.stringify(likes));if(subsFn)subsFn();
   $$('.mu-row').forEach(r=>{if(r.dataset.id===t.id){const b=$('.mu-lk',r);if(b)b.classList.toggle('on',isLiked(t.id))}});paint();
   toast(i>=0?'Убрано из любимого':'Добавлено в любимое')}
+/* ---------- фоновое воспроизведение и управление из шторки/экрана блокировки ----------
+   Браузер: Media Session API (уведомление Chrome, экран блокировки, гарнитура, Bluetooth).
+   Приложение Android (WebView): тот же API там ничего не показывает, поэтому шлём состояние в мост
+   window.ExgNative.media — нативная служба рисует уведомление с обложкой, ◀◀ ▶/❚❚ ▶▶ и полосой перемотки. */
+const MS='mediaSession' in navigator?navigator.mediaSession:null;
+const NM=()=>{const n=window.ExgNative;return n&&typeof n.media==='function'?n:null};
+let natSig='',natPos=0,permAsked=0;
+function durOf(t){return isFinite(A.duration)&&A.duration>0?A.duration:(t&&t.d)||0}
+function artwork(t){if(!t||!t.img)return [];return [96,192,256,384,512].map(n=>({src:t.img,sizes:n+'x'+n}))}
+function posState(){
+  if(!MS||!MS.setPositionState)return;const t=cur(),d=durOf(t);
+  try{if(t&&d&&isFinite(A.currentTime))MS.setPositionState({duration:d,playbackRate:A.playbackRate||1,position:Math.min(A.currentTime,d)});else MS.setPositionState()}catch(e){}}
+/* состояние → в уведомление Android (только когда что-то изменилось: трек, пауза/игра, перемотка) */
+function nat(force){
+  const n=NM();if(!n)return;const t=cur();
+  if(!t){try{n.mediaStop()}catch(e){}natSig='';return}
+  const pl=!A.paused&&!A.ended,d=Math.round(durOf(t)*1000),pos=Math.round((A.currentTime||0)*1000);
+  const sig=t.id+'|'+pl+'|'+d;
+  if(!force&&sig===natSig&&Math.abs(pos-natPos)<2500)return;
+  natSig=sig;natPos=pos;
+  try{n.media(JSON.stringify({id:String(t.id),title:t.t||'',artist:t.a||'',img:t.img||'',playing:pl,pos:pos,dur:d}))}catch(e){}}
+/* кнопки из уведомления Android приходят сюда: play | pause | next | prev | seek:мс | stop */
+window.__exgMedia=function(a){
+  try{
+    if(a==='play'){if(qi>=0&&A.paused){const p=A.play();if(p&&p.catch)p.catch(()=>{})}}
+    else if(a==='pause'){if(!A.paused)A.pause()}
+    else if(a==='next')next(false);
+    else if(a==='prev')prev();
+    else if(a==='stop')stop();
+    else if(a&&a.indexOf('seek:')===0){const v=+a.slice(5);if(isFinite(v)){A.currentTime=v/1000;nat(true)}}
+  }catch(e){}};
 function session(){
-  if(!('mediaSession' in navigator)||qi<0)return;const t=cur();if(!t)return;
-  try{navigator.mediaSession.metadata=new MediaMetadata({title:t.t,artist:t.a,album:'EXG Music',artwork:t.img?[{src:t.img,sizes:'480x480'}]:[]})}catch(e){}
-  if(sessionSet)return;sessionSet=1;
-  const h=(n,f)=>{try{navigator.mediaSession.setActionHandler(n,f)}catch(e){}};
-  h('play',toggle);h('pause',toggle);h('nexttrack',()=>next(false));h('previoustrack',prev);
-  h('seekto',d=>{if(d&&isFinite(d.seekTime))A.currentTime=d.seekTime})}
+  const t=cur();if(!t||qi<0)return;
+  if(MS){
+    try{MS.metadata=new MediaMetadata({title:t.t,artist:t.a,album:'EXG Music',artwork:artwork(t)})}catch(e){}
+    if(!sessionSet){sessionSet=1;
+      const h=(n,f)=>{try{MS.setActionHandler(n,f)}catch(e){}};
+      h('play',()=>{if(qi>=0&&A.paused){const p=A.play();if(p&&p.catch)p.catch(()=>{})}});
+      h('pause',()=>{if(!A.paused)A.pause()});
+      h('stop',()=>stop());
+      h('nexttrack',()=>next(false));h('previoustrack',prev);
+      h('seekbackward',d=>{A.currentTime=Math.max(0,A.currentTime-((d&&d.seekOffset)||10))});
+      h('seekforward',d=>{const m=durOf(cur())||1e9;A.currentTime=Math.min(m,A.currentTime+((d&&d.seekOffset)||10))});
+      h('seekto',d=>{if(d&&isFinite(d.seekTime)){if(d.fastSeek&&A.fastSeek)A.fastSeek(d.seekTime);else A.currentTime=d.seekTime;posState()}})}
+    syncState()}
+  nat(true)}
+function syncState(){
+  if(MS)try{MS.playbackState=!cur()?'none':A.paused?'paused':'playing'}catch(e){}
+  posState()}
 
-A.addEventListener('playing',()=>{lyRun();fails=0;document.body.classList.remove('mu-loading');document.body.classList.add('mu-playing');syncPP()});
-A.addEventListener('pause',()=>{document.body.classList.remove('mu-playing');syncPP()});
+A.addEventListener('playing',()=>{lyRun();fails=0;document.body.classList.remove('mu-loading');document.body.classList.add('mu-playing');syncPP();syncState();nat()});
+A.addEventListener('pause',()=>{document.body.classList.remove('mu-playing');syncPP();syncState();nat()});
+A.addEventListener('loadedmetadata',()=>{posState();nat()});
+A.addEventListener('durationchange',()=>{posState();nat()});
+A.addEventListener('ratechange',posState);
 A.addEventListener('waiting',()=>document.body.classList.add('mu-loading'));
 A.addEventListener('canplay',()=>document.body.classList.remove('mu-loading'));
 A.addEventListener('ended',()=>{if(slp.eot){slpClear('Таймер сна: музыка остановлена');return}next(true)});
 A.addEventListener('timeupdate',progress);
-A.addEventListener('seeked',()=>{lyI=-2;lyTick()});
+A.addEventListener('seeked',()=>{lyI=-2;lyTick();posState();nat(true)});
 A.addEventListener('error',()=>{
   const t=cur();if(!t||!A.src)return;
+  if(offline()&&!dlHas(t.id)&&dlMeta.size){wave=1;Q=shuffled(dlList());toast('Нет сети — играет скачанное');playAt(0);return}
   if(!tryFb){tryFb=1;A.src=fbUrl(t.id);const p=A.play();if(p&&p.catch)p.catch(()=>{});return}
   document.body.classList.remove('mu-loading');
   if(++fails>=4){toast('Не удалось воспроизвести музыку. Проверьте интернет',1);try{A.pause()}catch(e){}return}
@@ -238,7 +447,7 @@ const FULL=`<div id="muFull"><div class="bgc"></div><div class="mf-sc">
 <section class="mf-p1">
 <div class="mf-top"><button class="ib" data-a="close" aria-label="Свернуть">${IC.chevd}</button><small>EXG Music</small><button class="ib sleep" data-a="sleep" aria-label="Таймер сна">${MI.moon}<i></i></button></div>
 <div class="mf-art"><div class="flip" data-a="flip" role="button" aria-label="Показать текст песни"><div class="face fr"><span class="cvh"></span><span class="fl-hint">${MI.lyr}Текст</span></div><div class="face bk"><div class="ly" data-ly="1"></div><button class="fl-back" data-a="flipb" aria-label="Вернуть обложку">${IC.close}</button></div></div></div>
-<div class="mf-info"><div class="mu-ti"><b></b><small></small></div><button class="mu-lk" data-a="topf" aria-label="В профиль">${IC.plus}</button><button class="mu-lk" data-a="like" aria-label="Нравится">${IC.heart}</button></div>
+<div class="mf-info"><div class="mu-ti"><b></b><small></small></div><button class="mu-lk" data-a="dl" aria-label="Скачать для офлайна">${MI.dl}</button><button class="mu-lk" data-a="topf" aria-label="В профиль">${IC.plus}</button><button class="mu-lk" data-a="like" aria-label="Нравится">${IC.heart}</button></div>
 <div class="mf-seek"><input type="range" min="0" max="1000" value="0" aria-label="Перемотка"><div><span class="tc">0:00</span><span class="td">0:00</span></div></div>
 <div class="mf-ctl"><button class="sm" data-a="shuf" aria-label="Вперемешку">${MI.shuf}</button><button data-a="prev" aria-label="Назад">${MI.prev}</button><button class="pp" data-a="pp" aria-label="Пуск/пауза"></button><button data-a="next" aria-label="Дальше">${MI.next}</button><button class="sm" data-a="rep" aria-label="Повтор">${MI.rep}</button></div>
 <div class="mf-nx"></div>
@@ -264,6 +473,7 @@ function bindUi(app){
     else if(a==='up')sc.scrollTo({top:0,behavior:'smooth'});
     else if(a==='lyretry'){LY.id=null;ensureLy()}
     else if(a==='like'){const t=cur();if(t)toggleLike(t)}
+    else if(a==='dl'){const t=cur();if(t)dlToggle(t)}
     else if(a==='topf'){const t=cur();if(t)addToProfile(t)}
     else if(a==='shuf'){shuf=shuf?0:1;paint()}
     else if(a==='rep'){rep=(rep+1)%3;paint()}};
@@ -292,7 +502,7 @@ function progress(){
   const rg=$('input[type=range]',f);if(rg&&document.activeElement!==rg){rg.value=Math.round(p*1000);rg.style.setProperty('--p',(p*100).toFixed(1)+'%')}
   $('.tc',f).textContent=fmt(A.currentTime);$('.td',f).textContent=fmt(d)}
 function paint(){
-  const t=cur();
+  const t=cur();markWave();
   document.body.classList.toggle('mu-playing',!!t&&!A.paused&&!A.ended);
   $$('.mu-row').forEach(r=>r.classList.toggle('cur',!!t&&r.dataset.id===t.id));
   const mini=$('#muMini'),full=$('#muFull');if(!mini||!full)return;
@@ -310,11 +520,14 @@ function paint(){
     const n=Q[qi+1];$('.mf-nx',full).textContent=n?'Дальше: '+n.t+' — '+n.a:'';
     progress()}
   $('[data-a=like]',full).classList.toggle('on',isLiked(t.id));
+  {const db=$('[data-a=dl]',full),has=dlHas(t.id),bz=dlBusy.has(t.id);db.classList.toggle('on',has);db.classList.toggle('busy',bz);db.style.display=t.src?'none':'';
+   const h=bz?'<span class="mu-aid"></span>':has?MI.ok:MI.dl;if(db._h!==h){db._h=h;db.innerHTML=h}db.setAttribute('aria-label',has?'Убрать из скачанного':'Скачать для офлайна')}
   $('[data-a=topf]',full).style.display=t.src?'none':'';
   $('[data-a=shuf]',full).classList.toggle('on',!!shuf);
   const rb=$('[data-a=rep]',full);rb.classList.toggle('on',rep>0);rb.innerHTML=rep===2?MI.rep1:MI.rep}
-function stop(){lyReset();slpClear();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;
-  const a=$('#app');if(a)a.classList.remove('mu-on');document.body.classList.remove('mu-playing','mu-loading')}
+function stop(){lyReset();slpClear();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;waveSel=null;
+  const a=$('#app');if(a)a.classList.remove('mu-on');document.body.classList.remove('mu-playing','mu-loading');
+  if(MS){try{MS.metadata=null;MS.playbackState='none'}catch(e){}}nat(true)}
 
 /* карточки-«рулетка» вместо поиска и вкладок: тап по боковой — докрутить, по кнопке на центральной — включить */
 const CARDS=[
@@ -323,11 +536,12 @@ const CARDS=[
  {k:'nostalg',tab:'nostalg',t:'Ностальгия 2010-х',ic:'eq',pl:1,q:'русские хиты 2010-х ностальгия',fb:'popularity_month'},
  {k:'world',tab:'world',t:'Зарубежное',ic:'globe',sub:'Хиты со всего мира'},
  {k:'likes',tab:'likes',t:'Любимое',ic:'heart'},
+ {k:'dl',tab:'dl',t:'Скачанное',ic:'dl'},
  {k:'hist',tab:'hist',t:'История',ic:'clock'},
  {k:'search',tab:'search',t:'Поиск',ic:'search',sub:'Трек, исполнитель, текст'}];
 const cardOf=tab=>Math.max(0,CARDS.findIndex(c=>c.tab===tab));
 const plural=n=>n%10===1&&n%100!==11?'трек':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'трека':'треков');
-const subTxt=c=>c.k==='likes'?(likes.length?likes.length+' '+plural(likes.length):'Отмечайте сердечком'):c.k==='hist'?(hist.length?hist.length+' '+plural(hist.length):'Пока пусто'):(c.sub||'');
+const subTxt=c=>c.k==='dl'?(dlMeta.size?dlMeta.size+' '+plural(dlMeta.size)+' · '+dlMB()+' МБ':'Для офлайна'):c.k==='likes'?(likes.length?likes.length+' '+plural(likes.length):'Отмечайте сердечком'):c.k==='hist'?(hist.length?hist.length+' '+plural(hist.length):'Пока пусто'):(c.sub||'');
 const plMemo=new Map();
 
 /* ---------- экран «EXG Music» ---------- */
@@ -352,13 +566,23 @@ function view(el){
     const el=$('#'+id,body);if(!el)return;
     const drop=()=>{if(el.previousElementSibling&&el.previousElementSibling.classList.contains('mu-h'))el.previousElementSibling.remove();el.remove()};
     try{const l=await fn();if(my!==seq)return;if(l.length){el.innerHTML=listHtml(l);wire(el,l)}else drop()}catch(e){if(my===seq)drop()}}
+  /* блок «Волны»: вкладки-группы и сетка плиток; тап по плитке запускает бесконечную волну */
+  const waveTile=w=>`<button class="mu-wv${wave&&waveSel&&waveSel.id===w.id?' on':''}" data-w="${w.id}" style="--h:${w.h};--h2:${(w.h+45)%360}"><span class="wv-eq"><i></i><i></i><i></i><i></i><i></i></span><b>${esc(w.t)}</b></button>`;
+  function wvDraw(){
+    const box=$('#muWv',body);if(!box)return;
+    box.innerHTML=`<div class="mu-h wv-top"><h3>Волны</h3><small class="ar-cnt">${WAVES.length} · играют без конца</small></div>
+      <div class="mu-wt-w">${WG.map(([k,n])=>`<button class="mu-wt${st.wg===k?' on':''}" data-wg="${k}">${esc(n)}</button>`).join('')}</div>
+      <div class="mu-wvs">${WAVES.filter(w=>w.g===st.wg).map(waveTile).join('')}</div>`;
+    $$('.mu-wt',box).forEach(b=>b.onclick=()=>{st.wg=b.dataset.wg;wvDraw()});
+    $$('.mu-wv',box).forEach(b=>b.onclick=()=>{const w=WAVES.find(x=>x.id===b.dataset.w);if(w)loadWave(false,w)})}
   async function home(){
     const my=++seq,g=st.genre;
-    body.innerHTML=`${chips(g)}
+    body.innerHTML=`<div id="muWv"></div>${chips(g)}
     <div class="mu-h"><h3>${g?'Русское в тренде: '+esc(gname(g)):'Русское — сейчас в тренде'}</h3></div><div id="muTr">${skel(6)}</div>
     ${g?'':`<div class="mu-h"><h3>Новинки на русском</h3></div><div id="muNew"></div>
     <div class="mu-h"><h3>Русское — лучшее за всё время</h3></div><div id="muTop"></div>
     <div class="mu-h"><h3>Зарубежная подборка</h3><button class="btn sm ghost" id="muWorld">Все</button></div><div id="muWd"></div>`}`;
+    wvDraw();
     $$('.mu-chip',body).forEach(b=>b.onclick=()=>{st.genre=b.dataset.g;home()});
     const w=$('#muWorld',body);if(w)w.onclick=()=>goCard(cardOf('world'));
     const tr=$('#muTr',body);
@@ -466,16 +690,20 @@ function view(el){
     const vw=$('#view');if(vw)vw.scrollTop=0}
   function artistBack(){st.artist=st.ahist.pop()||null;draw()}
   function draw(){
-    const q=st.q.trim(),art=!!st.artist,srch=st.tab==='search'||!!st.q;
-    rlw.hidden=dots.hidden=art;sb.hidden=!srch||art;x.hidden=!st.q;
+    const q=st.q.trim(),off=offline(),art=!!st.artist&&!off,srch=(st.tab==='search'||!!st.q)&&!off;
+    rlw.hidden=art;dots.hidden=art||off;sb.hidden=!srch||art;x.hidden=!st.q;
     if(!art)requestAnimationFrame(()=>fit());
+    if(off)return offBody();
     if(q.length>=2)return search(q);
     if(q){body.innerHTML='';return}
     if(art)return artistPage(st.artist);
     if(st.tab==='search'){seq++;body.innerHTML=`<div class="empty" style="padding:28px 24px">Введите название трека, исполнителя<br>или строчку из песни</div>`;return}
     const pc=CARDS.find(c=>c.tab===st.tab&&c.q);
     if(pc)plist(pc);
-    else if(st.tab==='likes')collection(likes,'Отмечайте треки сердечком — они появятся здесь',true);
+    else if(st.tab==='likes'){collection(likes,'Отмечайте треки сердечком — они появятся здесь',true);
+      const h=$('.mu-h',body);if(h&&likes.length){h.insertAdjacentHTML('beforeend',`<button class="btn sm ghost" id="muDlAll">${MI.dl}Скачать</button>`);$('#muDlAll',body).onclick=()=>dlMany(likes)}}
+    else if(st.tab==='dl'){const l=dlList();collection(l,'Здесь будут скачанные треки. Нажмите ↓ в плеере или «Скачать» в «Любимом» — и они заиграют без интернета',true);
+      const h=$('.mu-h',body);if(h&&l.length){h.insertAdjacentHTML('beforeend',`<button class="btn sm ghost" id="muDlClr">Очистить</button>`);$('#muDlClr',body).onclick=async()=>{if(await confirmBox('Удалить все скачанные треки?')){await dlClear();draw()}}}}
     else if(st.tab==='hist')collection(hist,'Вы пока ничего не слушали',false);
     else if(st.tab==='world')world();
     else home()}
@@ -485,14 +713,16 @@ function view(el){
   const cds=()=>$$('.mu-cd',rl);
   function measure(){
     const cs=cds();if(!cs.length||!rl.clientWidth)return false;
-    cw=cs[0].offsetWidth;const pad=Math.max(0,(rl.clientWidth-cw)/2);
+    const vis=cs.filter(c=>!c.classList.contains('offh'));if(!vis.length)return false;
+    cw=vis[0].offsetWidth;const pad=Math.max(0,(rl.clientWidth-cw)/2);
     $$('.mu-rl-sp',rl).forEach(e=>e.style.width=pad+'px');
-    geo=cs.map(c=>c.offsetLeft+c.offsetWidth/2);return true}
+    geo=cs.map(c=>c.classList.contains('offh')?null:c.offsetLeft+c.offsetWidth/2);return true}
   const posOf=i=>geo[i]-rl.clientWidth/2;
   function paintCards(){
     raf2=0;if(!geo.length)return;
     const mid=rl.scrollLeft+rl.clientWidth/2,step=cw+14,cs=cds();let best=0,bd=1e9;
     cs.forEach((c,i)=>{
+      if(geo[i]==null)return;
       const d=(geo[i]-mid)/step,ad=Math.abs(d);if(ad<bd){bd=ad;best=i}
       const rot=clamp(-d*44,-64,64),sc=1-Math.min(ad,2)*.15,tx=-Math.sign(d)*Math.min(ad,2.2)*step*.25,ty=Math.min(ad,2.5)*Math.min(ad,2.5)*5;
       c.style.transform=`translate3d(${tx.toFixed(1)}px,${ty.toFixed(1)}px,${(-Math.min(ad,2.5)*80).toFixed(0)}px) rotateY(${rot.toFixed(1)}deg) scale(${sc.toFixed(3)})`;
@@ -508,7 +738,7 @@ function view(el){
   /* когда прокрутка остановилась — открываем раздел центральной карточки */
   function settle(){
     if(rlw.hidden||!geo.length)return;
-    const mid=rl.scrollLeft+rl.clientWidth/2;let i=0,bd=1e9;geo.forEach((g,k)=>{const d=Math.abs(g-mid);if(d<bd){bd=d;i=k}});
+    const mid=rl.scrollLeft+rl.clientWidth/2;let i=0,bd=1e9;geo.forEach((g,k)=>{if(g==null)return;const d=Math.abs(g-mid);if(d<bd){bd=d;i=k}});
     if(i===curI)return;
     curI=i;const c=CARDS[i];
     if(st.q&&c.k!=='search'){st.q='';inp.value=''}
@@ -530,7 +760,19 @@ function view(el){
   inp.oninput=()=>{st.q=inp.value;x.hidden=!st.q;clearTimeout(timer);timer=setTimeout(draw,450)};
   inp.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(timer);inp.blur();draw()}};
   x.onclick=()=>{st.q='';inp.value='';clearTimeout(timer);draw()};
-  subsFn=subs;
+  /* без интернета: остаётся одна карточка «Моя волна» (она играет скачанное), остальное скрыто */
+  const offBody=()=>{seq++;const n=dlMeta.size;
+    body.innerHTML=`<div class="mu-offn">${MI.dl}<b>Нет интернета</b><span>${n?'«Моя волна» включит скачанные треки вперемешку — их '+n:'Скачанных треков пока нет. Пока есть интернет, нажимайте ↓ в плеере или «Скачать» в «Любимом»'}</span></div>`};
+  let wasOff=null;
+  function applyNet(init){
+    if(!init&&!rl.isConnected)return;
+    const off=offline();if(off===wasOff)return;const first=wasOff===null;wasOff=off;if(first&&!off)return;
+    $('.mu',el).classList.toggle('mu-off',off);
+    $$('.mu-cd',rl).forEach(c=>c.classList.toggle('offh',off&&c.dataset.k!=='wave'));
+    if(off){curI=cardOf('home');st.tab='home';st.q='';inp.value='';st.artist=null;st.ahist=[]}
+    measure();fit();draw()}
+  netFn=applyNet;
+  subsFn=subs;applyNet(true);
   redraw=draw;draw()}
 
 /* ---------- исполнитель: открыть карточку откуда угодно (список, полный плеер) ---------- */
@@ -720,5 +962,6 @@ function pmSync(){
     const pp=$('.pm-pp',sec),html=playing?MI.pause:MI.play;if(pp&&pp._h!==html){pp._h=html;pp.innerHTML=html}
     const al=$('[data-pm=all]',sec);if(al){const h=(playing?MI.pause+'Пауза':MI.play+(on?'Продолжить':'Слушать'));if(al._h!==h){al._h=h;al.innerHTML=h}}})}
 
-return{view,mount,stop,paint,profile,openArtist}})();
+dlLoad();
+return{view,mount,stop,paint,profile,openArtist,net:()=>{if(netFn)netFn()}}})();
 function viewMusic(el){MU.view(el)}
