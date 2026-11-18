@@ -1665,6 +1665,10 @@ async def a_x_banner_delete(request):
 # кэшируется на 10 мин); сам звук играет напрямую с серверов Jamendo — трафик форума не расходуется. /music/stream — запасной путь до файла.
 MU_API = "https://api.jamendo.com/v3.0"
 MU_KEY = os.getenv("JAMENDO_CLIENT_ID", "").strip()
+# Яндекс Музыка (неофициально, библиотека yandex-music) — основной источник, если задан YANDEX_MUSIC_TOKEN; Jamendo — запасной.
+# id треков Яндекса в нашем плеере — "y" + число; адрес файла временный, поэтому звук всегда идёт через /music/stream (редирект).
+YM_TOKEN = os.getenv("YANDEX_MUSIC_TOKEN", "").strip()
+_ym_client = None
 MU_ORDERS = {"relevance", "buzzrate", "popularity_week", "popularity_month", "popularity_total", "releasedate_desc"}
 _mu_cache: dict = {}      # url без ключа -> (monotonic, текст ответа)
 _mu_loc: dict = {}        # id трека -> (monotonic, адрес потока)
@@ -1696,11 +1700,59 @@ def _mu_norm(rows):
     return out
 
 
+def _ym_norm(tracks):
+    out = []
+    for t in tracks or []:
+        try:
+            if t is None or getattr(t, "available", True) is False:
+                continue
+            tid = str(t.id).split(":")[0]
+            if not tid.isdigit():
+                continue
+            title = (t.title or "") + (f" ({t.version})" if getattr(t, "version", None) else "")
+            cu = getattr(t, "cover_uri", None) or ""
+            out.append({"id": "y" + tid, "t": title[:200], "a": ", ".join(a.name for a in (t.artists or []) if a.name)[:200],
+                        "img": "https://" + cu.replace("%%", "300x300") if cu else "",
+                        "d": max(0, int((getattr(t, "duration_ms", 0) or 0) // 1000)), "u": ""})
+        except Exception:
+            continue
+    return out
+
+
+async def _ym():
+    global _ym_client
+    if not YM_TOKEN:
+        raise RuntimeError("no YANDEX_MUSIC_TOKEN")
+    if _ym_client is None:
+        from yandex_music import ClientAsync          # импорт здесь: без библиотеки форум продолжает работать на Jamendo
+        _ym_client = await ClientAsync(YM_TOKEN).init()
+    return _ym_client
+
+
+async def _ym_list(q, limit):
+    """k=chart&c=russia|world — чарт; k=search&q=текст — поиск по трекам."""
+    c = await _ym()
+    k = q.get("k", "")
+    if k == "chart":
+        opt = q.get("c", "russia")
+        if opt not in ("russia", "world"):
+            raise FErr(400, "bad_input", "Неверный запрос")
+        ch = await c.chart(opt)
+        tracks = [ts.track for ts in (ch.chart.tracks or []) if getattr(ts, "track", None)]
+    elif k == "search":
+        text = q.get("q", "").strip()[:100]
+        if not text:
+            raise FErr(400, "bad_input", "Неверный запрос")
+        res = await c.search(text, type_="track")
+        tracks = (res.tracks.results if res and res.tracks else []) or []
+    else:
+        raise FErr(400, "bad_input", "Неверный запрос")
+    return _ym_norm(tracks[:limit])
+
+
 @api
 async def a_music_get(request):
     """Каталог треков: ?search=&tags=&lang=&order=&limit=&offset=&groupby=artist_id -> {"data":[{id,t,a,img,d,u}]}"""
-    if not MU_KEY:
-        raise FErr(503, "music_unavailable", "Музыка не настроена: администратору нужно задать JAMENDO_CLIENT_ID")
     me = request["fuid"]
     now = time.monotonic()
     hist = [t for t in _mu_rate.get(me, []) if now - t < 60]
@@ -1711,6 +1763,26 @@ async def a_music_get(request):
     if len(_mu_rate) > 3000:
         _mu_rate.clear()
     q = request.query
+    if q.get("src") == "ym":
+        if not YM_TOKEN:
+            raise FErr(503, "music_unavailable", "Яндекс Музыка не подключена")
+        lim = q.get("limit", "30")
+        lim = min(int(lim), 50) if lim.isdigit() else 30
+        ck = "ym?" + urlencode(sorted((k, v) for k, v in q.items() if k in ("k", "c", "q")) + [("limit", lim)])
+        hit = _mu_cache.get(ck)
+        if hit and now - hit[0] < 600:
+            return web.Response(text=hit[1], content_type="application/json", charset="utf-8")
+        try:
+            text = json.dumps({"data": await _ym_list(q, lim)}, ensure_ascii=False)
+        except FErr:
+            raise
+        except Exception as e:
+            log.warning("ym get failed: %s", e)
+            raise FErr(502, "music_unavailable", "Яндекс Музыка сейчас недоступна")
+        _mu_cache[ck] = (time.monotonic(), text)
+        return web.Response(text=text, content_type="application/json", charset="utf-8")
+    if not MU_KEY:
+        raise FErr(503, "music_unavailable", "Музыка не настроена: администратору нужно задать JAMENDO_CLIENT_ID")
     params = [("format", "json"), ("audioformat", "mp32"), ("imagesize", "300")]
     lim = q.get("limit", "30")
     params.append(("limit", str(min(int(lim), 50)) if lim.isdigit() else "30"))
@@ -1765,12 +1837,34 @@ async def a_music_get(request):
 async def a_music_stream(request):
     """Запасной путь: редирект на файл трека (если прямой адрес из списка не открылся). Нужны только цифры id."""
     tid = request.query.get("id") or ""
-    if not MU_KEY or not re.fullmatch(r"[0-9]{1,12}", tid):
+    if not re.fullmatch(r"y?[0-9]{1,12}", tid) or not (YM_TOKEN if tid[0] == "y" else MU_KEY):
         raise FErr(400, "bad_input", "Неверный трек")
     now = time.monotonic()
+    ip = request.remote or "?"
+    ih = [t for t in _mu_rate.get(("ip", ip), []) if now - t < 60]       # адрес публичный (<audio> без заголовков) — режем по IP
+    if len(ih) >= 120:
+        raise FErr(429, "too_fast", "Не так быстро")
+    ih.append(now)
+    _mu_rate[("ip", ip)] = ih
     hit = _mu_loc.get(tid)
     if hit and now - hit[0] < 300:
         raise web.HTTPFound(hit[1])
+    if tid[0] == "y":
+        loc = ""
+        try:
+            c = await _ym()
+            tr = (await c.tracks([tid[1:]]))[0]
+            allinfo = await tr.get_download_info_async()
+            infos = [i for i in allinfo if i.codec == "mp3"] or allinfo
+            loc = await max(infos, key=lambda i: i.bitrate_in_kbps).get_direct_link_async()
+        except Exception as e:
+            log.warning("ym stream failed: %s", e)
+        if not str(loc).startswith("https://"):
+            raise FErr(502, "music_unavailable", "Трек сейчас недоступен")
+        _mu_loc[tid] = (now, loc)
+        while len(_mu_loc) > 500:
+            _mu_loc.pop(next(iter(_mu_loc)))
+        raise web.HTTPFound(loc)
     url = f"{MU_API}/tracks/file/?{urlencode({'client_id': MU_KEY, 'id': tid, 'action': 'stream', 'audioformat': 'mp32'})}"
     loc = ""
     try:
