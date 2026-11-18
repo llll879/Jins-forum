@@ -1660,13 +1660,13 @@ async def a_x_banner_delete(request):
 
 
 # ============================================================================ EXG Music
-# Музыка — из открытой библиотеки Audius (api.audius.co, без ключа). Клиент ходит туда напрямую; эти два эндпоинта — запасной путь,
-# если браузер до Audius не достучался: JSON-списки (кэш 10 мин) и редирект на поток трека.
-MU_API = "https://api.audius.co/v1"
-MU_APP = "EXG_MUSIC"
-MU_PATH_OK = re.compile(r"^(tracks/(trending|trending/underground|search)|playlists/trending)$")
-MU_PARAMS = {"query", "genre", "time", "limit", "offset"}
-_mu_cache: dict = {}      # url -> (monotonic, текст ответа)
+# Музыка — из каталога Jamendo (api.jamendo.com/v3.0): независимые исполнители, лицензии Creative Commons. Нужен бесплатный client_id
+# (devportal.jamendo.com) в переменной JAMENDO_CLIENT_ID. Списки браузер получает только через сервер (ключ не светится в клиенте, ответ
+# кэшируется на 10 мин); сам звук играет напрямую с серверов Jamendo — трафик форума не расходуется. /music/stream — запасной путь до файла.
+MU_API = "https://api.jamendo.com/v3.0"
+MU_KEY = os.getenv("JAMENDO_CLIENT_ID", "").strip()
+MU_ORDERS = {"relevance", "buzzrate", "popularity_week", "popularity_month", "popularity_total", "releasedate_desc"}
+_mu_cache: dict = {}      # url без ключа -> (monotonic, текст ответа)
 _mu_loc: dict = {}        # id трека -> (monotonic, адрес потока)
 _mu_rate: dict = {}       # uid -> [ts...]
 
@@ -1676,8 +1676,31 @@ def _mu_session():
                                  headers={"User-Agent": "EXG-Music/1.0", "Accept": "application/json"})
 
 
+def _mu_norm(rows):
+    """Оставляем только играбельные треки и только нужные поля (u — прямой адрес потока)."""
+    out = []
+    for r in rows if isinstance(rows, list) else []:
+        if not isinstance(r, dict):
+            continue
+        tid = str(r.get("id") or "")
+        audio = str(r.get("audio") or "")
+        if not tid.isdigit() or not audio.startswith("https://"):
+            continue
+        img = str(r.get("image") or "")
+        try:
+            dur = max(0, int(r.get("duration") or 0))
+        except (TypeError, ValueError):
+            dur = 0
+        out.append({"id": tid, "t": str(r.get("name") or "")[:200], "a": str(r.get("artist_name") or "")[:200],
+                    "img": img if img.startswith("https://") else "", "d": dur, "u": audio})
+    return out
+
+
 @api
 async def a_music_get(request):
+    """Каталог треков: ?search=&tags=&lang=&order=&limit=&offset=&groupby=artist_id -> {"data":[{id,t,a,img,d,u}]}"""
+    if not MU_KEY:
+        raise FErr(503, "music_unavailable", "Музыка не настроена: администратору нужно задать JAMENDO_CLIENT_ID")
     me = request["fuid"]
     now = time.monotonic()
     hist = [t for t in _mu_rate.get(me, []) if now - t < 60]
@@ -1687,35 +1710,52 @@ async def a_music_get(request):
     _mu_rate[me] = hist
     if len(_mu_rate) > 3000:
         _mu_rate.clear()
-    path = (request.query.get("p") or "").strip("/")
-    if not MU_PATH_OK.match(path):
-        raise FErr(400, "bad_input", "Неверный запрос")
-    params = []
-    for k, v in request.query.items():
-        if k not in MU_PARAMS:
-            continue
-        v = v.strip()[:100]
-        if k in ("limit", "offset"):
-            if not v.isdigit():
-                continue
-            v = str(min(int(v), 50 if k == "limit" else 500))
-        params.append((k, v))
-    params.append(("app_name", MU_APP))
-    url = f"{MU_API}/{path}?{urlencode(params)}"
-    hit = _mu_cache.get(url)
+    q = request.query
+    params = [("format", "json"), ("audioformat", "mp32"), ("imagesize", "300")]
+    lim = q.get("limit", "30")
+    params.append(("limit", str(min(int(lim), 50)) if lim.isdigit() else "30"))
+    off = q.get("offset", "0")
+    if off.isdigit():
+        params.append(("offset", str(min(int(off), 500))))
+    order = q.get("order", "")
+    if order:
+        if order not in MU_ORDERS:
+            raise FErr(400, "bad_input", "Неверный запрос")
+        params.append(("order", order))
+    lang = q.get("lang", "")
+    if lang:
+        if not re.fullmatch(r"[a-z]{2}", lang):
+            raise FErr(400, "bad_input", "Неверный запрос")
+        params.append(("lang", lang))
+    tags = q.get("tags", "")
+    if tags:
+        if not re.fullmatch(r"[a-z0-9_,+-]{1,60}", tags):
+            raise FErr(400, "bad_input", "Неверный запрос")
+        params.append(("tags", tags))
+    if q.get("groupby") == "artist_id":
+        params.append(("groupby", "artist_id"))
+    search = q.get("search", "").strip()[:100]
+    if search:
+        params.append(("search", search))
+    ck = urlencode(params)
+    hit = _mu_cache.get(ck)
     if hit and now - hit[0] < 600:
         return web.Response(text=hit[1], content_type="application/json", charset="utf-8")
+    url = f"{MU_API}/tracks/?{urlencode([('client_id', MU_KEY)] + params)}"
     try:
         async with _mu_session() as ses:
             async with ses.get(url) as resp:
                 if resp.status != 200:
-                    raise RuntimeError(f"audius {resp.status}")
-                text = await resp.text()
-        json.loads(text)
+                    raise RuntimeError(f"jamendo http {resp.status}")
+                d = json.loads(await resp.text())
+        hd = d.get("headers") or {}
+        if hd.get("status") != "success":
+            raise RuntimeError(f"jamendo {hd.get('code')}: {hd.get('error_message')}")
+        text = json.dumps({"data": _mu_norm(d.get("results"))}, ensure_ascii=False)
     except Exception as e:
         log.warning("music get failed: %s", e)
         raise FErr(502, "music_unavailable", "Музыкальный сервис сейчас недоступен")
-    _mu_cache[url] = (time.monotonic(), text)
+    _mu_cache[ck] = (time.monotonic(), text)
     while len(_mu_cache) > 300:
         _mu_cache.pop(next(iter(_mu_cache)))
     return web.Response(text=text, content_type="application/json", charset="utf-8")
@@ -1723,14 +1763,15 @@ async def a_music_get(request):
 
 @api(auth=False)
 async def a_music_stream(request):
+    """Запасной путь: редирект на файл трека (если прямой адрес из списка не открылся). Нужны только цифры id."""
     tid = request.query.get("id") or ""
-    if not re.fullmatch(r"[A-Za-z0-9]{1,24}", tid):
+    if not MU_KEY or not re.fullmatch(r"[0-9]{1,12}", tid):
         raise FErr(400, "bad_input", "Неверный трек")
     now = time.monotonic()
     hit = _mu_loc.get(tid)
     if hit and now - hit[0] < 300:
         raise web.HTTPFound(hit[1])
-    url = f"{MU_API}/tracks/{tid}/stream?{urlencode({'app_name': MU_APP})}"
+    url = f"{MU_API}/tracks/file/?{urlencode({'client_id': MU_KEY, 'id': tid, 'action': 'stream', 'audioformat': 'mp32'})}"
     loc = ""
     try:
         async with _mu_session() as ses:
@@ -1748,7 +1789,7 @@ async def a_music_stream(request):
 
 
 # ============================================================================ музыка в профиле
-# Трек в профиле — либо загруженный файл (хранится в БД, как баннеры), либо ссылка на трек из EXG Music (Audius).
+# Трек в профиле — либо загруженный файл (хранится в БД, как баннеры), либо ссылка на трек из EXG Music (Jamendo).
 PM_MAX = int(os.getenv("PROFILE_MUSIC_MAX", "10"))                           # треков на профиль
 PM_FILE_MAX = int(os.getenv("PROFILE_MUSIC_FILE_MB", "10")) * 1024 * 1024    # размер одного файла
 PM_COVER_MAX = 700 * 1024

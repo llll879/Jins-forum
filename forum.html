@@ -3566,12 +3566,13 @@ const CS=(()=>{
   return{attach,open,icon:ICON}
 })();
 /* ===== EXG Music — раздел «как Яндекс Музыка» =====
-   Музыка берётся из открытой библиотеки Audius (api.audius.co): ключ не нужен, треки целиком, публикуют сами исполнители.
-   Если браузер не достучался до Audius напрямую, список и поток идут через сервер форума (/forum/api/music/*).
+   Музыка — из каталога Jamendo (независимые исполнители, лицензии Creative Commons). Списки приходят через сервер форума
+   (/forum/api/music/get, ключ JAMENDO_CLIENT_ID лежит на сервере), звук играет напрямую с Jamendo (поле u), запасной путь — /music/stream.
+   Основной упор — русскоязычные треки (lang=ru); зарубежное вынесено в отдельную подборку.
    Любимое и история хранятся на устройстве (kf_mu_likes, kf_mu_hist). */
 const MU=(()=>{
-const API='https://api.audius.co/v1',APP='EXG_MUSIC';
-const GENRES=[['','Всё'],['Electronic','Электроника'],['Hip-Hop/Rap','Хип-хоп'],['Pop','Поп'],['Rock','Рок'],['Lo-Fi','Lo-Fi'],['Ambient','Эмбиент'],['Jazz','Джаз'],['R&B/Soul','R&B'],['Alternative','Альтернатива'],['Classical','Классика']];
+/* жанры = теги Jamendo */
+const GENRES=[['','Всё'],['hiphop','Хип-хоп'],['pop','Поп'],['rock','Рок'],['electronic','Электроника'],['indie','Инди'],['rnb','R&B'],['lounge','Лаунж'],['jazz','Джаз'],['folk','Фолк'],['metal','Метал'],['ambient','Эмбиент']];
 const MI={
  note:I('<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>'),
  play:'<svg class="i" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M8.2 5.3v13.4a1 1 0 0 0 1.5.86l10.6-6.7a1 1 0 0 0 0-1.72L9.7 4.44a1 1 0 0 0-1.5.86z"/></svg>',
@@ -3588,27 +3589,26 @@ let Q=[],qi=-1,shuf=0,rep=0,wave=0,tryFb=0,fails=0,sessionSet=0;
 const st={tab:'home',genre:'',q:''};
 const cache=new Map();
 const jget=(k,d)=>{try{const v=ls.get(k);return v?JSON.parse(v):d}catch(e){return d}};
-let likes=jget('mu_likes',[]),hist=jget('mu_hist',[]);
+/* треки старой библиотеки (нецифровые id без файла) больше не играют — не тащим их из сохранённого */
+const okT=x=>x&&(x.src||/^\d+$/.test(String(x.id)));
+let likes=jget('mu_likes',[]).filter(okT),hist=jget('mu_hist',[]).filter(okT);
 const isLiked=id=>likes.some(x=>x.id===id);
 const cur=()=>Q[qi]||null;
 const fmt=s=>{s=Math.max(0,Math.round(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 const hue=id=>{let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))%360;return h};
 
 /* ---------- данные ---------- */
-async function fj(u){const ac=new AbortController(),tm=setTimeout(()=>ac.abort(),9000);try{const r=await fetch(u,{signal:ac.signal});if(!r.ok)throw new Error('http '+r.status);return await r.json()}finally{clearTimeout(tm)}}
-async function aj(path,p){
-  const qs=new URLSearchParams(Object.assign({},p,{app_name:APP})).toString(),k=path+'?'+qs,c=cache.get(k);
+async function aj(p){
+  const qs=new URLSearchParams(p).toString(),c=cache.get(qs);
   if(c&&Date.now()-c.t<300000)return c.d;
-  let d;
-  try{d=await fj(API+'/'+path+'?'+qs)}
-  catch(e){d=await api('/music/get?p='+encodeURIComponent(path)+'&'+new URLSearchParams(p).toString())}
-  const arr=(d&&d.data)||[];if(!Array.isArray(arr))throw new Error('Пустой ответ');
-  cache.set(k,{t:Date.now(),d:arr});if(cache.size>60)cache.delete(cache.keys().next().value);return arr}
-const playable=t=>t&&t.id&&t.is_streamable!==false&&!(t.access&&t.access.stream===false)&&!t.is_delete&&!t.is_unlisted;
-function norm(t){const ar=t.artwork||{};return{id:String(t.id),t:t.title||'Без названия',a:(t.user&&t.user.name)||'Неизвестный исполнитель',img:ar['480x480']||ar['150x150']||ar['1000x1000']||'',d:t.duration|0}}
-async function tracks(path,p){return (await aj(path,p)).filter(playable).map(norm)}
-const trending=(genre,limit)=>tracks('tracks/trending',Object.assign({time:'week',limit:limit||30},genre?{genre}:{}));
-const streamUrl=id=>API+'/tracks/'+encodeURIComponent(id)+'/stream?app_name='+APP;
+  const d=await api('/music/get?'+qs),arr=(d&&d.data)||[];if(!Array.isArray(arr))throw new Error('Пустой ответ');
+  cache.set(qs,{t:Date.now(),d:arr});if(cache.size>80)cache.delete(cache.keys().next().value);return arr}
+function norm(t){return{id:String(t.id),t:t.t||'Без названия',a:t.a||'Неизвестный исполнитель',img:t.img||'',d:t.d|0,u:t.u||''}}
+const tracks=async p=>(await aj(p)).filter(t=>t&&t.id).map(norm);
+/* русскоязычное (основное) и зарубежное (отдельная подборка); genre — тег Jamendo */
+const RU='ru',WORLD='en';
+const catalog=(lang,order,genre,limit,offset)=>tracks(Object.assign({lang,order,limit:limit||30,groupby:'artist_id'},genre?{tags:genre}:{},offset?{offset}:{}));
+const trending=(genre,limit,lang)=>catalog(lang||RU,'popularity_week',genre,limit);
 const fbUrl=id=>BASE+'/forum/api/music/stream?id='+encodeURIComponent(id);
 const shuffled=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 
@@ -3625,9 +3625,9 @@ const skel=n=>'<div class="mu-skel"></div>'.repeat(n||6);
 const uiOn=()=>{const a=$('#app');if(a)a.classList.add('mu-on')};
 function start(arr,i){wave=0;Q=arr.slice();playAt(i)}
 function playAt(i){
-  const t=Q[i];if(!t)return;qi=i;tryFb=t.src?1:0;uiOn();
+  const t=Q[i];if(!t)return;qi=i;tryFb=(t.src||!t.u)?1:0;uiOn();
   document.body.classList.add('mu-loading');
-  A.src=t.src||streamUrl(t.id);
+  A.src=t.src||t.u||fbUrl(t.id);
   const p=A.play();if(p&&p.catch)p.catch(e=>{if(e&&e.name==='NotAllowedError')paint()});
   hist=[t].concat(hist.filter(x=>x.id!==t.id)).slice(0,40);ls.set('mu_hist',JSON.stringify(hist));
   paint();session()}
@@ -3643,9 +3643,12 @@ function next(auto){
   playAt(n)}
 function prev(){if(A.currentTime>3){A.currentTime=0;return}playAt(qi>0?qi-1:(Q.length?Q.length-1:0))}
 async function loadWave(append){
-  const pool=GENRES.slice(1),g=pool[Math.floor(Math.random()*pool.length)][0];
+  const pool=GENRES,g=pool[Math.floor(Math.random()*pool.length)][0];
   document.body.classList.add('mu-loading');
-  try{const l=shuffled(await trending(g,40));if(!l.length)throw new Error('empty');
+  try{
+    let l=await catalog(RU,'popularity_month',g,40,Math.floor(Math.random()*3)*15);
+    if(l.length<5)l=await catalog(RU,'popularity_total','',40);
+    l=shuffled(l);if(!l.length)throw new Error('empty');
     if(append&&wave){Q=Q.concat(l);playAt(qi+1)}else{wave=1;Q=l;playAt(0)}}
   catch(e){document.body.classList.remove('mu-loading');toast('Не удалось загрузить «Мою волну»',1)}}
 function toggleLike(t){const i=likes.findIndex(x=>x.id===t.id);if(i>=0)likes.splice(i,1);else likes.unshift(t);likes=likes.slice(0,500);ls.set('mu_likes',JSON.stringify(likes));
@@ -3738,29 +3741,51 @@ function stop(){try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}ca
 /* ---------- экран «EXG Music» ---------- */
 function view(el){
   el.innerHTML=`<div class="mu">
-  <div class="mu-top"><button class="ib round" data-href="#/boards" aria-label="Назад">${IC.back}</button><span class="mu-logo">${MI.note}</span><div><h2>EXG <b>Music</b></h2><small>Бесплатная музыка без рекламы</small></div></div>
+  <div class="mu-top"><button class="ib round" data-href="#/boards" aria-label="Назад">${IC.back}</button><span class="mu-logo">${MI.note}</span><div><h2>EXG <b>Music</b></h2><small>Русская музыка без рекламы</small></div></div>
   <div class="mu-search">${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, жанр" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
-  <div class="mu-tabs" ${st.q?'hidden style="display:none"':''}>${[['home','Главное'],['likes','Любимое'],['hist','История']].map(([k,n])=>`<button class="tab ${st.tab===k?'on':''}" data-t="${k}">${n}</button>`).join('')}</div>
+  <div class="mu-tabs" ${st.q?'hidden style="display:none"':''}>${[['home','Главное'],['world','Зарубежное'],['likes','Любимое'],['hist','История']].map(([k,n])=>`<button class="tab ${st.tab===k?'on':''}" data-t="${k}">${n}</button>`).join('')}</div>
   <div id="muBody"></div>
-  <p class="mu-note">Музыку публикуют сами исполнители в открытой библиотеке Audius. Любимое и история хранятся на этом устройстве.</p></div>`;
+  <p class="mu-note">Музыку публикуют независимые исполнители на Jamendo (лицензии Creative Commons) — громких коммерческих хитов здесь нет. Любимое и история хранятся на этом устройстве.</p></div>`;
   const body=$('#muBody',el),inp=$('#muQ',el),x=$('.mu-x',el),tabs=$('.mu-tabs',el);
   let seq=0,timer=0;
   const fail=(msg,retry)=>{body.innerHTML=`<div class="empty">${msg}<br><br><button class="btn ghost" id="muRetry">Повторить</button></div>`;$('#muRetry',body).onclick=retry};
+  const chips=(cur_)=>`<div class="mu-chips">${GENRES.map(([k,n])=>`<button class="mu-chip ${cur_===k?'on':''}" data-g="${esc(k)}">${esc(n)}</button>`).join('')}</div>`;
+  const gname=g=>(GENRES.find(x=>x[0]===g)||[0,g])[1];
+  const bad=(box,retry)=>{box.innerHTML=`<div class="empty" style="padding:24px">Не удалось загрузить музыку.<br>Проверьте интернет<br><br><button class="btn ghost" id="muRetry">Повторить</button></div>`;$('#muRetry',box).onclick=retry};
+  /* дополнительная подборка: при пустом/неудачном ответе убираем заголовок вместе с блоком */
+  async function fill(my,id,fn){
+    const el=$('#'+id,body);if(!el)return;
+    const drop=()=>{if(el.previousElementSibling&&el.previousElementSibling.classList.contains('mu-h'))el.previousElementSibling.remove();el.remove()};
+    try{const l=await fn();if(my!==seq)return;if(l.length){el.innerHTML=listHtml(l);wire(el,l)}else drop()}catch(e){if(my===seq)drop()}}
   async function home(){
-    const my=++seq;
-    body.innerHTML=`<div class="mu-wave" id="muWave"><div class="bars"><i></i><i></i><i></i><i></i><i></i></div><b>Моя волна</b><span>Бесконечный микс из популярных треков недели</span><button class="go" aria-label="Включить">${MI.play}</button></div>
-    <div class="mu-chips">${GENRES.map(([k,n])=>`<button class="mu-chip ${st.genre===k?'on':''}" data-g="${esc(k)}">${esc(n)}</button>`).join('')}</div>
-    <div class="mu-h"><h3>${st.genre?'В тренде: '+esc((GENRES.find(g=>g[0]===st.genre)||[0,st.genre])[1]):'Сейчас в тренде'}</h3></div><div id="muTr">${skel(6)}</div>
-    ${st.genre?'':'<div class="mu-h"><h3>Новое и необычное</h3></div><div id="muUg"></div>'}`;
+    const my=++seq,g=st.genre;
+    body.innerHTML=`<div class="mu-wave" id="muWave"><div class="bars"><i></i><i></i><i></i><i></i><i></i></div><b>Моя волна</b><span>Бесконечный микс русских треков — популярное и новое</span><button class="go" aria-label="Включить">${MI.play}</button></div>
+    ${chips(g)}
+    <div class="mu-h"><h3>${g?'Русское в тренде: '+esc(gname(g)):'Русское — сейчас в тренде'}</h3></div><div id="muTr">${skel(6)}</div>
+    ${g?'':`<div class="mu-h"><h3>Новинки на русском</h3></div><div id="muNew"></div>
+    <div class="mu-h"><h3>Русское — лучшее за всё время</h3></div><div id="muTop"></div>
+    <div class="mu-h"><h3>Зарубежная подборка</h3><button class="btn sm ghost" id="muWorld">Все</button></div><div id="muWd"></div>`}`;
     $('#muWave',body).onclick=()=>{loadWave(false)};
     $$('.mu-chip',body).forEach(b=>b.onclick=()=>{st.genre=b.dataset.g;home()});
+    const w=$('#muWorld',body);if(w)w.onclick=()=>{st.tab='world';draw()};
     const tr=$('#muTr',body);
-    try{const l=await trending(st.genre,30);if(my!==seq)return;
+    try{let l=await trending(g,30);if(my!==seq)return;
+      if(l.length<5){const m=await catalog(RU,'popularity_total',g,30);if(my!==seq)return;if(m.length>l.length)l=m}
       if(!l.length){tr.innerHTML='<div class="empty" style="padding:24px">Здесь пока пусто</div>'}else{tr.innerHTML=listHtml(l);wire(tr,l)}}
-    catch(e){if(my===seq)tr.innerHTML=`<div class="empty" style="padding:24px">Не удалось загрузить музыку.<br>Проверьте интернет<br><br><button class="btn ghost" id="muRetry">Повторить</button></div>`,$('#muRetry',tr).onclick=home;return}
-    const ug=$('#muUg',body);
-    if(ug)try{const l=await tracks('tracks/trending/underground',{limit:15});if(my!==seq)return;if(l.length){ug.innerHTML=listHtml(l);wire(ug,l)}else{ug.previousElementSibling.remove()}}
-    catch(e){if(my===seq&&ug.previousElementSibling)ug.previousElementSibling.remove()}}
+    catch(e){if(my===seq)bad(tr,home);return}
+    if(g)return;
+    fill(my,'muNew',()=>catalog(RU,'releasedate_desc','',15));
+    fill(my,'muTop',()=>catalog(RU,'popularity_total','',15));
+    fill(my,'muWd',()=>trending('',10,WORLD))}
+  async function world(){
+    const my=++seq,g=st.wgenre||'';
+    body.innerHTML=`<div class="mu-h"><h3>Зарубежная подборка</h3></div>${chips(g)}<div id="muTr">${skel(6)}</div>`;
+    $$('.mu-chip',body).forEach(b=>b.onclick=()=>{st.wgenre=b.dataset.g;world()});
+    const tr=$('#muTr',body);
+    try{let l=await trending(g,30,WORLD);if(my!==seq)return;
+      if(l.length<5){const m=await catalog(WORLD,'popularity_total',g,30);if(my!==seq)return;if(m.length>l.length)l=m}
+      if(!l.length){tr.innerHTML='<div class="empty" style="padding:24px">Здесь пока пусто</div>'}else{tr.innerHTML=listHtml(l);wire(tr,l)}}
+    catch(e){if(my===seq)bad(tr,world)}}
   function collection(arr,empty,withBtns){
     if(!arr.length){body.innerHTML=emptyBox('music',empty);return}
     body.innerHTML=`${withBtns?`<div class="mu-h"><h3>${arr.length} ${arr.length%10===1&&arr.length%100!==11?'трек':(arr.length%10>=2&&arr.length%10<=4&&(arr.length%100<10||arr.length%100>=20)?'трека':'треков')}</h3><button class="btn sm" id="muAll">${MI.play}Слушать</button><button class="btn sm ghost" id="muSh">${MI.shuf}</button></div>`:'<div style="height:8px"></div>'}<div id="muLs"></div>`;
@@ -3768,7 +3793,7 @@ function view(el){
     if(withBtns){$('#muAll',body).onclick=()=>start(arr,0);$('#muSh',body).onclick=()=>start(shuffled(arr),0)}}
   async function search(q){
     const my=++seq;body.innerHTML=skel(7);
-    try{const l=await tracks('tracks/search',{query:q,limit:30});if(my!==seq)return;
+    try{const l=await tracks({search:q,order:'relevance',limit:30});if(my!==seq)return;
       if(!l.length){body.innerHTML=emptyBox('search','Ничего не нашлось по запросу «'+esc(q)+'»');return}
       body.innerHTML=`<div class="mu-h"><h3>Результаты</h3></div><div id="muLs"></div>`;const b=$('#muLs',body);b.innerHTML=listHtml(l);wire(b,l)}
     catch(e){if(my===seq)fail('Поиск не удался.<br>Проверьте интернет',()=>search(q))}}
@@ -3780,6 +3805,7 @@ function view(el){
     $$('.tab',tabs).forEach(b=>b.classList.toggle('on',b.dataset.t===st.tab));
     if(st.tab==='likes')collection(likes,'Отмечайте треки сердечком — они появятся здесь',true);
     else if(st.tab==='hist')collection(hist,'Вы пока ничего не слушали',false);
+    else if(st.tab==='world')world();
     else home()}
   $$('.tab',tabs).forEach(b=>b.onclick=()=>{st.tab=b.dataset.t;draw()});
   inp.oninput=()=>{st.q=inp.value;x.hidden=!st.q;clearTimeout(timer);timer=setTimeout(draw,450)};
@@ -3788,7 +3814,7 @@ function view(el){
   draw()}
 
 /* ---------- музыка в профиле ---------- */
-/* Трек профиля — файл, загруженный пользователем (src), либо трек из EXG Music (id Audius). Хранится на сервере: /forum/api/pmusic* */
+/* Трек профиля — файл, загруженный пользователем (src), либо трек из EXG Music (id Jamendo). Хранится на сервере: /forum/api/pmusic* */
 const pmT=x=>x.kind==='exg'?{id:x.ext,t:x.t,a:x.a,img:x.img||'',d:x.d|0,pid:x.id}:{id:'pf_'+x.id,t:x.t,a:x.a,img:x.img?BASE+x.img:'',d:x.d|0,src:BASE+x.src,pid:x.id};
 const pmAdd=t=>post_('/pmusic/add',{ext:t.id,title:t.t,artist:t.a,duration:t.d,img:t.img});
 async function addToProfile(t){
@@ -3860,7 +3886,7 @@ function editDlg(t){return new Promise(res=>{
 /* выбор трека из EXG Music: поиск, любимое, тренды; тап по строке — предпрослушивание, «+» — в профиль */
 function pickExg(have,onAdd){
   const bg=document.createElement('div');bg.className='sheet-bg pm-pk';
-  bg.innerHTML=`<div class="sheet pm-sheet"><div class="sh-m">Добавить из EXG Music</div><div class="mu-search" style="margin:0 6px">${IC.search}<input class="inp" type="search" placeholder="Трек, исполнитель, жанр" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div class="mu-tabs" style="padding:12px 6px 4px"><button class="tab on" data-t="likes">Любимое</button><button class="tab" data-t="trend">В тренде</button></div><div class="pm-pkl"></div></div>`;
+  bg.innerHTML=`<div class="sheet pm-sheet"><div class="sh-m">Добавить из EXG Music</div><div class="mu-search" style="margin:0 6px">${IC.search}<input class="inp" type="search" placeholder="Трек, исполнитель, жанр" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div class="mu-tabs" style="padding:12px 6px 4px"><button class="tab on" data-t="likes">Любимое</button><button class="tab" data-t="trend">Русское</button><button class="tab" data-t="world">Зарубежное</button></div><div class="pm-pkl"></div></div>`;
   document.body.appendChild(bg);
   const box=$('.pm-pkl',bg),inp=$('input',bg),tabs=$('.mu-tabs',bg);let tab=likes.some(x=>!x.src)?'likes':'trend',seq=0,timer=0,arr=[];
   const rowA=(t,i)=>`<div class="mu-row${cur()&&cur().id===t.id?' cur':''}" data-i="${i}" data-id="${esc(t.id)}">${cover(t)}<span class="mu-ti"><b>${esc(t.t)}</b><small>${esc(t.a)}</small></span><span class="mu-dur">${t.d?fmt(t.d):''}</span><button class="mu-lk pm-plus${have.has(t.id)?' done':''}" data-add="1" aria-label="Добавить в профиль">${have.has(t.id)?IC.check:IC.plus}</button></div>`;
@@ -3868,10 +3894,10 @@ function pickExg(have,onAdd){
   async function draw(){
     const my=++seq,q=inp.value.trim();tabs.style.display=q?'none':'';
     if(q.length===1)return;
-    if(q){box.innerHTML=skel(6);try{const l=(await tracks('tracks/search',{query:q,limit:25}));if(my===seq)show(l,'Ничего не нашлось по запросу «'+esc(q)+'»')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Поиск не удался. Проверьте интернет</div>'}return}
+    if(q){box.innerHTML=skel(6);try{const l=(await tracks({search:q,order:'relevance',limit:25}));if(my===seq)show(l,'Ничего не нашлось по запросу «'+esc(q)+'»')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Поиск не удался. Проверьте интернет</div>'}return}
     $$('.tab',tabs).forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
     if(tab==='likes'){show(likes.filter(x=>!x.src),'Отмечайте треки сердечком в EXG Music — они появятся здесь. Или найдите трек через поиск');return}
-    box.innerHTML=skel(6);try{const l=await trending('',30);if(my===seq)show(l,'Здесь пока пусто')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Не удалось загрузить музыку</div>'}}
+    box.innerHTML=skel(6);try{const l=await trending('',30,tab==='world'?WORLD:RU);if(my===seq)show(l,'Здесь пока пусто')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Не удалось загрузить музыку</div>'}}
   $$('.tab',tabs).forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw()});
   inp.oninput=()=>{clearTimeout(timer);timer=setTimeout(draw,450)};
   inp.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(timer);inp.blur();draw()}};
