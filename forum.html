@@ -584,6 +584,13 @@ a.exl{color:var(--acc);font-weight:600;text-decoration:none}
 
 /* кнопка в шапке не должна съедать заголовок на узких экранах */
 @media(max-width:430px){.chat-h{gap:4px;padding-left:8px;padding-right:8px}.chat-h .ib{width:38px;height:38px}}
+
+/* офлайн: полоска «Соединение…» сверху, пока нет связи с сервером */
+#netBar{position:fixed;left:0;right:0;top:0;z-index:9999;height:calc(26px + var(--safe-t));padding-top:var(--safe-t);display:none;align-items:center;justify-content:center;gap:8px;background:#1b1828;color:#d8d3f2;font-size:13px;font-weight:600;letter-spacing:.2px;border-bottom:1px solid var(--line)}
+#netBar i{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;animation:netSp .8s linear infinite}
+@keyframes netSp{to{transform:rotate(360deg)}}
+html.net-off #netBar{display:flex}
+html.net-off #app{padding-top:26px}
 /* ===== EXG Music ===== */
 #app.mu-on #view{padding-bottom:calc(158px + var(--safe-b))}
 #app.mu-on.mu-nonav #view{padding-bottom:calc(86px + var(--safe-b))}
@@ -606,15 +613,6 @@ a.exl{color:var(--acc);font-weight:600;text-decoration:none}
 .mu-chips::-webkit-scrollbar{display:none}
 .mu-chip{flex:none;height:32px;padding:0 14px;border-radius:16px;border:1px solid var(--line);background:var(--card);color:#c9c4e0;font-size:13px;font-weight:600}
 .mu-chip.on{background:var(--acc-soft);border-color:var(--acc);color:#fff}
-.mu-wave{position:relative;margin:12px 14px 4px;border-radius:26px;overflow:hidden;min-height:150px;padding:20px 18px;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;color:#fff;cursor:pointer;
-  background:radial-gradient(120% 120% at 100% 0,color-mix(in srgb,var(--acc) 85%,#fff) 0,transparent 55%),linear-gradient(135deg,color-mix(in srgb,var(--acc) 60%,#000),#0c0a14);border:1px solid var(--line2);box-shadow:0 22px 40px -24px var(--acc)}
-.mu-wave b{font-family:var(--serif);font-size:26px;font-weight:600;line-height:1.1}
-.mu-wave span{font-size:13.5px;opacity:.82;max-width:62%}
-.mu-wave .go{position:absolute;right:18px;bottom:18px;width:60px;height:60px;border-radius:50%;border:0;background:#fff;color:#14111f;display:grid;place-items:center;box-shadow:0 12px 26px -8px rgba(0,0,0,.6)}
-.mu-wave .go svg{width:28px;height:28px}
-.mu-wave .bars{position:absolute;right:18px;top:18px;display:flex;gap:3px;align-items:flex-end;height:26px}
-.mu-wave .bars i{width:4px;border-radius:2px;background:rgba(255,255,255,.75);height:30%;animation:muBar 1.1s ease-in-out infinite}
-.mu-wave .bars i:nth-child(2){animation-delay:.15s}.mu-wave .bars i:nth-child(3){animation-delay:.3s}.mu-wave .bars i:nth-child(4){animation-delay:.45s}.mu-wave .bars i:nth-child(5){animation-delay:.6s}
 @keyframes muBar{0%,100%{height:25%}50%{height:100%}}
 .mu-h{display:flex;align-items:center;gap:10px;margin:20px 16px 6px}
 .mu-h h3{margin:0;font-family:var(--serif);font-size:20px;font-weight:600;flex:1}
@@ -643,6 +641,79 @@ body.mu-playing .mu-row.cur .mu-cv .eq i{animation-play-state:running}
 .mu-note{color:var(--dim);font-size:12px;margin:18px 18px 0;text-align:center;line-height:1.5}
 .mu-skel{height:50px;margin:8px;border-radius:14px;background:linear-gradient(90deg,var(--card),var(--card2),var(--card));background-size:200% 100%;animation:muSk 1.2s linear infinite}
 @keyframes muSk{to{background-position:-200% 0}}
+/* ===== Редизайн: тёмное стекло, шёлковый фон, карточки-«рулетка» ===== */
+.mu{position:relative;isolation:isolate}
+.mu::before{content:"";position:absolute;left:0;right:0;top:0;height:720px;z-index:-1;pointer-events:none;
+  background:
+   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 720' preserveAspectRatio='none' fill='none' stroke='white'%3E%3Cpath d='M-20 150C70 60 150 250 250 140S380 70 430 170' stroke-opacity='.16' stroke-width='1.2'/%3E%3Cpath d='M-20 190C80 100 160 290 262 178S390 112 430 214' stroke-opacity='.11' stroke-width='1'/%3E%3Cpath d='M-20 235C90 150 170 330 272 222S396 158 430 258' stroke-opacity='.08' stroke-width='1'/%3E%3Cpath d='M-20 470C100 380 190 560 300 450S410 400 430 470' stroke-opacity='.1' stroke-width='1'/%3E%3Cpath d='M-20 520C110 430 200 610 310 500S418 452 430 520' stroke-opacity='.07' stroke-width='1'/%3E%3C/svg%3E") center top/100% 720px no-repeat,
+   radial-gradient(70% 38% at 85% 8%,color-mix(in srgb,var(--acc) 30%,transparent),transparent 70%),
+   radial-gradient(80% 30% at 8% 42%,rgba(255,255,255,.07),transparent 70%),
+   radial-gradient(90% 34% at 70% 66%,color-mix(in srgb,var(--acc) 16%,transparent),transparent 70%)}
+[data-theme=light] .mu::before{opacity:.5}
+.mu-top{padding-bottom:4px;position:relative;z-index:2}
+.mu-top .ib.round{width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.mu-top .mu-logo{width:58px;height:58px;border-radius:19px;color:#fff;background:linear-gradient(160deg,#d9d6e6,#6f6b82 60%,#4a4660);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 12px 26px -14px rgba(0,0,0,.9)}
+.mu-top .mu-logo svg{width:28px;height:28px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.mu-top h2{font-size:31px;font-weight:600;letter-spacing:.2px;color:var(--txt)}
+.mu-top h2 b{color:inherit;font-weight:600}
+.mu-top small{font-size:14px;color:color-mix(in srgb,var(--acc) 70%,var(--dim));margin-top:4px}
+.mu-search{margin:12px 14px 0}
+.mu-search input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+.mu-search input{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14)}
+/* рулетка */
+.mu-rl-w{--cw:clamp(172px,50vw,230px);--ch:calc(var(--cw)*.9);position:relative;height:calc(var(--ch) + 102px);margin-top:-14px}
+.mu-rl-w[hidden],.mu-dots[hidden]{display:none}
+.mu-rl{position:absolute;inset:0;z-index:1;display:flex;align-items:flex-start;gap:14px;padding:38px 0 0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+  perspective:1000px;perspective-origin:50% 40%;touch-action:pan-x pan-y}
+.mu-rl::-webkit-scrollbar{display:none}
+.mu-rl-sp{flex:none;width:calc(50% - var(--cw)/2);height:1px}
+.mu-cd{position:relative;flex:none;width:var(--cw);height:var(--ch);box-sizing:border-box;scroll-snap-align:center;border-radius:32px;color:#fff;text-align:center;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:18px 12px 14px;outline:0;-webkit-tap-highlight-color:transparent;will-change:transform,opacity;
+  background:linear-gradient(158deg,rgba(255,255,255,.22),rgba(255,255,255,.06) 42%,rgba(255,255,255,.1)),linear-gradient(180deg,#3a3650,#1a1726);
+  border:1px solid rgba(255,255,255,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -22px 40px -26px rgba(255,255,255,.25),0 26px 34px -22px rgba(0,0,0,.95)}
+.mu-cd::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(90% 55% at 22% 0,rgba(255,255,255,.28),transparent 62%);opacity:.55;transition:opacity .3s}
+.mu-cd.on{border-color:rgba(255,255,255,.4);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -22px 40px -22px rgba(255,255,255,.3),0 0 46px -8px color-mix(in srgb,var(--acc) 60%,transparent),0 28px 36px -22px rgba(0,0,0,.95)}
+.mu-cd.on::before{opacity:.9}
+.mu-cd:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.mu-cd .cd-ic{display:grid;place-items:center;height:36px;opacity:.92}
+.mu-cd .cd-ic svg{width:32px;height:32px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.4))}
+.mu-cd b{flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:600;font-size:25px;line-height:1.08;text-shadow:0 3px 16px rgba(0,0,0,.45);padding:0 2px;word-break:break-word}
+.mu-cd.big b{font-size:37px}
+.mu-cd .cd-bt{height:54px;display:grid;place-items:center;width:100%}
+.mu-cd .cd-bt small{font-size:12.5px;line-height:1.25;color:rgba(255,255,255,.66);max-width:90%}
+.mu-cd .cd-go{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(255,255,255,.75);background:rgba(8,6,16,.5);box-shadow:0 10px 22px -10px rgba(0,0,0,.8),inset 0 0 12px rgba(255,255,255,.1);transition:transform .2s,background .2s}
+.mu-cd .cd-go svg{width:24px;height:24px;margin-left:2px}
+.mu-cd .cd-go:active{transform:scale(.9);background:rgba(255,255,255,.2)}
+.mu-cd:not(.on) .cd-go{opacity:.55}
+/* подиум под центральной карточкой */
+.mu-pod{position:absolute;left:50%;bottom:6px;width:calc(var(--cw)*1.75);height:62px;transform:translateX(-50%);z-index:0;pointer-events:none;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,255,255,.2),rgba(255,255,255,.04) 70%,transparent);border:1px solid rgba(255,255,255,.22);box-shadow:0 0 36px -6px color-mix(in srgb,var(--acc) 55%,transparent),inset 0 0 22px rgba(255,255,255,.1)}
+.mu-pod::before,.mu-pod::after{content:"";position:absolute;border-radius:50%;border:1px solid rgba(255,255,255,.18)}
+.mu-pod::before{inset:9px 14%}
+.mu-pod::after{inset:-9px -7%;border-color:rgba(255,255,255,.08)}
+.mu-dots{display:flex;justify-content:center;align-items:center;gap:9px;margin:2px 0 0}
+.mu-dots button{width:9px;height:9px;padding:0;border:0;border-radius:5px;background:rgba(255,255,255,.28);transition:width .25s,background .25s,box-shadow .25s}
+.mu-dots button.on{width:20px;background:#fff;box-shadow:0 0 10px rgba(255,255,255,.65)}
+[data-theme=light] .mu-dots button{background:rgba(20,16,10,.22)}
+[data-theme=light] .mu-dots button.on{background:#1c1a22;box-shadow:none}
+/* жанры и списки в духе макета */
+.mu-chips{padding:22px 14px 2px}
+.mu-chip{height:42px;padding:0 20px;border-radius:21px;font-size:15px;font-weight:600;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#e6e2f5;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.mu-chip.on{background:rgba(255,255,255,.1);border:1.5px solid #fff;color:#fff;box-shadow:0 0 18px -4px rgba(255,255,255,.55),inset 0 0 14px rgba(255,255,255,.1)}
+[data-theme=light] .mu-chip{color:var(--txt)}
+[data-theme=light] .mu-chip.on{border-color:var(--txt);box-shadow:none}
+.mu-h{margin:26px 16px 8px}
+.mu-h h3{font-size:25px;font-weight:600;letter-spacing:.1px}
+.mu .mu-list .mu-ti small{color:color-mix(in srgb,var(--acc) 72%,var(--dim))}
+.mu .mu-cv{width:58px;height:58px;border-radius:14px}
+.mu .mu-row{gap:14px;padding:8px}
+.mu .mu-ti b{font-size:17px}
+.mu .mu-dur{font-size:15px}
+.mu .mu-lk{width:44px;height:44px;color:#c9c4e0}
+.mu .mu-lk svg{width:26px;height:26px}
+@media (prefers-reduced-motion:reduce){.mu-cd .cd-go{transition:none}.mu-dots button{transition:none}}
+@media (max-width:360px){.mu-cd.big b{font-size:32px}.mu-cd b{font-size:22px}}
+
 /* мини-плеер */
 #muMini{position:absolute;left:14px;right:14px;bottom:calc(76px + var(--safe-b));z-index:19;height:58px;border-radius:20px;display:none;align-items:center;gap:11px;padding:0 8px 0 7px;overflow:hidden;cursor:pointer;
   background:var(--solid);border:1px solid var(--line2);box-shadow:0 14px 30px -14px rgba(0,0,0,.85)}
@@ -1961,16 +2032,58 @@ const BADGE={
 };
 function tags(sb){return (sb||'').split('').map(c=>BADGE[c]||({b:'<span class="tag bad">BAD REP</span>',s:'<span class="tag bad">SCAM</span>'}[c]||'')).join('')}
 function av(u,cls=''){const l=esc((u.name||'?').trim().charAt(0).toUpperCase());return `<span class="av ${cls}" data-href="#/u/${u.id}">${l}${u.av?`<img data-bsrc="/forum/api/avatar/${u.id}${S.avv?'?v='+S.avv:''}" onerror="this.remove()" alt="">`:''}</span>`}
+/* ---------- офлайн: кэш ответов (IndexedDB) и состояние связи ----------
+   Пока сеть есть, каждый успешный GET копируется в кэш. Без сети экраны открываются из кэша (данные «как были»),
+   сверху горит «Соединение…», а как только сервер снова отвечает — экран обновляется. Отправка чего-либо без сети невозможна. */
+const DB=(()=>{let p=null;
+  const open=()=>p||(p=new Promise((res,rej)=>{try{const q=indexedDB.open('exg_cache',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)}catch(e){rej(e)}}));
+  const tx=(m,f)=>open().then(db=>new Promise((res,rej)=>{const t=db.transaction('kv',m),r=f(t.objectStore('kv'));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)}));
+  const trim=()=>tx('readwrite',s=>{const all=[],q=s.openCursor();q.onsuccess=()=>{const c=q.result;if(c){all.push([c.key,(c.value&&c.value.t)||0]);c.continue()}else if(all.length>400){all.sort((x,y)=>x[1]-y[1]).slice(0,120).forEach(x=>s.delete(x[0]))}};return q}).catch(()=>{});
+  let n=0;
+  return{get:k=>tx('readonly',s=>s.get(k)).catch(()=>null),set:(k,v)=>tx('readwrite',s=>s.put(v,k)).then(()=>{if(++n%60===0)trim()}).catch(()=>{}),clear:()=>tx('readwrite',s=>s.clear()).catch(()=>{})}})();
+const NET={off:false,stale:false,tm:0},DBW=new Map(),NOCACHE=/^\/(ping|auth\/|calls\/|music\/stream)/;
+{const bar=document.createElement('div');bar.id='netBar';bar.setAttribute('role','status');bar.innerHTML='<i></i>Соединение…';document.body.appendChild(bar)}
+const busyView=()=>/^#\/(c|g|new|edit|edit-profile)(\/|$)/.test(location.hash);
+function netSet(off){
+  if(NET.off===off)return;NET.off=off;document.documentElement.classList.toggle('net-off',off);
+  clearTimeout(NET.tm);
+  if(off)NET.tm=setTimeout(netProbe,3000);
+  else if(NET.stale){NET.stale=false;if(!busyView())render()}}
+async function netProbe(){
+  if(!NET.off)return;
+  try{const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);const r=await fetch(BASE+'/forum/api/boot',{signal:c.signal,cache:'no-store'});clearTimeout(t);if(r.ok){netSet(false);return}}catch(e){}
+  if(NET.off)NET.tm=setTimeout(netProbe,4000)}
+addEventListener('online',()=>{if(NET.off){clearTimeout(NET.tm);netProbe()}});
+addEventListener('offline',()=>netSet(true));
+if(navigator.onLine===false)netSet(true);
 async function api(path,o={}){const h={};if(S.token)h.Authorization='Bearer '+S.token;const opt={method:o.method||'GET',headers:h};if(o.form)opt.body=o.form;else if(o.body){h['Content-Type']='application/json';opt.body=JSON.stringify(o.body)}
-  let r;try{r=await fetch(BASE+'/forum/api'+path,opt)}catch(e){throw new Error('Нет соединения. Проверьте интернет')}
+  const get=opt.method==='GET',key=get&&!NOCACHE.test(path)?(S.token||'').slice(-8)+path:'';
+  const cached=async()=>{const c=key&&await DB.get(key);if(c&&c.d!==undefined){NET.stale=true;return c}return null};
+  if(key&&navigator.onLine===false){const c=await cached();if(c){netSet(true);return c.d}}
+  let r,ctl,tm;
+  try{if(get&&typeof AbortController==='function'){ctl=new AbortController();opt.signal=ctl.signal;tm=setTimeout(()=>ctl.abort(),/music\/search/.test(path)?30000:18000)}
+    r=await fetch(BASE+'/forum/api'+path,opt);clearTimeout(tm)}
+  catch(e){clearTimeout(tm);netSet(true);const c=await cached();if(c)return c.d;throw new Error('Нет соединения. Проверьте интернет')}
+  netSet(false);
   let d={};try{d=await r.json()}catch(e){}
   if(r.status===401&&S.token){logout(true);throw new Error('Нужно войти заново')}
-  if(!r.ok){const er=new Error(d.message||d.error||('Ошибка '+r.status));er.code=d.error;throw er}return d}
+  if(!r.ok){const er=new Error(d.message||d.error||('Ошибка '+r.status));er.code=d.error;throw er}
+  if(key&&Date.now()-(DBW.get(key)||0)>15000){DBW.set(key,Date.now());if(DBW.size>600)DBW.delete(DBW.keys().next().value);DB.set(key,{d,t:Date.now()})}
+  return d}
 const post_=(p,b)=>api(p,{method:'POST',body:b||{}});
 /* Медиа грузим через fetch и показываем как blob: — адрес сервера не попадает в разметку (src, href, фон) */
+/* медиа: успешно загруженное (до 8 МБ) копируем в Cache Storage — без сети картинки и голосовые открываются оттуда */
+const MC=typeof caches!=='undefined'?caches.open('exg-media-v1').catch(()=>null):Promise.resolve(null);
+let mcN=0;
+async function mediaGet(url){
+  try{const r=await fetch(url);if(!r.ok)throw new Error('http');const b=await r.blob();netSet(false);
+    if(b.size<8e6)MC.then(async c=>{if(!c)return;await c.put(url,new Response(b,{headers:{'Content-Type':b.type}}));
+      if(++mcN%40===0){const ks=await c.keys();if(ks.length>350)for(const k of ks.slice(0,100))c.delete(k)}}).catch(()=>{});
+    return b}
+  catch(e){const c=await MC,m=c&&await c.match(url);if(m)return m.blob();throw e}}
 const BLOBS=new Map(),BTYPE=new Map();
 function blobOf(path){let p=BLOBS.get(path);
-  if(!p){p=fetch(BASE+path).then(r=>{if(!r.ok)throw new Error('http');return r.blob()}).then(b=>{const u=URL.createObjectURL(b);BTYPE.set(u,b.type);return u});BLOBS.set(path,p);p.catch(()=>BLOBS.delete(path));
+  if(!p){p=mediaGet(BASE+path).then(b=>{const u=URL.createObjectURL(b);BTYPE.set(u,b.type);return u});BLOBS.set(path,p);p.catch(()=>BLOBS.delete(path));
     if(BLOBS.size>250)BLOBS.delete(BLOBS.keys().next().value)}
   return p}
 /* видео-стикер (WebM): сервер отдаёт его по тому же адресу, что и картинку, поэтому <img> подменяем на зацикленное беззвучное <video>;
@@ -1999,7 +2112,7 @@ const PAL=['#9d92e6','#4cd6a0','#4aa8ff','#ff6fae','#ffb454','#ff6b7a','#b0b0c0'
 function applyTheme(){const t=ls.get('theme')||'dark';document.documentElement.dataset.theme=t;let a=ls.get('acc')||(S.me&&/^#[0-9a-f]{6}$/i.test(S.me.accent||'')?S.me.accent:'#9d92e6');document.documentElement.style.setProperty('--acc',a);const m=a.match(/\w\w/g).map(x=>parseInt(x,16));document.documentElement.style.setProperty('--acc-soft',`rgba(${m[0]},${m[1]},${m[2]},.16)`);const mt=$('meta[name=theme-color]');if(mt)mt.content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#050409'}
 
 /* ---------- авторизация ---------- */
-function logout(silent){if(!silent)api('/auth/logout',{method:'POST'}).catch(()=>{});S.token='';S.me=null;ls.del('token');location.hash='#/login';render()}
+function logout(silent){DB.clear();MC.then(c=>c&&caches.delete('exg-media-v1')).catch(()=>{});if(!silent)api('/auth/logout',{method:'POST'}).catch(()=>{});S.token='';S.me=null;ls.del('token');location.hash='#/login';render()}
 let pollT=null;
 async function viewLogin(el){
   if(!BASE){el.innerHTML=`<div class="login"><div class="logo">KMBP <b>FORUM</b></div><p style="color:var(--dim);max-width:320px">Приложение собрано неправильно. Скачайте актуальную версию и установите её заново.</p></div>`;return}
@@ -3718,13 +3831,17 @@ const MI={
  rep1:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10l1-.7V14"/>'),
  wave:I('<path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4"/>'),
  lyr:I('<path d="M4 6h16M4 12h10M4 18h14"/>'),
- moon:I('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>')
+ moon:I('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'),
+ eq:I('<path d="M5 14v4M9 9v9M13 4v14M17 8v10M21 11v4" stroke-width="2.6"/>'),
+ mic:I('<rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/><path d="M12 6h.01" stroke-width="3"/>'),
+ globe:I('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9S14.6 18.4 12 21c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3z"/>'),
+ clock:I('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>')
 };
 IC.music=MI.note;IC.moon=MI.moon;
 const A=new Audio();A.preload='auto';
 let Q=[],qi=-1,shuf=0,rep=0,wave=0,tryFb=0,fails=0,sessionSet=0;
 const st={tab:'home',genre:'',q:'',artist:null,ahist:[]};
-let redraw=null;
+let redraw=null,subsFn=null;
 const cache=new Map();
 const jget=(k,d)=>{try{const v=ls.get(k);return v?JSON.parse(v):d}catch(e){return d}};
 /* треки старой библиотеки (нецифровые id без файла) больше не играют — не тащим их из сохранённого */
@@ -3781,7 +3898,7 @@ function playAt(i){
   document.body.classList.add('mu-loading');
   A.src=t.src||t.u||fbUrl(t.id);
   const p=A.play();if(p&&p.catch)p.catch(e=>{if(e&&e.name==='NotAllowedError')paint()});
-  hist=[t].concat(hist.filter(x=>x.id!==t.id)).slice(0,40);ls.set('mu_hist',JSON.stringify(hist));
+  hist=[t].concat(hist.filter(x=>x.id!==t.id)).slice(0,40);ls.set('mu_hist',JSON.stringify(hist));if(subsFn)subsFn();
   paint();session()}
 function toggle(){if(qi<0)return;if(A.paused){const p=A.play();if(p&&p.catch)p.catch(()=>{})}else A.pause()}
 function next(auto){
@@ -3803,7 +3920,7 @@ async function loadWave(append){
     l=shuffled(l);if(!l.length)throw new Error('empty');
     if(append&&wave){Q=Q.concat(l);playAt(qi+1)}else{wave=1;Q=l;playAt(0)}}
   catch(e){document.body.classList.remove('mu-loading');toast('Не удалось загрузить «Мою волну»',1)}}
-function toggleLike(t){const i=likes.findIndex(x=>x.id===t.id);if(i>=0)likes.splice(i,1);else likes.unshift(t);likes=likes.slice(0,500);ls.set('mu_likes',JSON.stringify(likes));
+function toggleLike(t){const i=likes.findIndex(x=>x.id===t.id);if(i>=0)likes.splice(i,1);else likes.unshift(t);likes=likes.slice(0,500);ls.set('mu_likes',JSON.stringify(likes));if(subsFn)subsFn();
   $$('.mu-row').forEach(r=>{if(r.dataset.id===t.id){const b=$('.mu-lk',r);if(b)b.classList.toggle('on',isLiked(t.id))}});paint();
   toast(i>=0?'Убрано из любимого':'Добавлено в любимое')}
 function session(){
@@ -4012,16 +4129,32 @@ function paint(){
 function stop(){lyReset();slpClear();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;
   const a=$('#app');if(a)a.classList.remove('mu-on');document.body.classList.remove('mu-playing','mu-loading')}
 
+/* карточки-«рулетка» вместо поиска и вкладок: тап по боковой — докрутить, по кнопке на центральной — включить */
+const CARDS=[
+ {k:'karaoke',tab:'karaoke',t:'Караоке 2007',ic:'mic',pl:1,q:'караоке хиты 2007 русские',fb:'popularity_total'},
+ {k:'wave',tab:'home',t:'Моя волна',ic:'eq',pl:1,big:1},
+ {k:'nostalg',tab:'nostalg',t:'Ностальгия 2010-х',ic:'eq',pl:1,q:'русские хиты 2010-х ностальгия',fb:'popularity_month'},
+ {k:'world',tab:'world',t:'Зарубежное',ic:'globe',sub:'Хиты со всего мира'},
+ {k:'likes',tab:'likes',t:'Любимое',ic:'heart'},
+ {k:'hist',tab:'hist',t:'История',ic:'clock'},
+ {k:'search',tab:'search',t:'Поиск',ic:'search',sub:'Трек, исполнитель, текст'}];
+const cardOf=tab=>Math.max(0,CARDS.findIndex(c=>c.tab===tab));
+const plural=n=>n%10===1&&n%100!==11?'трек':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'трека':'треков');
+const subTxt=c=>c.k==='likes'?(likes.length?likes.length+' '+plural(likes.length):'Отмечайте сердечком'):c.k==='hist'?(hist.length?hist.length+' '+plural(hist.length):'Пока пусто'):(c.sub||'');
+const plMemo=new Map();
+
 /* ---------- экран «EXG Music» ---------- */
 function view(el){
   if(!st.go){st.artist=null;st.ahist=[]}st.go=0;
+  const cardHtml=(c,i)=>`<div class="mu-cd${c.big?' big':''}" data-i="${i}" data-k="${c.k}" role="button" tabindex="0" aria-label="${esc(c.t)}"><span class="cd-ic">${MI[c.ic]||IC[c.ic]}</span><b>${esc(c.t)}</b><span class="cd-bt">${c.pl?`<span class="cd-go" data-go="1" role="button" aria-label="Включить">${MI.play}</span>`:`<small data-sub="${c.k}">${esc(subTxt(c))}</small>`}</span></div>`;
   el.innerHTML=`<div class="mu">
   <div class="mu-top"><button class="ib round" data-href="#/boards" aria-label="Назад">${IC.back}</button><span class="mu-logo">${MI.note}</span><div><h2>EXG <b>Music</b></h2><small>Русская музыка без рекламы</small></div></div>
-  <div class="mu-search">${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, текст песни" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
-  <div class="mu-tabs" ${st.q?'hidden style="display:none"':''}>${[['home','Главное'],['world','Зарубежное'],['likes','Любимое'],['hist','История']].map(([k,n])=>`<button class="tab ${st.tab===k?'on':''}" data-t="${k}">${n}</button>`).join('')}</div>
+  <div class="mu-search" ${st.q||st.tab==='search'?'':'hidden'}>${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, текст песни" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
+  <div class="mu-rl-w" id="muRlw"><div class="mu-pod"></div><div class="mu-rl" id="muRl"><span class="mu-rl-sp"></span>${CARDS.map(cardHtml).join('')}<span class="mu-rl-sp"></span></div></div>
+  <div class="mu-dots" id="muDots">${CARDS.map((c,i)=>`<button data-i="${i}" aria-label="${esc(c.t)}"></button>`).join('')}</div>
   <div id="muBody"></div>
   <p class="mu-note">Каталог — Яндекс Музыка, запасной — Jamendo (независимые исполнители). Полные треки зависят от подписки аккаунта сервера. Любимое и история хранятся на этом устройстве.</p></div>`;
-  const body=$('#muBody',el),inp=$('#muQ',el),x=$('.mu-x',el),tabs=$('.mu-tabs',el);
+  const body=$('#muBody',el),inp=$('#muQ',el),x=$('.mu-x',el),sb=$('.mu-search',el),rlw=$('#muRlw',el),rl=$('#muRl',el),dots=$('#muDots',el);
   let seq=0,timer=0;
   const fail=(msg,retry)=>{body.innerHTML=`<div class="empty">${msg}<br><br><button class="btn ghost" id="muRetry">Повторить</button></div>`;$('#muRetry',body).onclick=retry};
   const chips=(cur_)=>`<div class="mu-chips">${GENRES.map(([k,n])=>`<button class="mu-chip ${cur_===k?'on':''}" data-g="${esc(k)}">${esc(n)}</button>`).join('')}</div>`;
@@ -4034,15 +4167,13 @@ function view(el){
     try{const l=await fn();if(my!==seq)return;if(l.length){el.innerHTML=listHtml(l);wire(el,l)}else drop()}catch(e){if(my===seq)drop()}}
   async function home(){
     const my=++seq,g=st.genre;
-    body.innerHTML=`<div class="mu-wave" id="muWave"><div class="bars"><i></i><i></i><i></i><i></i><i></i></div><b>Моя волна</b><span>Бесконечный микс русских треков — популярное и новое</span><button class="go" aria-label="Включить">${MI.play}</button></div>
-    ${chips(g)}
+    body.innerHTML=`${chips(g)}
     <div class="mu-h"><h3>${g?'Русское в тренде: '+esc(gname(g)):'Русское — сейчас в тренде'}</h3></div><div id="muTr">${skel(6)}</div>
     ${g?'':`<div class="mu-h"><h3>Новинки на русском</h3></div><div id="muNew"></div>
     <div class="mu-h"><h3>Русское — лучшее за всё время</h3></div><div id="muTop"></div>
     <div class="mu-h"><h3>Зарубежная подборка</h3><button class="btn sm ghost" id="muWorld">Все</button></div><div id="muWd"></div>`}`;
-    $('#muWave',body).onclick=()=>{loadWave(false)};
     $$('.mu-chip',body).forEach(b=>b.onclick=()=>{st.genre=b.dataset.g;home()});
-    const w=$('#muWorld',body);if(w)w.onclick=()=>{st.tab='world';draw()};
+    const w=$('#muWorld',body);if(w)w.onclick=()=>goCard(cardOf('world'));
     const tr=$('#muTr',body);
     try{let l=await ymOr(g?{k:'search',q:GQ[g]||g}:{k:'chart',c:'russia'},()=>trending(g,30));if(my!==seq)return;
       if(l.length<5){const m=await catalog(RU,'popularity_total',g,30);if(my!==seq)return;if(m.length>l.length)l=m}
@@ -4061,6 +4192,25 @@ function view(el){
       if(l.length<5){const m=await catalog(WORLD,'popularity_total',g,30);if(my!==seq)return;if(m.length>l.length)l=m}
       if(!l.length){tr.innerHTML='<div class="empty" style="padding:24px">Здесь пока пусто</div>'}else{tr.innerHTML=listHtml(l);wire(tr,l)}}
     catch(e){if(my===seq)bad(tr,world)}}
+  /* подборки-карточки «Караоке 2007», «Ностальгия 2010-х»: поиск по Яндексу, запасной — каталог Jamendo */
+  const plData=c=>{let p=plMemo.get(c.k);if(p&&Date.now()-p.t<600000)return p.p;
+    p={t:Date.now(),p:ymOr({k:'search',q:c.q,limit:40},()=>catalog(RU,c.fb,'',40))};plMemo.set(c.k,p);p.p.catch(()=>plMemo.delete(c.k));return p.p};
+  async function plist(c){
+    const my=++seq;
+    body.innerHTML=`<div class="mu-h"><h3>${esc(c.t)}</h3><button class="btn sm" id="muAll" hidden>${MI.play}Слушать</button><button class="btn sm ghost" id="muSh" hidden>${MI.shuf}</button></div><div id="muLs">${skel(7)}</div>`;
+    const ls_=$('#muLs',body);
+    try{const l=await plData(c);if(my!==seq)return;
+      if(!l.length){ls_.innerHTML='<div class="empty" style="padding:24px">Здесь пока пусто</div>';return}
+      ls_.innerHTML=listHtml(l);wire(ls_,l);
+      const a=$('#muAll',body),h=$('#muSh',body);a.hidden=h.hidden=false;a.onclick=()=>start(l,0);h.onclick=()=>start(shuffled(l),0)}
+    catch(e){if(my===seq)bad(ls_,()=>plist(c))}}
+  async function playCard(c){
+    if(c.k==='wave'){loadWave(false);return}
+    if(!c.q)return;
+    document.body.classList.add('mu-loading');
+    try{const l=await plData(c);document.body.classList.remove('mu-loading');
+      if(l.length)start(shuffled(l),0);else toast('Подборка пока пустая',1)}
+    catch(e){document.body.classList.remove('mu-loading');toast('Не удалось загрузить подборку',1)}}
   function collection(arr,empty,withBtns){
     if(!arr.length){body.innerHTML=emptyBox('music',empty);return}
     body.innerHTML=`${withBtns?`<div class="mu-h"><h3>${arr.length} ${arr.length%10===1&&arr.length%100!==11?'трек':(arr.length%10>=2&&arr.length%10<=4&&(arr.length%100<10||arr.length%100>=20)?'трека':'треков')}</h3><button class="btn sm" id="muAll">${MI.play}Слушать</button><button class="btn sm ghost" id="muSh">${MI.shuf}</button></div>`:'<div style="height:8px"></div>'}<div id="muLs"></div>`;
@@ -4129,20 +4279,71 @@ function view(el){
     const vw=$('#view');if(vw)vw.scrollTop=0}
   function artistBack(){st.artist=st.ahist.pop()||null;draw()}
   function draw(){
-    const q=st.q.trim();
-    tabs.hidden=!!q||!!st.artist;tabs.style.display=(q||st.artist)?'none':'';x.hidden=!st.q;
+    const q=st.q.trim(),art=!!st.artist,srch=st.tab==='search'||!!st.q;
+    rlw.hidden=dots.hidden=art;sb.hidden=!srch||art;x.hidden=!st.q;
+    if(!art)requestAnimationFrame(()=>fit());
     if(q.length>=2)return search(q);
     if(q){body.innerHTML='';return}
-    if(st.artist)return artistPage(st.artist);
-    $$('.tab',tabs).forEach(b=>b.classList.toggle('on',b.dataset.t===st.tab));
-    if(st.tab==='likes')collection(likes,'Отмечайте треки сердечком — они появятся здесь',true);
+    if(art)return artistPage(st.artist);
+    if(st.tab==='search'){seq++;body.innerHTML=`<div class="empty" style="padding:28px 24px">Введите название трека, исполнителя<br>или строчку из песни</div>`;return}
+    const pc=CARDS.find(c=>c.tab===st.tab&&c.q);
+    if(pc)plist(pc);
+    else if(st.tab==='likes')collection(likes,'Отмечайте треки сердечком — они появятся здесь',true);
     else if(st.tab==='hist')collection(hist,'Вы пока ничего не слушали',false);
     else if(st.tab==='world')world();
     else home()}
-  $$('.tab',tabs).forEach(b=>b.onclick=()=>{st.tab=b.dataset.t;st.artist=null;st.ahist=[];draw()});
+  /* ---- рулетка: карточки едут по дуге, центральная крупная, боковые наклонены и уходят вглубь ---- */
+  let geo=[],cw=0,curI=cardOf(st.tab),raf2=0,stTm=0,lastI=-1;
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const cds=()=>$$('.mu-cd',rl);
+  function measure(){
+    const cs=cds();if(!cs.length||!rl.clientWidth)return false;
+    cw=cs[0].offsetWidth;const pad=Math.max(0,(rl.clientWidth-cw)/2);
+    $$('.mu-rl-sp',rl).forEach(e=>e.style.width=pad+'px');
+    geo=cs.map(c=>c.offsetLeft+c.offsetWidth/2);return true}
+  const posOf=i=>geo[i]-rl.clientWidth/2;
+  function paintCards(){
+    raf2=0;if(!geo.length)return;
+    const mid=rl.scrollLeft+rl.clientWidth/2,step=cw+14,cs=cds();let best=0,bd=1e9;
+    cs.forEach((c,i)=>{
+      const d=(geo[i]-mid)/step,ad=Math.abs(d);if(ad<bd){bd=ad;best=i}
+      const rot=clamp(-d*44,-64,64),sc=1-Math.min(ad,2)*.15,tx=-Math.sign(d)*Math.min(ad,2.2)*step*.25,ty=Math.min(ad,2.5)*Math.min(ad,2.5)*5;
+      c.style.transform=`translate3d(${tx.toFixed(1)}px,${ty.toFixed(1)}px,${(-Math.min(ad,2.5)*80).toFixed(0)}px) rotateY(${rot.toFixed(1)}deg) scale(${sc.toFixed(3)})`;
+      c.style.opacity=(1-Math.min(ad,2.2)*.21).toFixed(2);c.style.zIndex=100-Math.round(ad*10);
+      const on=ad<.5;if(on!==c.classList.contains('on'))c.classList.toggle('on',on)});
+    if(best!==lastI){if(lastI>=0){try{navigator.vibrate&&navigator.vibrate(5)}catch(e){}}lastI=best;
+      $$('button',dots).forEach((b,i)=>b.classList.toggle('on',i===best))}}
+  const schedule=()=>{if(!raf2)raf2=requestAnimationFrame(paintCards)};
+  function fit(){
+    if(rlw.hidden||!measure())return;
+    rl.scrollTo({left:posOf(curI),behavior:'auto'});paintCards()}
+  function goCard(i){if(!geo.length)measure();rl.scrollTo({left:posOf(i),behavior:'smooth'})}
+  /* когда прокрутка остановилась — открываем раздел центральной карточки */
+  function settle(){
+    if(rlw.hidden||!geo.length)return;
+    const mid=rl.scrollLeft+rl.clientWidth/2;let i=0,bd=1e9;geo.forEach((g,k)=>{const d=Math.abs(g-mid);if(d<bd){bd=d;i=k}});
+    if(i===curI)return;
+    curI=i;const c=CARDS[i];
+    if(st.q&&c.k!=='search'){st.q='';inp.value=''}
+    st.tab=c.tab;st.artist=null;st.ahist=[];draw();
+    if(c.k==='search')setTimeout(()=>{try{inp.focus({preventScroll:true})}catch(e){}},250)}
+  rl.addEventListener('scroll',()=>{schedule();clearTimeout(stTm);stTm=setTimeout(settle,140)},{passive:true});
+  rl.onclick=e=>{const c=e.target.closest('.mu-cd');if(!c)return;const i=+c.dataset.i;
+    if(i!==curI&&!c.classList.contains('on')){goCard(i);return}
+    if(e.target.closest('[data-go]'))playCard(CARDS[i])};
+  rl.onkeydown=e=>{const c=e.target.closest('.mu-cd');if(!c)return;
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();c.click()}
+    else if(e.key==='ArrowRight'&&curI<CARDS.length-1){e.preventDefault();goCard(curI+1)}
+    else if(e.key==='ArrowLeft'&&curI>0){e.preventDefault();goCard(curI-1)}};
+  dots.onclick=e=>{const b=e.target.closest('button[data-i]');if(b)goCard(+b.dataset.i)};
+  /* карточка может быть ещё не в документе (экран собирается заранее) — ждём, пока появится ширина */
+  let tries=0;const init=()=>{if(measure()){fit();if('ResizeObserver' in window)new ResizeObserver(()=>{if(measure())fit()}).observe(rl)}else if(++tries<90)requestAnimationFrame(init)};init();
+  /* счётчики на карточках «Любимое»/«История» */
+  const subs=()=>CARDS.forEach(c=>{const n=$('[data-sub="'+c.k+'"]',rl);if(n)n.textContent=subTxt(c)});
   inp.oninput=()=>{st.q=inp.value;x.hidden=!st.q;clearTimeout(timer);timer=setTimeout(draw,450)};
   inp.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(timer);inp.blur();draw()}};
   x.onclick=()=>{st.q='';inp.value='';clearTimeout(timer);draw()};
+  subsFn=subs;
   redraw=draw;draw()}
 
 /* ---------- исполнитель: открыть карточку откуда угодно (список, полный плеер) ---------- */

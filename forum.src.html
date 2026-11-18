@@ -340,6 +340,13 @@ button.mf{border:0;background:none;padding:0;font:inherit;text-align:left;width:
 {{inc:editor/editor.css}}
 {{inc:groups/groups.css}}
 {{inc:chatstyle/chatstyle.css}}
+
+/* офлайн: полоска «Соединение…» сверху, пока нет связи с сервером */
+#netBar{position:fixed;left:0;right:0;top:0;z-index:9999;height:calc(26px + var(--safe-t));padding-top:var(--safe-t);display:none;align-items:center;justify-content:center;gap:8px;background:#1b1828;color:#d8d3f2;font-size:13px;font-weight:600;letter-spacing:.2px;border-bottom:1px solid var(--line)}
+#netBar i{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;animation:netSp .8s linear infinite}
+@keyframes netSp{to{transform:rotate(360deg)}}
+html.net-off #netBar{display:flex}
+html.net-off #app{padding-top:26px}
 {{inc:music/music.css}}
 .supbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px;color:var(--dim)}
 
@@ -1424,16 +1431,58 @@ const BADGE={
 };
 function tags(sb){return (sb||'').split('').map(c=>BADGE[c]||({b:'<span class="tag bad">BAD REP</span>',s:'<span class="tag bad">SCAM</span>'}[c]||'')).join('')}
 function av(u,cls=''){const l=esc((u.name||'?').trim().charAt(0).toUpperCase());return `<span class="av ${cls}" data-href="#/u/${u.id}">${l}${u.av?`<img data-bsrc="/forum/api/avatar/${u.id}${S.avv?'?v='+S.avv:''}" onerror="this.remove()" alt="">`:''}</span>`}
+/* ---------- офлайн: кэш ответов (IndexedDB) и состояние связи ----------
+   Пока сеть есть, каждый успешный GET копируется в кэш. Без сети экраны открываются из кэша (данные «как были»),
+   сверху горит «Соединение…», а как только сервер снова отвечает — экран обновляется. Отправка чего-либо без сети невозможна. */
+const DB=(()=>{let p=null;
+  const open=()=>p||(p=new Promise((res,rej)=>{try{const q=indexedDB.open('exg_cache',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)}catch(e){rej(e)}}));
+  const tx=(m,f)=>open().then(db=>new Promise((res,rej)=>{const t=db.transaction('kv',m),r=f(t.objectStore('kv'));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error)}));
+  const trim=()=>tx('readwrite',s=>{const all=[],q=s.openCursor();q.onsuccess=()=>{const c=q.result;if(c){all.push([c.key,(c.value&&c.value.t)||0]);c.continue()}else if(all.length>400){all.sort((x,y)=>x[1]-y[1]).slice(0,120).forEach(x=>s.delete(x[0]))}};return q}).catch(()=>{});
+  let n=0;
+  return{get:k=>tx('readonly',s=>s.get(k)).catch(()=>null),set:(k,v)=>tx('readwrite',s=>s.put(v,k)).then(()=>{if(++n%60===0)trim()}).catch(()=>{}),clear:()=>tx('readwrite',s=>s.clear()).catch(()=>{})}})();
+const NET={off:false,stale:false,tm:0},DBW=new Map(),NOCACHE=/^\/(ping|auth\/|calls\/|music\/stream)/;
+{const bar=document.createElement('div');bar.id='netBar';bar.setAttribute('role','status');bar.innerHTML='<i></i>Соединение…';document.body.appendChild(bar)}
+const busyView=()=>/^#\/(c|g|new|edit|edit-profile)(\/|$)/.test(location.hash);
+function netSet(off){
+  if(NET.off===off)return;NET.off=off;document.documentElement.classList.toggle('net-off',off);
+  clearTimeout(NET.tm);
+  if(off)NET.tm=setTimeout(netProbe,3000);
+  else if(NET.stale){NET.stale=false;if(!busyView())render()}}
+async function netProbe(){
+  if(!NET.off)return;
+  try{const c=new AbortController(),t=setTimeout(()=>c.abort(),8000);const r=await fetch(BASE+'/forum/api/boot',{signal:c.signal,cache:'no-store'});clearTimeout(t);if(r.ok){netSet(false);return}}catch(e){}
+  if(NET.off)NET.tm=setTimeout(netProbe,4000)}
+addEventListener('online',()=>{if(NET.off){clearTimeout(NET.tm);netProbe()}});
+addEventListener('offline',()=>netSet(true));
+if(navigator.onLine===false)netSet(true);
 async function api(path,o={}){const h={};if(S.token)h.Authorization='Bearer '+S.token;const opt={method:o.method||'GET',headers:h};if(o.form)opt.body=o.form;else if(o.body){h['Content-Type']='application/json';opt.body=JSON.stringify(o.body)}
-  let r;try{r=await fetch(BASE+'/forum/api'+path,opt)}catch(e){throw new Error('Нет соединения. Проверьте интернет')}
+  const get=opt.method==='GET',key=get&&!NOCACHE.test(path)?(S.token||'').slice(-8)+path:'';
+  const cached=async()=>{const c=key&&await DB.get(key);if(c&&c.d!==undefined){NET.stale=true;return c}return null};
+  if(key&&navigator.onLine===false){const c=await cached();if(c){netSet(true);return c.d}}
+  let r,ctl,tm;
+  try{if(get&&typeof AbortController==='function'){ctl=new AbortController();opt.signal=ctl.signal;tm=setTimeout(()=>ctl.abort(),/music\/search/.test(path)?30000:18000)}
+    r=await fetch(BASE+'/forum/api'+path,opt);clearTimeout(tm)}
+  catch(e){clearTimeout(tm);netSet(true);const c=await cached();if(c)return c.d;throw new Error('Нет соединения. Проверьте интернет')}
+  netSet(false);
   let d={};try{d=await r.json()}catch(e){}
   if(r.status===401&&S.token){logout(true);throw new Error('Нужно войти заново')}
-  if(!r.ok){const er=new Error(d.message||d.error||('Ошибка '+r.status));er.code=d.error;throw er}return d}
+  if(!r.ok){const er=new Error(d.message||d.error||('Ошибка '+r.status));er.code=d.error;throw er}
+  if(key&&Date.now()-(DBW.get(key)||0)>15000){DBW.set(key,Date.now());if(DBW.size>600)DBW.delete(DBW.keys().next().value);DB.set(key,{d,t:Date.now()})}
+  return d}
 const post_=(p,b)=>api(p,{method:'POST',body:b||{}});
 /* Медиа грузим через fetch и показываем как blob: — адрес сервера не попадает в разметку (src, href, фон) */
+/* медиа: успешно загруженное (до 8 МБ) копируем в Cache Storage — без сети картинки и голосовые открываются оттуда */
+const MC=typeof caches!=='undefined'?caches.open('exg-media-v1').catch(()=>null):Promise.resolve(null);
+let mcN=0;
+async function mediaGet(url){
+  try{const r=await fetch(url);if(!r.ok)throw new Error('http');const b=await r.blob();netSet(false);
+    if(b.size<8e6)MC.then(async c=>{if(!c)return;await c.put(url,new Response(b,{headers:{'Content-Type':b.type}}));
+      if(++mcN%40===0){const ks=await c.keys();if(ks.length>350)for(const k of ks.slice(0,100))c.delete(k)}}).catch(()=>{});
+    return b}
+  catch(e){const c=await MC,m=c&&await c.match(url);if(m)return m.blob();throw e}}
 const BLOBS=new Map(),BTYPE=new Map();
 function blobOf(path){let p=BLOBS.get(path);
-  if(!p){p=fetch(BASE+path).then(r=>{if(!r.ok)throw new Error('http');return r.blob()}).then(b=>{const u=URL.createObjectURL(b);BTYPE.set(u,b.type);return u});BLOBS.set(path,p);p.catch(()=>BLOBS.delete(path));
+  if(!p){p=mediaGet(BASE+path).then(b=>{const u=URL.createObjectURL(b);BTYPE.set(u,b.type);return u});BLOBS.set(path,p);p.catch(()=>BLOBS.delete(path));
     if(BLOBS.size>250)BLOBS.delete(BLOBS.keys().next().value)}
   return p}
 /* видео-стикер (WebM): сервер отдаёт его по тому же адресу, что и картинку, поэтому <img> подменяем на зацикленное беззвучное <video>;
@@ -1462,7 +1511,7 @@ const PAL=['#9d92e6','#4cd6a0','#4aa8ff','#ff6fae','#ffb454','#ff6b7a','#b0b0c0'
 function applyTheme(){const t=ls.get('theme')||'dark';document.documentElement.dataset.theme=t;let a=ls.get('acc')||(S.me&&/^#[0-9a-f]{6}$/i.test(S.me.accent||'')?S.me.accent:'#9d92e6');document.documentElement.style.setProperty('--acc',a);const m=a.match(/\w\w/g).map(x=>parseInt(x,16));document.documentElement.style.setProperty('--acc-soft',`rgba(${m[0]},${m[1]},${m[2]},.16)`);const mt=$('meta[name=theme-color]');if(mt)mt.content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#050409'}
 
 /* ---------- авторизация ---------- */
-function logout(silent){if(!silent)api('/auth/logout',{method:'POST'}).catch(()=>{});S.token='';S.me=null;ls.del('token');location.hash='#/login';render()}
+function logout(silent){DB.clear();MC.then(c=>c&&caches.delete('exg-media-v1')).catch(()=>{});if(!silent)api('/auth/logout',{method:'POST'}).catch(()=>{});S.token='';S.me=null;ls.del('token');location.hash='#/login';render()}
 let pollT=null;
 async function viewLogin(el){
   if(!BASE){el.innerHTML=`<div class="login"><div class="logo">KMBP <b>FORUM</b></div><p style="color:var(--dim);max-width:320px">Приложение собрано неправильно. Скачайте актуальную версию и установите её заново.</p></div>`;return}
