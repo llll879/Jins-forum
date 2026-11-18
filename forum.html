@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru" data-theme="dark">
 <head>
-<meta charset="utf-8">
+<meta charset="utf-8"><meta name="color-scheme" content="dark light">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#050409">
 <title>KMBP FORUM</title>
@@ -10,11 +10,11 @@
 /* ===== KMBP FORUM · «Тёмный мрамор» =====
    Спрайты (статуя, луна, город, колонны, розы) вшиты как data-URI — файл по-прежнему один.
    Исходники лежат в forum_assets/, сборка: python tools/build_forum.py */
-:root{--acc:#9d92e6;--acc-soft:rgba(157,146,230,.16);--bg:#050409;--card:rgba(255,255,255,.04);--card2:rgba(255,255,255,.075);--solid:#12101a;
+:root{color-scheme:dark;--acc:#9d92e6;--acc-soft:rgba(157,146,230,.16);--bg:#050409;--card:rgba(255,255,255,.04);--card2:rgba(255,255,255,.075);--solid:#12101a;
   --glass:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.022));--line:rgba(255,255,255,.1);--line2:rgba(255,255,255,.18);
   --txt:#f4f2fb;--dim:#8f8aa6;--bad:#ff5c6c;--ok:#4cd6a0;--gold:#e3c47a;--safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);
   --serif:'Playfair Display','Cormorant Garamond',Georgia,serif;--pill:linear-gradient(180deg,#4a4560,#2b2738)}
-[data-theme=light]{--bg:#f1efe8;--card:#fff;--card2:#eceadf;--solid:#fff;--glass:linear-gradient(180deg,#fff,#faf8f2);--line:rgba(20,16,10,.1);--line2:rgba(20,16,10,.18);--txt:#1c1a22;--dim:#6b6677;--acc-soft:rgba(110,90,255,.12);--pill:linear-gradient(180deg,#e4e0f5,#d3cdee)}
+[data-theme=light]{color-scheme:light;--bg:#f1efe8;--card:#fff;--card2:#eceadf;--solid:#fff;--glass:linear-gradient(180deg,#fff,#faf8f2);--line:rgba(20,16,10,.1);--line2:rgba(20,16,10,.18);--txt:#1c1a22;--dim:#6b6677;--acc-soft:rgba(110,90,255,.12);--pill:linear-gradient(180deg,#e4e0f5,#d3cdee)}
 [data-theme=amoled]{--bg:#000;--solid:#08070c}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:15px/1.45 'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;overscroll-behavior:none}
@@ -682,7 +682,7 @@ body:not(.mu-playing) .flip:not(.on){scale:.9}
 .flip .fr{box-shadow:0 30px 60px -22px rgba(0,0,0,.9)}
 .flip .bk{transform:rotateY(180deg);background:rgba(10,8,18,.62);-webkit-backdrop-filter:blur(26px) saturate(1.4);backdrop-filter:blur(26px) saturate(1.4);
   box-shadow:0 30px 60px -22px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.14);cursor:default;
-  --ly-on:#fff;--ly-mid:rgba(255,255,255,.52);--ly-off:rgba(255,255,255,.3)}
+  --ly-on:#fff;--ly-mid:rgba(255,255,255,.62);--ly-off:rgba(255,255,255,.4)}
 .fl-hint{position:absolute;right:10px;bottom:10px;display:flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 9px;border-radius:15px;background:rgba(0,0,0,.5);color:#fff;font-size:12.5px;font-weight:600;
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);pointer-events:none}
 .fl-hint svg{width:15px;height:15px}
@@ -822,7 +822,7 @@ body.mu-loading .mu-spin{display:block}
 @keyframes muSp{to{transform:rotate(360deg)}}
 
 /* ===== Тексты песен ===== */
-.ly{position:relative;--ly-on:var(--txt);--ly-mid:color-mix(in srgb,var(--txt) 52%,transparent);--ly-off:color-mix(in srgb,var(--txt) 30%,transparent);font-family:var(--serif)}
+.ly{position:relative;--ly-on:var(--txt);--ly-mid:rgba(244,242,251,.6);--ly-off:rgba(244,242,251,.36);font-family:var(--serif)}
 .flip .bk .ly{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:0 18px;-webkit-mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent)}
 .flip .bk .ly::-webkit-scrollbar{display:none}
 .ly-in::before,.ly-in::after{content:"";display:block;height:var(--pad,120px)}
@@ -831,7 +831,10 @@ body.mu-loading .mu-spin{display:block}
 .mf-p2 .ly-l{font-size:26px;padding:9px 0}
 .ly-l.lypast{color:var(--ly-mid)}
 .ly-l.lyon{transform:scale(1.045)}
-.ly-l.lyon span{color:transparent;-webkit-background-clip:text;background-clip:text;background-image:linear-gradient(90deg,var(--ly-on) var(--lp,0%),var(--ly-mid) var(--lp,0%));text-shadow:none;filter:drop-shadow(0 0 14px color-mix(in srgb,var(--acc) 55%,transparent))}
+.ly-l span{display:block;position:relative}
+.ly-l.lyon{color:var(--ly-mid)}
+/* заливка по ходу пения: копия строки белым поверх, обрезанная по ширине (без background-clip:text — он глючит в некоторых WebView) */
+.ly-l.lyon span::after{content:attr(data-tx);position:absolute;left:0;top:0;right:0;color:var(--ly-on);-webkit-clip-path:inset(0 calc(100% - var(--lp,0%)) 0 0);clip-path:inset(0 calc(100% - var(--lp,0%)) 0 0);text-shadow:0 0 18px rgba(255,255,255,.35)}
 .ly-gap span{letter-spacing:.3em;font-size:14px}
 .ly-pl p{margin:0 0 16px;font-size:17px;font-weight:500;line-height:1.5;white-space:pre-line;color:var(--ly-on)}
 .mf-p2 .ly-pl p{font-size:21px}
@@ -851,8 +854,8 @@ body.mu-loading .mu-spin{display:block}
 .mf-more svg{width:16px;height:16px}
 .mf-more span{display:grid;animation:muNudge 1.8s ease-in-out infinite}
 @keyframes muNudge{0%,100%{transform:translateY(-2px)}50%{transform:translateY(3px)}}
-.mf-p2{min-height:100%;box-sizing:border-box;scroll-snap-align:start;padding:0 22px calc(24px + var(--safe-b));background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 70%,transparent),color-mix(in srgb,var(--bg) 86%,transparent) 160px)}
-.mf-p2h{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;margin:0 -22px;padding:calc(10px + var(--safe-t)) 18px 10px 22px;background:color-mix(in srgb,var(--bg) 62%,transparent);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);border-bottom:1px solid var(--line)}
+.mf-p2{background:rgba(5,4,9,.8);min-height:100%;box-sizing:border-box;scroll-snap-align:start;padding:0 22px calc(24px + var(--safe-b));background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 70%,transparent),color-mix(in srgb,var(--bg) 86%,transparent) 160px)}
+.mf-p2h{background:rgba(5,4,9,.85);position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;margin:0 -22px;padding:calc(10px + var(--safe-t)) 18px 10px 22px;background:color-mix(in srgb,var(--bg) 62%,transparent);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);border-bottom:1px solid var(--line)}
 .mf-p2h .cvs .mu-cv{width:44px;height:44px;border-radius:11px}
 .mf-p2h .mu-ti b{font-size:15px}.mf-p2h .mu-ti small{font-size:12.5px}
 .mf-p2h .mb{width:40px;height:40px;border:0;background:none;color:var(--txt);display:grid;place-items:center;border-radius:50%;flex:none}
@@ -861,6 +864,20 @@ body.mu-loading .mu-spin{display:block}
 .mf-p2h .mb.up svg{width:22px;height:22px;transform:rotate(180deg)}
 .ly-src{text-align:center;color:var(--dim);font-size:11.5px;margin-top:4px;font-family:'Inter',-apple-system,sans-serif}
 @media (prefers-reduced-motion:reduce){.flip{transition:transform .01s}.mf-more span{animation:none}.ly-l{transition:none}}
+
+.mf-p1{padding-bottom:calc(30px + var(--safe-b))}
+[data-theme=light] .ly{--ly-mid:rgba(28,26,34,.62);--ly-off:rgba(28,26,34,.34)}
+[data-theme=light] .flip .bk{--ly-on:#fff;--ly-mid:rgba(255,255,255,.62);--ly-off:rgba(255,255,255,.4)}
+/* запасные цвета для старых WebView без color-mix (идут раньше, поэтому новые браузеры их перебивают) */
+/* на обороте обложки фон всегда тёмный — текст светлый в любой теме (перебивает переменные самого .ly) */
+.flip .bk .ly,[data-theme=light] .flip .bk .ly{--ly-on:#fff;--ly-mid:rgba(255,255,255,.62);--ly-off:rgba(255,255,255,.4)}
+
+/* ===== Таймер сна ===== */
+.mf-top .sleep{position:relative;color:#fff;opacity:.85}
+.mf-top .sleep svg{width:22px;height:22px}
+.mf-top .sleep i{display:none;position:absolute;right:2px;top:100%;margin-top:-4px;font-style:normal;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;padding:2px 8px;border-radius:9px;background:var(--acc-soft);color:var(--acc);white-space:nowrap;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--acc) 40%,transparent)}
+.mf-top .sleep.on{color:var(--acc);opacity:1}
+.mf-top .sleep.on i{display:block}
 .supbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px;color:var(--dim)}
 
 /* ---------- новый пост ---------- */
@@ -3700,9 +3717,10 @@ const MI={
  rep:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>'),
  rep1:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10l1-.7V14"/>'),
  wave:I('<path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4"/>'),
- lyr:I('<path d="M4 6h16M4 12h10M4 18h14"/>')
+ lyr:I('<path d="M4 6h16M4 12h10M4 18h14"/>'),
+ moon:I('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>')
 };
-IC.music=MI.note;
+IC.music=MI.note;IC.moon=MI.moon;
 const A=new Audio();A.preload='auto';
 let Q=[],qi=-1,shuf=0,rep=0,wave=0,tryFb=0,fails=0,sessionSet=0;
 const st={tab:'home',genre:'',q:'',artist:null,ahist:[]};
@@ -3800,7 +3818,7 @@ A.addEventListener('playing',()=>{lyRun();fails=0;document.body.classList.remove
 A.addEventListener('pause',()=>{document.body.classList.remove('mu-playing');syncPP()});
 A.addEventListener('waiting',()=>document.body.classList.add('mu-loading'));
 A.addEventListener('canplay',()=>document.body.classList.remove('mu-loading'));
-A.addEventListener('ended',()=>next(true));
+A.addEventListener('ended',()=>{if(slp.eot){slpClear('Таймер сна: музыка остановлена');return}next(true)});
 A.addEventListener('timeupdate',progress);
 A.addEventListener('seeked',()=>{lyI=-2;lyTick()});
 A.addEventListener('error',()=>{
@@ -3822,7 +3840,7 @@ function lyBody(){
   if(LY.st==='none')return `<div class="ly-in"><div class="ly-msg">${MI.lyr}<b>Текста пока нет</b><small>Для этой песни мы его не нашли</small></div></div>`;
   if(LY.st==='err')return `<div class="ly-in"><div class="ly-msg">${MI.lyr}<b>Не удалось загрузить текст</b><button class="btn sm ghost" data-a="lyretry">Повторить</button></div></div>`;
   const s=lySync();
-  if(s)return `<div class="ly-in">${s.map((l,i)=>l[1]?`<p class="ly-l" data-i="${i}" data-t="${l[0]}"><span>${esc(l[1])}</span></p>`:`<p class="ly-l ly-gap" data-i="${i}" data-t="${l[0]}"><span>• • •</span></p>`).join('')}</div>`;
+  if(s)return `<div class="ly-in">${s.map((l,i)=>l[1]?`<p class="ly-l" data-i="${i}" data-t="${l[0]}"><span data-tx="${esc(l[1])}">${esc(l[1])}</span></p>`:`<p class="ly-l ly-gap" data-i="${i}" data-t="${l[0]}"><span>• • •</span></p>`).join('')}</div>`;
   return `<div class="ly-in ly-pl">${String(LY.d.plain||'').split(/\n\s*\n/).map(b=>`<p>${esc(b.trim())}</p>`).join('')}<small class="ly-note">Текст без синхронизации — его можно листать вручную</small></div>`}
 function lyRender(){
   const f=$('#muFull');if(!f)return;
@@ -3883,11 +3901,38 @@ function lyRun(){
   const step=()=>{raf=0;const f=$('#muFull');if(!f||!f.classList.contains('open')||A.paused||!lySync())return;lyTick();raf=requestAnimationFrame(step)};
   raf=requestAnimationFrame(step)}
 
+/* ---------- таймер сна ---------- */
+/* Через N минут музыка плавно затихает (последние 10 с) и ставится на паузу; «До конца трека» — остановка после текущей песни. */
+let slp={end:0,eot:0,iv:0};
+const sheetTop=(items,title)=>{const p=sheet(items,title);const b=[...document.querySelectorAll('.sheet-bg')].pop();if(b)b.style.zIndex=95;return p};
+function slpPaint(){
+  const on=!!(slp.end||slp.eot),f=$('#muFull');if(!f)return;const b=$('.sleep',f);if(!b)return;
+  b.classList.toggle('on',on);
+  $('i',b).textContent=slp.eot?'до конца':slp.end?fmt(Math.max(0,(slp.end-Date.now())/1000)):''}
+function slpClear(msg){
+  clearInterval(slp.iv);slp={end:0,eot:0,iv:0};A.volume=1;slpPaint();if(msg){try{A.pause()}catch(e){}toast(msg)}}
+function slpTick(){
+  const left=slp.end-Date.now();
+  if(left<=0){slpClear('Таймер сна: музыка остановлена');return}
+  A.volume=left<10000?Math.max(.03,left/10000):1;slpPaint()}
+function slpSet(min){
+  slpClear();
+  if(min==='eot')slp.eot=1;
+  else{slp.end=Date.now()+min*60000;slp.iv=setInterval(slpTick,500)}
+  slpPaint();toast(min==='eot'?'Музыка остановится после этого трека':'Музыка остановится через '+min+' мин')}
+async function sleepMenu(){
+  const on=!!(slp.end||slp.eot),items=[15,30,45,60,90].map(m=>({ic:'moon',t:m+' минут',k:m}));
+  items.push({ic:'music',t:'До конца трека',k:'eot'});
+  if(on)items.push({t:'Выключить таймер',bad:true,k:'off'});
+  const c=await sheetTop(items,on?'Таймер сна · '+(slp.eot?'до конца трека':'осталось '+fmt((slp.end-Date.now())/1000)):'Таймер сна');
+  if(!c)return;
+  if(c.k==='off')slpClear();else slpSet(c.k)}
+
 /* ---------- мини-плеер и полноэкранный ---------- */
 const MINI=`<div id="muMini"><span class="mu-cv"></span><span class="mu-ti"><b></b><small></small></span><button class="mb pp" data-a="pp" aria-label="Пуск/пауза"></button><button class="mb" data-a="next" aria-label="Дальше">${MI.next}</button><div class="prog"><i></i></div></div>`;
 const FULL=`<div id="muFull"><div class="bgc"></div><div class="mf-sc">
 <section class="mf-p1">
-<div class="mf-top"><button class="ib" data-a="close" aria-label="Свернуть">${IC.chevd}</button><small>EXG Music</small><span style="width:42px"></span></div>
+<div class="mf-top"><button class="ib" data-a="close" aria-label="Свернуть">${IC.chevd}</button><small>EXG Music</small><button class="ib sleep" data-a="sleep" aria-label="Таймер сна">${MI.moon}<i></i></button></div>
 <div class="mf-art"><div class="flip" data-a="flip" role="button" aria-label="Показать текст песни"><div class="face fr"><span class="cvh"></span><span class="fl-hint">${MI.lyr}Текст</span></div><div class="face bk"><div class="ly" data-ly="1"></div><button class="fl-back" data-a="flipb" aria-label="Вернуть обложку">${IC.close}</button></div></div></div>
 <div class="mf-info"><div class="mu-ti"><b></b><small></small></div><button class="mu-lk" data-a="topf" aria-label="В профиль">${IC.plus}</button><button class="mu-lk" data-a="like" aria-label="Нравится">${IC.heart}</button></div>
 <div class="mf-seek"><input type="range" min="0" max="1000" value="0" aria-label="Перемотка"><div><span class="tc">0:00</span><span class="td">0:00</span></div></div>
@@ -3909,6 +3954,7 @@ function bindUi(app){
   const act=a=>{if(a==='ar'){const t=cur();if(t&&t.ai){full.classList.remove('open');openArtist(t.ai)}return}
     if(a==='pp')toggle();else if(a==='next')next(false);else if(a==='prev')prev();
     else if(a==='close')full.classList.remove('open');
+    else if(a==='sleep')sleepMenu();
     else if(a==='flip'||a==='flipb')flipTo(a==='flip'?!$('.flip',full).classList.contains('on'):false);
     else if(a==='down'){ensureLy();sc.scrollTo({top:$('.mf-p2',full).offsetTop,behavior:'smooth'})}
     else if(a==='up')sc.scrollTo({top:0,behavior:'smooth'});
@@ -3963,7 +4009,7 @@ function paint(){
   $('[data-a=topf]',full).style.display=t.src?'none':'';
   $('[data-a=shuf]',full).classList.toggle('on',!!shuf);
   const rb=$('[data-a=rep]',full);rb.classList.toggle('on',rep>0);rb.innerHTML=rep===2?MI.rep1:MI.rep}
-function stop(){lyReset();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;
+function stop(){lyReset();slpClear();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;
   const a=$('#app');if(a)a.classList.remove('mu-on');document.body.classList.remove('mu-playing','mu-loading')}
 
 /* ---------- экран «EXG Music» ---------- */

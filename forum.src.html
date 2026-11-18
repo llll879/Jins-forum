@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru" data-theme="dark">
 <head>
-<meta charset="utf-8">
+<meta charset="utf-8"><meta name="color-scheme" content="dark light">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#050409">
 <title>KMBP FORUM</title>
@@ -10,11 +10,11 @@
 /* ===== KMBP FORUM · «Тёмный мрамор» =====
    Спрайты (статуя, луна, город, колонны, розы) вшиты как data-URI — файл по-прежнему один.
    Исходники лежат в forum_assets/, сборка: python tools/build_forum.py */
-:root{--acc:#9d92e6;--acc-soft:rgba(157,146,230,.16);--bg:#050409;--card:rgba(255,255,255,.04);--card2:rgba(255,255,255,.075);--solid:#12101a;
+:root{color-scheme:dark;--acc:#9d92e6;--acc-soft:rgba(157,146,230,.16);--bg:#050409;--card:rgba(255,255,255,.04);--card2:rgba(255,255,255,.075);--solid:#12101a;
   --glass:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.022));--line:rgba(255,255,255,.1);--line2:rgba(255,255,255,.18);
   --txt:#f4f2fb;--dim:#8f8aa6;--bad:#ff5c6c;--ok:#4cd6a0;--gold:#e3c47a;--safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);
   --serif:'Playfair Display','Cormorant Garamond',Georgia,serif;--pill:linear-gradient(180deg,#4a4560,#2b2738)}
-[data-theme=light]{--bg:#f1efe8;--card:#fff;--card2:#eceadf;--solid:#fff;--glass:linear-gradient(180deg,#fff,#faf8f2);--line:rgba(20,16,10,.1);--line2:rgba(20,16,10,.18);--txt:#1c1a22;--dim:#6b6677;--acc-soft:rgba(110,90,255,.12);--pill:linear-gradient(180deg,#e4e0f5,#d3cdee)}
+[data-theme=light]{color-scheme:light;--bg:#f1efe8;--card:#fff;--card2:#eceadf;--solid:#fff;--glass:linear-gradient(180deg,#fff,#faf8f2);--line:rgba(20,16,10,.1);--line2:rgba(20,16,10,.18);--txt:#1c1a22;--dim:#6b6677;--acc-soft:rgba(110,90,255,.12);--pill:linear-gradient(180deg,#e4e0f5,#d3cdee)}
 [data-theme=amoled]{--bg:#000;--solid:#08070c}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:15px/1.45 'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;overscroll-behavior:none}
