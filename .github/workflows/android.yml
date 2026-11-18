@@ -48,12 +48,11 @@ jobs:
           sed -i 's|<string name="app_name">.*</string>|<string name="app_name">EXG FORUM</string>|; s|<string name="title_activity_main">.*</string>|<string name="title_activity_main">EXG FORUM</string>|' $res/values/strings.xml
           cat $res/values/strings.xml
 
-      - name: Разрешения (микрофон, камера, звонки)
-        working-directory: android-app/android/app/src/main
+      - name: Разрешения и мост (камера, микрофон, уведомления)
+        working-directory: android-app
         run: |
-          perms='<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />'
-          sed -i "s|<application|$perms\n    <application|" AndroidManifest.xml
-          grep -n "uses-permission" AndroidManifest.xml
+          python3 ../tools/android_patch.py android/app/src/main
+          grep -n "uses-permission" android/app/src/main/AndroidManifest.xml
 
       - name: Собрать APK
         working-directory: android-app/android
