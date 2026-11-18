@@ -1,6 +1,7 @@
 /* ===== EXG Music — раздел «как Яндекс Музыка» =====
-   Музыка — из каталога Jamendo (независимые исполнители, лицензии Creative Commons). Списки приходят через сервер форума
-   (/forum/api/music/get, ключ JAMENDO_CLIENT_ID лежит на сервере), звук играет напрямую с Jamendo (поле u), запасной путь — /music/stream.
+   Основной источник — Яндекс Музыка (токен YANDEX_MUSIC_TOKEN на сервере, id треков вида «y123», звук идёт редиректом через /music/stream);
+   запасной — Jamendo (JAMENDO_CLIENT_ID, независимые исполнители, CC; звук играет напрямую, поле u). Если Яндекс не настроен/недоступен — всё на Jamendo.
+   Списки приходят через сервер форума (/forum/api/music/get, для Яндекса src=ym).
    Основной упор — русскоязычные треки (lang=ru); зарубежное вынесено в отдельную подборку.
    Любимое и история хранятся на устройстве (kf_mu_likes, kf_mu_hist). */
 const MU=(()=>{
@@ -23,7 +24,7 @@ const st={tab:'home',genre:'',q:''};
 const cache=new Map();
 const jget=(k,d)=>{try{const v=ls.get(k);return v?JSON.parse(v):d}catch(e){return d}};
 /* треки старой библиотеки (нецифровые id без файла) больше не играют — не тащим их из сохранённого */
-const okT=x=>x&&(x.src||/^\d+$/.test(String(x.id)));
+const okT=x=>x&&(x.src||/^y?\d+$/.test(String(x.id)));
 let likes=jget('mu_likes',[]).filter(okT),hist=jget('mu_hist',[]).filter(okT);
 const isLiked=id=>likes.some(x=>x.id===id);
 const cur=()=>Q[qi]||null;
@@ -42,6 +43,15 @@ const tracks=async p=>(await aj(p)).filter(t=>t&&t.id).map(norm);
 const RU='ru',WORLD='en';
 const catalog=(lang,order,genre,limit,offset)=>tracks(Object.assign({lang,order,limit:limit||30,groupby:'artist_id'},genre?{tags:genre}:{},offset?{offset}:{}));
 const trending=(genre,limit,lang)=>catalog(lang||RU,'popularity_week',genre,limit);
+/* Яндекс Музыка — основной источник; при любой ошибке/пустом ответе на 5 минут отключаем и берём Jamendo */
+let ymDown=0;
+const GQ={hiphop:'русский рэп',pop:'русский поп',rock:'русский рок',electronic:'русская электроника',indie:'русский инди',rnb:'русский r&b',lounge:'русский лаунж',jazz:'русский джаз',folk:'русский фолк',metal:'русский метал',ambient:'русский эмбиент'};
+async function ymOr(p,fb){
+  if(Date.now()>ymDown){try{const l=await tracks(Object.assign({src:'ym',limit:30},p));if(l.length)return l;ymDown=Date.now()+300000}catch(e){ymDown=Date.now()+300000}}
+  return fb()}
+async function searchAll(q,n){
+  const [y,j]=await Promise.all([Date.now()>ymDown?tracks({src:'ym',k:'search',q,limit:n}).catch(()=>[]):[],tracks({search:q,order:'relevance',limit:n}).catch(()=>null)]);
+  if(!y.length&&j===null)throw new Error('search');return y.concat(j||[])}
 const fbUrl=id=>BASE+'/forum/api/music/stream?id='+encodeURIComponent(id);
 const shuffled=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 
@@ -79,7 +89,7 @@ async function loadWave(append){
   const pool=GENRES,g=pool[Math.floor(Math.random()*pool.length)][0];
   document.body.classList.add('mu-loading');
   try{
-    let l=await catalog(RU,'popularity_month',g,40,Math.floor(Math.random()*3)*15);
+    let l=await ymOr({k:'search',q:GQ[g]||'русские хиты',limit:50},()=>catalog(RU,'popularity_month',g,40,Math.floor(Math.random()*3)*15));
     if(l.length<5)l=await catalog(RU,'popularity_total','',40);
     l=shuffled(l);if(!l.length)throw new Error('empty');
     if(append&&wave){Q=Q.concat(l);playAt(qi+1)}else{wave=1;Q=l;playAt(0)}}
@@ -178,7 +188,7 @@ function view(el){
   <div class="mu-search">${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, жанр" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
   <div class="mu-tabs" ${st.q?'hidden style="display:none"':''}>${[['home','Главное'],['world','Зарубежное'],['likes','Любимое'],['hist','История']].map(([k,n])=>`<button class="tab ${st.tab===k?'on':''}" data-t="${k}">${n}</button>`).join('')}</div>
   <div id="muBody"></div>
-  <p class="mu-note">Музыку публикуют независимые исполнители на Jamendo (лицензии Creative Commons) — громких коммерческих хитов здесь нет. Любимое и история хранятся на этом устройстве.</p></div>`;
+  <p class="mu-note">Каталог — Яндекс Музыка, запасной — Jamendo (независимые исполнители). Полные треки зависят от подписки аккаунта сервера. Любимое и история хранятся на этом устройстве.</p></div>`;
   const body=$('#muBody',el),inp=$('#muQ',el),x=$('.mu-x',el),tabs=$('.mu-tabs',el);
   let seq=0,timer=0;
   const fail=(msg,retry)=>{body.innerHTML=`<div class="empty">${msg}<br><br><button class="btn ghost" id="muRetry">Повторить</button></div>`;$('#muRetry',body).onclick=retry};
@@ -202,20 +212,20 @@ function view(el){
     $$('.mu-chip',body).forEach(b=>b.onclick=()=>{st.genre=b.dataset.g;home()});
     const w=$('#muWorld',body);if(w)w.onclick=()=>{st.tab='world';draw()};
     const tr=$('#muTr',body);
-    try{let l=await trending(g,30);if(my!==seq)return;
+    try{let l=await ymOr(g?{k:'search',q:GQ[g]||g}:{k:'chart',c:'russia'},()=>trending(g,30));if(my!==seq)return;
       if(l.length<5){const m=await catalog(RU,'popularity_total',g,30);if(my!==seq)return;if(m.length>l.length)l=m}
       if(!l.length){tr.innerHTML='<div class="empty" style="padding:24px">Здесь пока пусто</div>'}else{tr.innerHTML=listHtml(l);wire(tr,l)}}
     catch(e){if(my===seq)bad(tr,home);return}
     if(g)return;
-    fill(my,'muNew',()=>catalog(RU,'releasedate_desc','',15));
-    fill(my,'muTop',()=>catalog(RU,'popularity_total','',15));
-    fill(my,'muWd',()=>trending('',10,WORLD))}
+    fill(my,'muNew',()=>ymOr({k:'search',q:'новинки русской музыки',limit:15},()=>catalog(RU,'releasedate_desc','',15)));
+    fill(my,'muTop',()=>ymOr({k:'search',q:'русские хиты',limit:15},()=>catalog(RU,'popularity_total','',15)));
+    fill(my,'muWd',()=>ymOr({k:'chart',c:'world',limit:10},()=>trending('',10,WORLD)))}
   async function world(){
     const my=++seq,g=st.wgenre||'';
     body.innerHTML=`<div class="mu-h"><h3>Зарубежная подборка</h3></div>${chips(g)}<div id="muTr">${skel(6)}</div>`;
     $$('.mu-chip',body).forEach(b=>b.onclick=()=>{st.wgenre=b.dataset.g;world()});
     const tr=$('#muTr',body);
-    try{let l=await trending(g,30,WORLD);if(my!==seq)return;
+    try{let l=await (g?trending(g,30,WORLD):ymOr({k:'chart',c:'world'},()=>trending('',30,WORLD)));if(my!==seq)return;
       if(l.length<5){const m=await catalog(WORLD,'popularity_total',g,30);if(my!==seq)return;if(m.length>l.length)l=m}
       if(!l.length){tr.innerHTML='<div class="empty" style="padding:24px">Здесь пока пусто</div>'}else{tr.innerHTML=listHtml(l);wire(tr,l)}}
     catch(e){if(my===seq)bad(tr,world)}}
@@ -226,7 +236,7 @@ function view(el){
     if(withBtns){$('#muAll',body).onclick=()=>start(arr,0);$('#muSh',body).onclick=()=>start(shuffled(arr),0)}}
   async function search(q){
     const my=++seq;body.innerHTML=skel(7);
-    try{const l=await tracks({search:q,order:'relevance',limit:30});if(my!==seq)return;
+    try{const l=await searchAll(q,30);if(my!==seq)return;
       if(!l.length){body.innerHTML=emptyBox('search','Ничего не нашлось по запросу «'+esc(q)+'»');return}
       body.innerHTML=`<div class="mu-h"><h3>Результаты</h3></div><div id="muLs"></div>`;const b=$('#muLs',body);b.innerHTML=listHtml(l);wire(b,l)}
     catch(e){if(my===seq)fail('Поиск не удался.<br>Проверьте интернет',()=>search(q))}}
@@ -327,7 +337,7 @@ function pickExg(have,onAdd){
   async function draw(){
     const my=++seq,q=inp.value.trim();tabs.style.display=q?'none':'';
     if(q.length===1)return;
-    if(q){box.innerHTML=skel(6);try{const l=(await tracks({search:q,order:'relevance',limit:25}));if(my===seq)show(l,'Ничего не нашлось по запросу «'+esc(q)+'»')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Поиск не удался. Проверьте интернет</div>'}return}
+    if(q){box.innerHTML=skel(6);try{const l=await searchAll(q,25);if(my===seq)show(l,'Ничего не нашлось по запросу «'+esc(q)+'»')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Поиск не удался. Проверьте интернет</div>'}return}
     $$('.tab',tabs).forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
     if(tab==='likes'){show(likes.filter(x=>!x.src),'Отмечайте треки сердечком в EXG Music — они появятся здесь. Или найдите трек через поиск');return}
     box.innerHTML=skel(6);try{const l=await trending('',30,tab==='world'?WORLD:RU);if(my===seq)show(l,'Здесь пока пусто')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Не удалось загрузить музыку</div>'}}
