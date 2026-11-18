@@ -23,7 +23,6 @@ def data_uri(name):
 
 with open(SRC, encoding="utf-8") as f:
     html = f.read()
-html = re.sub(r"\{\{img:([\w-]+)\}\}", lambda m: data_uri(m.group(1)), html)
 
 
 def include(m):
@@ -33,6 +32,8 @@ def include(m):
 
 
 html = re.sub(r"\{\{inc:([\w./-]+)\}\}", include, html)
+# картинки — после include, чтобы {{img:…}} работали и внутри подключаемых файлов (например, tools/chatstyle)
+html = re.sub(r"\{\{img:([\w-]+)\}\}", lambda m: data_uri(m.group(1)), html)
 with open(OUT, "w", encoding="utf-8") as f:
     f.write(html)
 print(f"OK: {OUT} ({os.path.getsize(OUT) // 1024} КБ)")
