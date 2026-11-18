@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import difflib
+import gzip
+import hashlib
 import html as _html
 import ipaddress
 import json
@@ -1608,6 +1610,9 @@ def _page():
         return f.read()
 
 
+_page_cache = {}
+
+
 async def page(request):
     global _auto_base
     if not os.getenv("FORUM_URL"):
@@ -1615,11 +1620,24 @@ async def page(request):
         host = (request.headers.get("X-Forwarded-Host") or request.host or "").split(",")[0].strip()
         if host:
             _auto_base = f"{proto}://{host}"
-    html = _page().replace("__BASE__", (os.getenv("FORUM_URL") or _auto_base or bm.WEBAPP_URL or "").rstrip("/"))
-    hdr = {"Cache-Control": "no-cache"}
-    if request.query.get("dl"):
+    base = (os.getenv("FORUM_URL") or _auto_base or bm.WEBAPP_URL or "").rstrip("/")
+    dl = bool(request.query.get("dl"))
+    # страница ~1 МБ: собираем и жмём один раз на адрес, дальше отдаём из памяти (gzip + ETag → 304 без тела)
+    ent = _page_cache.get(base)
+    if ent is None:
+        raw = _page().replace("__BASE__", base).encode("utf-8")
+        ent = _page_cache[base] = (raw, gzip.compress(raw, 6), '"' + hashlib.md5(raw).hexdigest() + '"')
+    raw, gz, etag = ent
+    hdr = {"Cache-Control": "no-cache", "ETag": etag, "Vary": "Accept-Encoding"}
+    if dl:
         hdr["Content-Disposition"] = 'attachment; filename="kmbp-forum.html"'
-    return web.Response(text=html, content_type="text/html", charset="utf-8", headers=hdr)
+        return web.Response(body=raw, content_type="text/html", charset="utf-8", headers=hdr)
+    if request.headers.get("If-None-Match") == etag:
+        return web.Response(status=304, headers=hdr)
+    if "gzip" in request.headers.get("Accept-Encoding", ""):
+        hdr["Content-Encoding"] = "gzip"
+        return web.Response(body=gz, content_type="text/html", charset="utf-8", headers=hdr)
+    return web.Response(body=raw, content_type="text/html", charset="utf-8", headers=hdr)
 
 
 # ============================================================================ профиль как в мини-аппе

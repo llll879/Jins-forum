@@ -1011,7 +1011,7 @@ mark.sm.cur{background:#ffd65a;color:#1b1630;box-shadow:0 0 0 2px rgba(255,214,9
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app"><div class="login"><div class="logo">KMBP <b>FORUM</b></div></div></div>
 <script>
 "use strict";
 /* ============ настройки сервера ============
@@ -1022,6 +1022,21 @@ const SERVER0="__BASE__";
 /* ---------- хранилище (работает даже если localStorage недоступен) ---------- */
 const mem={};
 const ls={get(k){try{return localStorage.getItem('kf_'+k)}catch(e){return mem[k]||null}},set(k,v){try{localStorage.setItem('kf_'+k,v)}catch(e){mem[k]=v}},del(k){try{localStorage.removeItem('kf_'+k)}catch(e){delete mem[k]}}};
+/* ---------- разрешения (в Android-приложении — системное окно; в браузере спрашивает сам браузер) ---------- */
+const EXGPerm=window.EXGPerm={
+  native(){return window.ExgNative||null},
+  /* kinds: 'mic' | 'cam' | 'notif' → true, если всё выдано */
+  async ensure(kinds){
+    const N=window.ExgNative;if(!N)return true;
+    kinds=[].concat(kinds||[]);
+    try{
+      if(kinds.every(k=>N.has(k)))return true;
+      const ok=await new Promise(res=>{const id='p'+Date.now()+Math.random().toString(36).slice(2,6);
+        (window.__exgPerm=window.__exgPerm||{})[id]=res;N.request(kinds.join(','),id);setTimeout(()=>{if(window.__exgPerm[id]){delete window.__exgPerm[id];res(kinds.every(k=>N.has(k)))}},60000)});
+      return !!ok}catch(e){return true}},
+  settings(){try{window.ExgNative&&window.ExgNative.openSettings()}catch(e){}}
+};
+window.__exgPermDone=(id,ok)=>{const m=window.__exgPerm||{};const f=m[id];if(f){delete m[id];f(!!ok)}};
 /*KV-JS:BEGIN*/
 const KV=(()=>{
 'use strict';
@@ -1235,6 +1250,7 @@ function attach(o){
   async function start(){
     const my=++gen;
     recMode=mode;const vid=recMode==='video',aud={echoCancellation:true,noiseSuppression:true,autoGainControl:true};
+    if(window.EXGPerm&&!(await EXGPerm.ensure(vid?['mic','cam']:['mic']))){const e=new Error('permission');e.name='NotAllowedError';throw e}
     stream=await navigator.mediaDevices.getUserMedia(vid?{audio:aud,video:{facingMode:'user',width:{ideal:480},height:{ideal:480},aspectRatio:{ideal:1},frameRate:{ideal:30}}}:{audio:aud});
     if(my!==gen){cleanup();return false}
     mime=vid?pickVMime():pickMime();
@@ -1440,11 +1456,15 @@ const DB=(()=>{let p=null;
   const trim=()=>tx('readwrite',s=>{const all=[],q=s.openCursor();q.onsuccess=()=>{const c=q.result;if(c){all.push([c.key,(c.value&&c.value.t)||0]);c.continue()}else if(all.length>400){all.sort((x,y)=>x[1]-y[1]).slice(0,120).forEach(x=>s.delete(x[0]))}};return q}).catch(()=>{});
   let n=0;
   return{get:k=>tx('readonly',s=>s.get(k)).catch(()=>null),set:(k,v)=>tx('readwrite',s=>s.put(v,k)).then(()=>{if(++n%60===0)trim()}).catch(()=>{}),clear:()=>tx('readwrite',s=>s.clear()).catch(()=>{})}})();
+let lastMut=0,SOFTR=false,srT=0;
+/* «сначала показать, потом уточнить»: эти GET отдаются из кэша мгновенно, а свежий ответ сервера догружается в фоне */
+const SWR=/^\/(boot|me|feed|boards?|post|user|notifs|chats|x\/profile|x\/reviews|saved|groups\/info|groups\/board)(\?|$)/;
 const NET={off:false,stale:false,tm:0},DBW=new Map(),NOCACHE=/^\/(ping|auth\/|calls\/|music\/stream)/;
 {const bar=document.createElement('div');bar.id='netBar';bar.setAttribute('role','status');bar.innerHTML='<i></i>Соединение…';document.body.appendChild(bar)}
 const busyView=()=>/^#\/(c|g|new|edit|edit-profile)(\/|$)/.test(location.hash);
 function netSet(off){
   if(NET.off===off)return;NET.off=off;document.documentElement.classList.toggle('net-off',off);
+  try{MU.net()}catch(e){}
   clearTimeout(NET.tm);
   if(off)NET.tm=setTimeout(netProbe,3000);
   else if(NET.stale){NET.stale=false;if(!busyView())render()}}
@@ -1458,16 +1478,21 @@ if(navigator.onLine===false)netSet(true);
 async function api(path,o={}){const h={};if(S.token)h.Authorization='Bearer '+S.token;const opt={method:o.method||'GET',headers:h};if(o.form)opt.body=o.form;else if(o.body){h['Content-Type']='application/json';opt.body=JSON.stringify(o.body)}
   const get=opt.method==='GET',key=get&&!NOCACHE.test(path)?(S.token||'').slice(-8)+path:'';
   const cached=async()=>{const c=key&&await DB.get(key);if(c&&c.d!==undefined){NET.stale=true;return c}return null};
+  if(!get)lastMut=Date.now();
   if(key&&navigator.onLine===false){const c=await cached();if(c){netSet(true);return c.d}}
+  if(key&&!o.bg&&SWR.test(path)&&Date.now()-lastMut>6000){const c=await DB.get(key);
+    if(c&&c.d!==undefined&&Date.now()-(c.t||0)<6048e5){const rv=rid,old=c.d;
+      api(path,{...o,bg:true}).then(nd=>{if(JSON.stringify(nd)!==JSON.stringify(old)){if(o.onfresh)o.onfresh(nd);else softRefresh(rv)}}).catch(()=>{});
+      return old}}
   let r,ctl,tm;
   try{if(get&&typeof AbortController==='function'){ctl=new AbortController();opt.signal=ctl.signal;tm=setTimeout(()=>ctl.abort(),/music\/search/.test(path)?30000:18000)}
     r=await fetch(BASE+'/forum/api'+path,opt);clearTimeout(tm)}
   catch(e){clearTimeout(tm);netSet(true);const c=await cached();if(c)return c.d;throw new Error('Нет соединения. Проверьте интернет')}
-  netSet(false);
+  netSet(false);if(!get)lastMut=Date.now();
   let d={};try{d=await r.json()}catch(e){}
   if(r.status===401&&S.token){logout(true);throw new Error('Нужно войти заново')}
   if(!r.ok){const er=new Error(d.message||d.error||('Ошибка '+r.status));er.code=d.error;throw er}
-  if(key&&Date.now()-(DBW.get(key)||0)>15000){DBW.set(key,Date.now());if(DBW.size>600)DBW.delete(DBW.keys().next().value);DB.set(key,{d,t:Date.now()})}
+  if(key&&(o.bg||Date.now()-(DBW.get(key)||0)>15000)){DBW.set(key,Date.now());if(DBW.size>600)DBW.delete(DBW.keys().next().value);DB.set(key,{d,t:Date.now()})}
   return d}
 const post_=(p,b)=>api(p,{method:'POST',body:b||{}});
 /* Медиа грузим через fetch и показываем как blob: — адрес сервера не попадает в разметку (src, href, фон) */
@@ -2453,7 +2478,7 @@ function viewSettings(el){
   $('#out',el).onclick=async()=>{if(await confirmBox('Выйти из аккаунта?'))logout()}}
 
 /* ---------- каркас и роутер ---------- */
-async function boot(){const b=await api('/boot');S.boards=b.boards;S.bot=b.bot;if(S.token){const m=await api('/me');S.me=m.me;await ping()}applyTheme()}
+async function boot(){const b=await api('/boot',{onfresh:b=>{S.boards=b.boards;S.bot=b.bot}});S.boards=b.boards;S.bot=b.bot;if(S.token){const m=await api('/me',{onfresh:m=>{S.me=m.me;try{chrome()}catch(e){}}});S.me=m.me;ping()}applyTheme()}
 function paintAv(sel){const n=$(sel);if(n&&S.me)n.outerHTML=av(S.me,'').replace('class="av ','id="'+sel.slice(1)+'" class="av ')}
 /* ---------- уведомления на устройстве: баннер, звук, вибрация, системные ---------- */
 let AC=null;document.addEventListener('pointerdown',()=>{if(!AC)try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}},{once:true});
@@ -2462,7 +2487,8 @@ function nBanner(title,body,href){$$('.nbn').forEach(x=>x.remove());const d=docu
 function alertUser(title,body,href){
   if(ls.get('vib')!=='0'&&navigator.vibrate)try{navigator.vibrate([70,40,70])}catch(e){}
   if(ls.get('snd')!=='0')beep();
-  if(document.hidden){if(ls.get('sys')==='1'&&'Notification' in window&&Notification.permission==='granted')try{const n=new Notification(title,{body,tag:'kf-'+(href||'')});n.onclick=()=>{try{window.focus()}catch(e){}if(href)location.hash=href;n.close()}}catch(e){}}
+  if(document.hidden){if(ls.get('sys')==='1'&&window.ExgNative&&window.ExgNative.has('notif')){try{window.ExgNative.notify(title,body,href||'')}catch(e){}}
+    else if(ls.get('sys')==='1'&&'Notification' in window&&Notification.permission==='granted')try{const n=new Notification(title,{body,tag:'kf-'+(href||'')});n.onclick=()=>{try{window.focus()}catch(e){}if(href)location.hash=href;n.close()}}catch(e){}}
   else nBanner(title,body,href)}
 const NTXT={like_p:'оценил(а) ваш пост',like_c:'оценил(а) ваш комментарий',comment:'прокомментировал(а) ваш пост',reply:'ответил(а) на ваш комментарий',mention:'упомянул(а) вас',follow:'подписался(лась) на вас',gmention:'упомянул(а) вас в чате',greply:'ответил(а) вам в чате'};
 async function ping(){try{
@@ -2556,7 +2582,10 @@ const CALL=(()=>{
     const md=navigator.mediaDevices;
     if(!md||!md.getUserMedia||!window.RTCPeerConnection){toast('Звонки не поддерживаются здесь — откройте форум в браузере по HTTPS',1);return null}
     let s=null,v=false;
-    if(video){try{s=await md.getUserMedia({audio:AUD,video:VID('user')});v=true}catch(e){s=null}}
+    const pm=await EXGPerm.ensure('mic');
+    if(!pm){toast('Нет доступа к микрофону — разрешите его в настройках телефона',1);EXGPerm.settings();return null}
+    const pc=video?await EXGPerm.ensure('cam'):false;
+    if(video&&pc){try{s=await md.getUserMedia({audio:AUD,video:VID('user')});v=true}catch(e){s=null}}
     if(!s){try{s=await md.getUserMedia({audio:AUD})}catch(e){toast(e&&e.name==='NotAllowedError'?'Нет доступа к микрофону — разрешите его в настройках':'Не удалось включить микрофон',1);return null}
       if(video)toast('Камера недоступна — звонок будет без видео',1)}
     return {audio:s.getAudioTracks()[0]||null,video:v?(s.getVideoTracks()[0]||null):null,screen:null}}
@@ -2713,7 +2742,8 @@ const CALL=(()=>{
   async function toggleCam(){
     if(!C)return;
     if(C.cam){try{C.local.video&&C.local.video.stop()}catch(e){}C.local.video=null;C.cam=false}
-    else{try{const s=await navigator.mediaDevices.getUserMedia({video:VID(C.face)});if(!C)return;C.local.video=s.getVideoTracks()[0];C.cam=true}catch(e){toast('Камера недоступна — проверьте разрешение',1);return}}
+    else{if(!(await EXGPerm.ensure('cam'))){toast('Нет доступа к камере — разрешите её в настройках телефона',1);EXGPerm.settings();return}
+      try{const s=await navigator.mediaDevices.getUserMedia({video:VID(C.face)});if(!C)return;C.local.video=s.getVideoTracks()[0];C.cam=true}catch(e){toast('Камера недоступна — проверьте разрешение',1);return}}
     setVideo();sendState();paint()}
   async function flipCam(){
     if(!C||!C.cam)return;const nf=C.face==='user'?'environment':'user';
@@ -2785,7 +2815,7 @@ const CALL=(()=>{
 /* ---------- настройки уведомлений ---------- */
 async function viewNotifSettings(el){
   const p=await api('/notifs/prefs');
-  const canSys='Notification' in window,sysOn=()=>ls.get('sys')==='1'&&canSys&&Notification.permission==='granted';
+  const NN=window.ExgNative,canSys=!!NN||'Notification' in window,sysOn=()=>ls.get('sys')==='1'&&canSys&&(NN?NN.has('notif'):Notification.permission==='granted');
   const row=(g,k,t,s,on)=>`<div class="grow glass" data-g="${g}" data-k="${k}"><span class="t"><b>${t}</b><small>${s}</small></span><i class="sw ${on?'on':''}"></i></div>`;
   el.innerHTML=`${head('Настройки уведомлений')}
   <label class="lbl" style="margin:6px 16px 4px">Что присылать</label>
@@ -2802,15 +2832,23 @@ async function viewNotifSettings(el){
     try{
       if(r.dataset.g==='s'){await post_('/notifs/prefs',{[k]:on})}
       else if(k==='sys'){
-        if(on){const res=await Notification.requestPermission();if(res!=='granted'){toast('Разрешение не выдано — включите его в настройках телефона',1);return}}
+        if(on){if(NN){if(!(await EXGPerm.ensure('notif'))){toast('Разрешение не выдано — включите его в настройках телефона',1);EXGPerm.settings();return}}
+          else{const res=await Notification.requestPermission();if(res!=='granted'){toast('Разрешение не выдано — включите его в настройках телефона',1);return}}}
         ls.set('sys',on?'1':'0')}
       else ls.set(k,on?'1':'0');
       sw.classList.toggle('on',on);if(on&&k==='snd')beep()
     }catch(x){toast(x.message,1)}}}
 function shell(){const app=$('#app');if($('#nav'))return;app.innerHTML=`<div id="view"></div><nav class="bar" id="nav"><button data-n="feed" data-href="#/">${IC.home}Главная</button><button data-n="boards" data-href="#/boards">${IC.grid}Разделы</button><button class="plus" data-href="#/new" aria-label="Новый пост">${IC.plus}</button><button data-n="chats" data-href="#/chats">${IC.chat}Чаты<span class="badge msgB" hidden></span></button><button data-n="me" data-href="#/me">${IC.user}Профиль</button></nav>`}
 let rid=0;
+/* тихо перерисовать экран свежими данными: без спиннера и анимации, с тем же скроллом; не трогаем чаты, формы и то, что человек набирает */
+function softRefresh(rv){clearTimeout(srT);srT=setTimeout(()=>{
+  if(rv!==rid||busyView()||!S.me)return;
+  const v=$('#view');if(!v||v.scrollTop>400)return;
+  const ae=document.activeElement;if(ae&&(/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)||ae.isContentEditable))return;
+  if([...document.querySelectorAll('#view textarea,#view input')].some(x=>x.value&&x.type!=='checkbox'&&x.type!=='radio'))return;
+  SOFTR=true;render()},150)}
 async function render(){
-  const my=++rid;clearInterval(chatT);applyTheme();LOCAL_URLS.splice(0).forEach(u=>{try{URL.revokeObjectURL(u)}catch(e){}});
+  const soft=SOFTR;SOFTR=false;const my=++rid;clearInterval(chatT);applyTheme();LOCAL_URLS.splice(0).forEach(u=>{try{URL.revokeObjectURL(u)}catch(e){}});
   const h=(location.hash||'#/').replace(/^#\/?/,'');const [r,a,b]=h.split('/');
   if(!S.token&&r==='n'&&a)ls.set('pend_n',a);
   if(!S.token||r==='login'){MU.stop();if(S.token&&r==='login'){location.hash='#/';return}$('#app').innerHTML='<div id="view" style="padding:0"></div>';$('#app').dataset.page='login';await viewLogin($('#view'));return}
@@ -2821,7 +2859,7 @@ async function render(){
   v.style.paddingBottom=noNav?'0':'';MU.mount(noNav);
   const nav=({'':'feed',boards:'boards',b:'boards',music:'boards',chats:'chats',me:'me',u:(a==S.me.id?'me':'')})[r];
   $$('#nav button[data-n]').forEach(x=>x.classList.toggle('on',x.dataset.n===nav));
-  v.scrollTop=0;v.innerHTML='<div class="spin"></div>';
+  const st0=soft?v.scrollTop:0;if(!soft){v.scrollTop=0;v.innerHTML='<div class="spin"></div>'}
   try{
     const t=document.createElement('div');
     let fn;
@@ -2854,10 +2892,10 @@ async function render(){
     else fn=()=>viewFeed(t);
     await fn();
     if(my!==rid)return;
-    v.innerHTML='';v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter');v.appendChild(t);
+    v.innerHTML='';if(!soft){v.classList.remove('enter');void v.offsetWidth;v.classList.add('enter')}v.appendChild(t);if(soft)v.scrollTop=st0;
     paintAv('#hdrAv2');chrome();
     if(r==='c'||r==='g'){v.style.overflow='hidden';t.style.height='100%';const lg=$('#log',t);if(lg)lg.scrollTop=lg.scrollHeight}else v.style.overflow='';
-  }catch(e){if(my===rid)v.innerHTML=`<div class="empty"><div class="big">${IC.bellbig}</div>${esc(e.message)}<br><br><button class="btn ghost" onclick="render()">Повторить</button></div>`}
+  }catch(e){if(my===rid&&!soft)v.innerHTML=`<div class="empty"><div class="big">${IC.bellbig}</div>${esc(e.message)}<br><br><button class="btn ghost" onclick="render()">Повторить</button></div>`}
 }
 /* ripple на кнопках */
 document.addEventListener('pointerdown',e=>{const el=e.target.closest('.btn,.tab,.send');if(!el||el.disabled)return;const r=el.getBoundingClientRect(),d=Math.max(r.width,r.height)*2;const s=document.createElement('span');s.className='rp';s.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left-d/2}px;top:${e.clientY-r.top-d/2}px`;el.appendChild(s);setTimeout(()=>s.remove(),650)},{passive:true});
