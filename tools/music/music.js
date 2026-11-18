@@ -15,12 +15,14 @@ const MI={
  prev:I('<path d="M18 5.5v13l-9-6.5z" style="fill:currentColor"/><path d="M5.5 5v14"/>'),
  shuf:I('<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>'),
  rep:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>'),
- rep1:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10l1-.7V14"/>')
+ rep1:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10l1-.7V14"/>'),
+ wave:I('<path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4"/>')
 };
 IC.music=MI.note;
 const A=new Audio();A.preload='auto';
 let Q=[],qi=-1,shuf=0,rep=0,wave=0,tryFb=0,fails=0,sessionSet=0;
-const st={tab:'home',genre:'',q:''};
+const st={tab:'home',genre:'',q:'',artist:null,ahist:[]};
+let redraw=null;
 const cache=new Map();
 const jget=(k,d)=>{try{const v=ls.get(k);return v?JSON.parse(v):d}catch(e){return d}};
 /* треки старой библиотеки (нецифровые id без файла) больше не играют — не тащим их из сохранённого */
@@ -37,7 +39,7 @@ async function aj(p){
   if(c&&Date.now()-c.t<300000)return c.d;
   const d=await api('/music/get?'+qs),arr=(d&&d.data)||[];if(!Array.isArray(arr))throw new Error('Пустой ответ');
   cache.set(qs,{t:Date.now(),d:arr});if(cache.size>80)cache.delete(cache.keys().next().value);return arr}
-function norm(t){return{id:String(t.id),t:t.t||'Без названия',a:t.a||'Неизвестный исполнитель',img:t.img||'',d:t.d|0,u:t.u||''}}
+function norm(t){return{id:String(t.id),t:t.t||'Без названия',a:t.a||'Неизвестный исполнитель',img:t.img||'',d:t.d|0,u:t.u||'',ai:t.ai||''}}
 const tracks=async p=>(await aj(p)).filter(t=>t&&t.id).map(norm);
 /* русскоязычное (основное) и зарубежное (отдельная подборка); genre — тег Jamendo */
 const RU='ru',WORLD='en';
@@ -58,9 +60,10 @@ const shuffled=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(
 /* ---------- разметка ---------- */
 function cover(t,cls){const h=hue(t.id);
   return `<span class="mu-cv ${cls||''}" style="background:linear-gradient(135deg,hsl(${h} 45% 34%),hsl(${(h+50)%360} 50% 16%))">${MI.note}${t.img?`<img src="${esc(t.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<span class="eq"><i></i><i></i><i></i></span></span>`}
-function row(t,i){return `<div class="mu-row${cur()&&cur().id===t.id?' cur':''}" data-i="${i}" data-id="${esc(t.id)}">${cover(t)}<span class="mu-ti"><b>${esc(t.t)}</b><small>${esc(t.a)}</small></span><span class="mu-dur">${t.d?fmt(t.d):''}</span><button class="mu-lk${isLiked(t.id)?' on':''}" data-lk="1" aria-label="Нравится">${IC.heart}</button></div>`}
+const arName=t=>t.ai?`<span class="mu-ar" data-ar="${esc(t.ai)}">${esc(t.a)}</span>`:esc(t.a);
+function row(t,i){return `<div class="mu-row${cur()&&cur().id===t.id?' cur':''}" data-i="${i}" data-id="${esc(t.id)}">${cover(t)}<span class="mu-ti"><b>${esc(t.t)}</b><small>${arName(t)}</small></span><span class="mu-dur">${t.d?fmt(t.d):''}</span><button class="mu-lk${isLiked(t.id)?' on':''}" data-lk="1" aria-label="Нравится">${IC.heart}</button></div>`}
 const listHtml=a=>`<div class="mu-list">${a.map(row).join('')}</div>`;
-function wire(box,arr){box.onclick=e=>{const r=e.target.closest('.mu-row');if(!r)return;const t=arr[+r.dataset.i];if(!t)return;
+function wire(box,arr){box.onclick=e=>{const ar=e.target.closest('[data-ar]');if(ar){e.stopPropagation();openArtist(ar.dataset.ar);return}const r=e.target.closest('.mu-row');if(!r)return;const t=arr[+r.dataset.i];if(!t)return;
   if(e.target.closest('.mu-lk')){e.stopPropagation();toggleLike(t);return}start(arr,+r.dataset.i)}}
 const skel=n=>'<div class="mu-skel"></div>'.repeat(n||6);
 
@@ -135,14 +138,15 @@ function mount(noNav){
   paint()}
 function bindUi(app){
   const mini=$('#muMini',app),full=$('#muFull',app);
-  const act=a=>{if(a==='pp')toggle();else if(a==='next')next(false);else if(a==='prev')prev();
+  const act=a=>{if(a==='ar'){const t=cur();if(t&&t.ai){full.classList.remove('open');openArtist(t.ai)}return}
+    if(a==='pp')toggle();else if(a==='next')next(false);else if(a==='prev')prev();
     else if(a==='close')full.classList.remove('open');
     else if(a==='like'){const t=cur();if(t)toggleLike(t)}
     else if(a==='topf'){const t=cur();if(t)addToProfile(t)}
     else if(a==='shuf'){shuf=shuf?0:1;paint()}
     else if(a==='rep'){rep=(rep+1)%3;paint()}};
   mini.onclick=e=>{const b=e.target.closest('[data-a]');if(b){e.stopPropagation();act(b.dataset.a);return}full.classList.add('open')};
-  full.onclick=e=>{const b=e.target.closest('[data-a]');if(b)act(b.dataset.a)};
+  full.onclick=e=>{if(e.target.closest('[data-ar]')){act('ar');return}const b=e.target.closest('[data-a]');if(b)act(b.dataset.a)};
   const rg=$('input[type=range]',full);
   rg.oninput=()=>{const d=isFinite(A.duration)&&A.duration>0?A.duration:(cur()?cur().d:0);if(d){A.currentTime=rg.value/1000*d}};
   window.addEventListener('hashchange',()=>full.classList.remove('open'))}
@@ -169,7 +173,7 @@ function paint(){
     mini.querySelector('.mu-cv').outerHTML=cover(t);
     $('.mu-ti b',mini).textContent=t.t;$('.mu-ti small',mini).textContent=t.a;
     $('.mf-art',full).innerHTML=cover(t);
-    $('.mu-ti b',full).textContent=t.t;$('.mu-ti small',full).textContent=t.a;
+    $('.mu-ti b',full).textContent=t.t;$('.mu-ti small',full).innerHTML=arName(t);
     const bg=$('.bgc',full);bg.style.backgroundImage=t.img?`url("${t.img.replace(/"/g,'%22')}")`:'';
     const h=hue(t.id);if(!t.img)bg.style.backgroundImage=`linear-gradient(135deg,hsl(${h} 50% 30%),hsl(${(h+60)%360} 50% 12%))`;
     const n=Q[qi+1];$('.mf-nx',full).textContent=n?'Дальше: '+n.t+' — '+n.a:'';
@@ -183,6 +187,7 @@ function stop(){try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}ca
 
 /* ---------- экран «EXG Music» ---------- */
 function view(el){
+  if(!st.go){st.artist=null;st.ahist=[]}st.go=0;
   el.innerHTML=`<div class="mu">
   <div class="mu-top"><button class="ib round" data-href="#/boards" aria-label="Назад">${IC.back}</button><span class="mu-logo">${MI.note}</span><div><h2>EXG <b>Music</b></h2><small>Русская музыка без рекламы</small></div></div>
   <div class="mu-search">${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, жанр" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
@@ -240,21 +245,68 @@ function view(el){
       if(!l.length){body.innerHTML=emptyBox('search','Ничего не нашлось по запросу «'+esc(q)+'»');return}
       body.innerHTML=`<div class="mu-h"><h3>Результаты</h3></div><div id="muLs"></div>`;const b=$('#muLs',body);b.innerHTML=listHtml(l);wire(b,l)}
     catch(e){if(my===seq)fail('Поиск не удался.<br>Проверьте интернет',()=>search(q))}}
+  /* ---- карточка исполнителя ---- */
+  const aCache=new Map();
+  async function artistData(id){const c=aCache.get(id);if(c&&Date.now()-c.t<300000)return c.d;
+    const d=await api('/music/artist?id='+encodeURIComponent(id));aCache.set(id,{t:Date.now(),d});if(aCache.size>20)aCache.delete(aCache.keys().next().value);return d}
+  const uniq=a=>{const s=new Set();return a.filter(t=>!s.has(t.id)&&s.add(t.id))};
+  async function artistPage(id){
+    const my=++seq;
+    body.innerHTML=`<div class="ar-hero"><button class="ib round ar-back" data-ab="1" aria-label="Назад">${IC.back}</button></div>${skel(7)}`;
+    $('[data-ab]',body).onclick=artistBack;
+    let d;
+    try{d=await artistData(id);if(my!==seq)return}
+    catch(e){if(my===seq){body.innerHTML=`<div class="ar-hero"><button class="ib round ar-back" data-ab="1" aria-label="Назад">${IC.back}</button></div><div class="empty">Не удалось загрузить исполнителя<br><br><button class="btn ghost" id="muRetry">Повторить</button></div>`;$('[data-ab]',body).onclick=artistBack;$('#muRetry',body).onclick=()=>artistPage(id)}return}
+    const a=d.artist||{},all=(d.tracks||[]).map(norm),top=(d.top||[]).map(norm),sim=(d.similar||[]).map(norm),sa=d.sim_artists||[];
+    const main=uniq(top.concat(all)),five=(top.length?top:all).slice(0,5),h=hue(a.id||'x');
+    const meta=[a.sub,(a.genres||[]).join(', ')].filter(Boolean).map(esc).join(' · ');
+    body.innerHTML=`<div class="ar-hero" style="--h:${h}"><div class="ar-bg"${a.img?` style="background-image:url('${esc(a.img).replace(/'/g,'%27')}')"`:''}></div>
+      <button class="ib round ar-back" data-ab="1" aria-label="Назад">${IC.back}</button>
+      <span class="ar-ph">${MI.note}${a.img?`<img src="${esc(a.img)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span>
+      <h2 class="ar-name">${esc(a.name||'Исполнитель')}</h2>${meta?`<div class="ar-meta">${meta}</div>`:''}
+      <div class="ar-act"><button class="btn" id="arPlay">${MI.play}Слушать</button><button class="btn ghost" id="arRadio">${MI.wave}Радио</button><button class="btn ghost ar-sh" id="arSh" aria-label="Вперемешку">${MI.shuf}</button></div></div>
+    ${five.length?`<div class="mu-h"><h3>Популярное</h3></div><div id="arTop"></div>`:''}
+    ${all.length>five.length?`<div class="mu-h"><h3>Все песни</h3><small class="ar-cnt">${all.length}</small></div><div id="arAll"></div>`:''}
+    ${sa.length?`<div class="mu-h"><h3>Похожие исполнители</h3></div><div class="ar-sim">${sa.map(x=>`<button class="ar-card" data-ar="${esc(x.id)}"><span class="ar-av">${MI.note}${x.img?`<img src="${esc(x.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}</span><b>${esc(x.name)}</b></button>`).join('')}</div>`:''}
+    ${sim.length?`<div class="mu-h"><h3>Похожие песни</h3><button class="btn sm ghost" id="arSimPlay">${MI.play}Слушать</button></div><div id="arSim"></div>`:''}
+    ${!all.length&&!sim.length?'<div class="empty" style="padding:24px">Песен исполнителя пока нет</div>':''}`;
+    $('[data-ab]',body).onclick=artistBack;
+    const put=(sel,arr)=>{const el=$(sel,body);if(el){el.innerHTML=listHtml(arr);wire(el,arr)}};
+    put('#arTop',five);put('#arAll',all);put('#arSim',sim);
+    $('#arPlay',body).onclick=()=>{if(main.length)start(main,0);else toast('Нет треков для воспроизведения',1)};
+    $('#arSh',body).onclick=()=>{if(main.length)start(shuffled(main),0)};
+    /* радио исполнителя: его песни вперемешку с песнями похожих исполнителей */
+    $('#arRadio',body).onclick=()=>{const l=shuffled(uniq(main.slice(0,25).concat(sim)));if(l.length)start(l,0);else toast('Нет треков для воспроизведения',1)};
+    const sp=$('#arSimPlay',body);if(sp)sp.onclick=()=>start(sim,0);
+    const sl=$('.ar-sim',body);if(sl)sl.onclick=e=>{const c=e.target.closest('[data-ar]');if(c)openArtist(c.dataset.ar)};
+    const vw=$('#view');if(vw)vw.scrollTop=0}
+  function artistBack(){st.artist=st.ahist.pop()||null;draw()}
   function draw(){
     const q=st.q.trim();
-    tabs.hidden=!!q;tabs.style.display=q?'none':'';x.hidden=!st.q;
+    tabs.hidden=!!q||!!st.artist;tabs.style.display=(q||st.artist)?'none':'';x.hidden=!st.q;
     if(q.length>=2)return search(q);
     if(q){body.innerHTML='';return}
+    if(st.artist)return artistPage(st.artist);
     $$('.tab',tabs).forEach(b=>b.classList.toggle('on',b.dataset.t===st.tab));
     if(st.tab==='likes')collection(likes,'Отмечайте треки сердечком — они появятся здесь',true);
     else if(st.tab==='hist')collection(hist,'Вы пока ничего не слушали',false);
     else if(st.tab==='world')world();
     else home()}
-  $$('.tab',tabs).forEach(b=>b.onclick=()=>{st.tab=b.dataset.t;draw()});
+  $$('.tab',tabs).forEach(b=>b.onclick=()=>{st.tab=b.dataset.t;st.artist=null;st.ahist=[];draw()});
   inp.oninput=()=>{st.q=inp.value;x.hidden=!st.q;clearTimeout(timer);timer=setTimeout(draw,450)};
   inp.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(timer);inp.blur();draw()}};
   x.onclick=()=>{st.q='';inp.value='';clearTimeout(timer);draw()};
-  draw()}
+  redraw=draw;draw()}
+
+/* ---------- исполнитель: открыть карточку откуда угодно (список, полный плеер) ---------- */
+function openArtist(id){
+  if(!id)return;
+  if(st.artist&&st.artist!==id)st.ahist.push(st.artist);
+  if(st.artist===id&&$('#muBody')){return}
+  st.artist=id;st.q='';
+  const f=$('#muFull');if(f)f.classList.remove('open');
+  const i=$('#muQ');if(i)i.value='';
+  if($('#muBody')&&redraw)redraw();else{st.go=1;location.hash='#/music'}}
 
 /* ---------- музыка в профиле ---------- */
 /* Трек профиля — файл, загруженный пользователем (src), либо трек из EXG Music (id Jamendo). Хранится на сервере: /forum/api/pmusic* */
@@ -433,5 +485,5 @@ function pmSync(){
     const pp=$('.pm-pp',sec),html=playing?MI.pause:MI.play;if(pp&&pp._h!==html){pp._h=html;pp.innerHTML=html}
     const al=$('[data-pm=all]',sec);if(al){const h=(playing?MI.pause+'Пауза':MI.play+(on?'Продолжить':'Слушать'));if(al._h!==h){al._h=h;al.innerHTML=h}}})}
 
-return{view,mount,stop,paint,profile}})();
+return{view,mount,stop,paint,profile,openArtist}})();
 function viewMusic(el){MU.view(el)}
