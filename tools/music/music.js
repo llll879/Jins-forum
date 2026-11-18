@@ -17,9 +17,10 @@ const MI={
  rep:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>'),
  rep1:I('<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10l1-.7V14"/>'),
  wave:I('<path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4"/>'),
- lyr:I('<path d="M4 6h16M4 12h10M4 18h14"/>')
+ lyr:I('<path d="M4 6h16M4 12h10M4 18h14"/>'),
+ moon:I('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>')
 };
-IC.music=MI.note;
+IC.music=MI.note;IC.moon=MI.moon;
 const A=new Audio();A.preload='auto';
 let Q=[],qi=-1,shuf=0,rep=0,wave=0,tryFb=0,fails=0,sessionSet=0;
 const st={tab:'home',genre:'',q:'',artist:null,ahist:[]};
@@ -117,7 +118,7 @@ A.addEventListener('playing',()=>{lyRun();fails=0;document.body.classList.remove
 A.addEventListener('pause',()=>{document.body.classList.remove('mu-playing');syncPP()});
 A.addEventListener('waiting',()=>document.body.classList.add('mu-loading'));
 A.addEventListener('canplay',()=>document.body.classList.remove('mu-loading'));
-A.addEventListener('ended',()=>next(true));
+A.addEventListener('ended',()=>{if(slp.eot){slpClear('Таймер сна: музыка остановлена');return}next(true)});
 A.addEventListener('timeupdate',progress);
 A.addEventListener('seeked',()=>{lyI=-2;lyTick()});
 A.addEventListener('error',()=>{
@@ -139,7 +140,7 @@ function lyBody(){
   if(LY.st==='none')return `<div class="ly-in"><div class="ly-msg">${MI.lyr}<b>Текста пока нет</b><small>Для этой песни мы его не нашли</small></div></div>`;
   if(LY.st==='err')return `<div class="ly-in"><div class="ly-msg">${MI.lyr}<b>Не удалось загрузить текст</b><button class="btn sm ghost" data-a="lyretry">Повторить</button></div></div>`;
   const s=lySync();
-  if(s)return `<div class="ly-in">${s.map((l,i)=>l[1]?`<p class="ly-l" data-i="${i}" data-t="${l[0]}"><span>${esc(l[1])}</span></p>`:`<p class="ly-l ly-gap" data-i="${i}" data-t="${l[0]}"><span>• • •</span></p>`).join('')}</div>`;
+  if(s)return `<div class="ly-in">${s.map((l,i)=>l[1]?`<p class="ly-l" data-i="${i}" data-t="${l[0]}"><span data-tx="${esc(l[1])}">${esc(l[1])}</span></p>`:`<p class="ly-l ly-gap" data-i="${i}" data-t="${l[0]}"><span>• • •</span></p>`).join('')}</div>`;
   return `<div class="ly-in ly-pl">${String(LY.d.plain||'').split(/\n\s*\n/).map(b=>`<p>${esc(b.trim())}</p>`).join('')}<small class="ly-note">Текст без синхронизации — его можно листать вручную</small></div>`}
 function lyRender(){
   const f=$('#muFull');if(!f)return;
@@ -200,11 +201,38 @@ function lyRun(){
   const step=()=>{raf=0;const f=$('#muFull');if(!f||!f.classList.contains('open')||A.paused||!lySync())return;lyTick();raf=requestAnimationFrame(step)};
   raf=requestAnimationFrame(step)}
 
+/* ---------- таймер сна ---------- */
+/* Через N минут музыка плавно затихает (последние 10 с) и ставится на паузу; «До конца трека» — остановка после текущей песни. */
+let slp={end:0,eot:0,iv:0};
+const sheetTop=(items,title)=>{const p=sheet(items,title);const b=[...document.querySelectorAll('.sheet-bg')].pop();if(b)b.style.zIndex=95;return p};
+function slpPaint(){
+  const on=!!(slp.end||slp.eot),f=$('#muFull');if(!f)return;const b=$('.sleep',f);if(!b)return;
+  b.classList.toggle('on',on);
+  $('i',b).textContent=slp.eot?'до конца':slp.end?fmt(Math.max(0,(slp.end-Date.now())/1000)):''}
+function slpClear(msg){
+  clearInterval(slp.iv);slp={end:0,eot:0,iv:0};A.volume=1;slpPaint();if(msg){try{A.pause()}catch(e){}toast(msg)}}
+function slpTick(){
+  const left=slp.end-Date.now();
+  if(left<=0){slpClear('Таймер сна: музыка остановлена');return}
+  A.volume=left<10000?Math.max(.03,left/10000):1;slpPaint()}
+function slpSet(min){
+  slpClear();
+  if(min==='eot')slp.eot=1;
+  else{slp.end=Date.now()+min*60000;slp.iv=setInterval(slpTick,500)}
+  slpPaint();toast(min==='eot'?'Музыка остановится после этого трека':'Музыка остановится через '+min+' мин')}
+async function sleepMenu(){
+  const on=!!(slp.end||slp.eot),items=[15,30,45,60,90].map(m=>({ic:'moon',t:m+' минут',k:m}));
+  items.push({ic:'music',t:'До конца трека',k:'eot'});
+  if(on)items.push({t:'Выключить таймер',bad:true,k:'off'});
+  const c=await sheetTop(items,on?'Таймер сна · '+(slp.eot?'до конца трека':'осталось '+fmt((slp.end-Date.now())/1000)):'Таймер сна');
+  if(!c)return;
+  if(c.k==='off')slpClear();else slpSet(c.k)}
+
 /* ---------- мини-плеер и полноэкранный ---------- */
 const MINI=`<div id="muMini"><span class="mu-cv"></span><span class="mu-ti"><b></b><small></small></span><button class="mb pp" data-a="pp" aria-label="Пуск/пауза"></button><button class="mb" data-a="next" aria-label="Дальше">${MI.next}</button><div class="prog"><i></i></div></div>`;
 const FULL=`<div id="muFull"><div class="bgc"></div><div class="mf-sc">
 <section class="mf-p1">
-<div class="mf-top"><button class="ib" data-a="close" aria-label="Свернуть">${IC.chevd}</button><small>EXG Music</small><span style="width:42px"></span></div>
+<div class="mf-top"><button class="ib" data-a="close" aria-label="Свернуть">${IC.chevd}</button><small>EXG Music</small><button class="ib sleep" data-a="sleep" aria-label="Таймер сна">${MI.moon}<i></i></button></div>
 <div class="mf-art"><div class="flip" data-a="flip" role="button" aria-label="Показать текст песни"><div class="face fr"><span class="cvh"></span><span class="fl-hint">${MI.lyr}Текст</span></div><div class="face bk"><div class="ly" data-ly="1"></div><button class="fl-back" data-a="flipb" aria-label="Вернуть обложку">${IC.close}</button></div></div></div>
 <div class="mf-info"><div class="mu-ti"><b></b><small></small></div><button class="mu-lk" data-a="topf" aria-label="В профиль">${IC.plus}</button><button class="mu-lk" data-a="like" aria-label="Нравится">${IC.heart}</button></div>
 <div class="mf-seek"><input type="range" min="0" max="1000" value="0" aria-label="Перемотка"><div><span class="tc">0:00</span><span class="td">0:00</span></div></div>
@@ -226,6 +254,7 @@ function bindUi(app){
   const act=a=>{if(a==='ar'){const t=cur();if(t&&t.ai){full.classList.remove('open');openArtist(t.ai)}return}
     if(a==='pp')toggle();else if(a==='next')next(false);else if(a==='prev')prev();
     else if(a==='close')full.classList.remove('open');
+    else if(a==='sleep')sleepMenu();
     else if(a==='flip'||a==='flipb')flipTo(a==='flip'?!$('.flip',full).classList.contains('on'):false);
     else if(a==='down'){ensureLy();sc.scrollTo({top:$('.mf-p2',full).offsetTop,behavior:'smooth'})}
     else if(a==='up')sc.scrollTo({top:0,behavior:'smooth'});
@@ -280,7 +309,7 @@ function paint(){
   $('[data-a=topf]',full).style.display=t.src?'none':'';
   $('[data-a=shuf]',full).classList.toggle('on',!!shuf);
   const rb=$('[data-a=rep]',full);rb.classList.toggle('on',rep>0);rb.innerHTML=rep===2?MI.rep1:MI.rep}
-function stop(){lyReset();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;
+function stop(){lyReset();slpClear();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;
   const a=$('#app');if(a)a.classList.remove('mu-on');document.body.classList.remove('mu-playing','mu-loading')}
 
 /* ---------- экран «EXG Music» ---------- */
