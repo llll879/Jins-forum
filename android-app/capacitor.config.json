@@ -1,0 +1,17 @@
+{
+  "appId": "com.exg.forum",
+  "appName": "EXG FORUM",
+  "webDir": "www",
+  "backgroundColor": "#050409",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}
