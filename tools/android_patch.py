@@ -74,9 +74,33 @@ public class MainActivity extends BridgeActivity {
     private int nextCode = 4100;
     private int nid = 1;
 
+    static MainActivity inst;
+
+    /** Команда из уведомления плеера (play/pause/next/prev/seek:N/stop) -> window.__exgMedia в вебе. */
+    static void toWeb(final String cmd) {
+        final MainActivity a = inst;
+        if (a == null) return;
+        a.runOnUiThread(new Runnable() {
+            public void run() {
+                try {
+                    String safe = cmd.replace(\"\\\\\", \"\\\\\\\\\").replace(\"'\", \"\\\\'\");
+                    a.getBridge().getWebView().evaluateJavascript(
+                        \"window.__exgMedia&&window.__exgMedia('\" + safe + \"')\", null);
+                } catch (Exception ignored) { }
+            }
+        });
+    }
+
+    @Override
+    public void onDestroy() {
+        if (inst == this) inst = null;
+        super.onDestroy();
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        inst = this;
         getBridge().getWebView().addJavascriptInterface(new Native(), "ExgNative");
     }
 
