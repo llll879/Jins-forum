@@ -86,6 +86,9 @@ def push(uid, ev):
     b.seq += 1
     b.q.append(dict(ev, seq=b.seq))
     b.ev.set()
+    if ev.get("t") == "ring_end":                  # погасить звонящий экран и на закрытом приложении (FCM)
+        import forum_fcm
+        forum_fcm.call_end(uid, ev.get("call"))
 
 
 def online(uid, within=25):
@@ -178,6 +181,16 @@ def add_part(c, uid, video=False):
 def ring(c, uid, by):
     c["inv"][uid] = {"t": time.monotonic(), "by": by}
     push(uid, {"t": "ring", "call": c["id"]})
+    import forum_fcm
+    if forum_fcm.enabled():
+        forum_fcm.spawn(_fcm_ring(c, uid, by))
+
+
+async def _fcm_ring(c, uid, by):
+    """Системный вызов на телефон (работает при закрытом приложении). Приложение само не показывает его, если открыто."""
+    import forum_fcm
+    us = (await users_short([by])).get(by)
+    forum_fcm.call_ring(uid, c, us)
 
 
 async def tg_push(to, who_id, c):
@@ -252,8 +265,13 @@ async def write_log(c, reason):
             else:
                 body = f"{ico} Пропущенный звонок"
             await P().execute("INSERT INTO direct_messages(sender_id,recipient_id,body) VALUES($1,$2,$3)", c["host"], c["peer"], body)
-            if not c["answered"] and reason in ("timeout", "busy"):
+            if not c["answered"] and reason in ("timeout", "busy", "cancel"):
                 await tg_missed(c["peer"], c["host"], c["video"])
+                import forum_fcm
+                if forum_fcm.enabled():
+                    who = await F.bm.user_name(c["host"])
+                    forum_fcm.text(c["peer"], "missed", who, "Пропущенный видеозвонок" if c["video"] else "Пропущенный звонок",
+                                   f"#/c/{c['host']}", f"call-{c['host']}")
         elif c["kind"] == "group" and c["gid"] and c["answered"] and dur >= 5:
             await P().execute("INSERT INTO forum_group_msgs(group_id,sender_id,body) VALUES($1,$2,$3)", c["gid"], c["host"],
                               f"{'📹 Групповой видеозвонок' if c['video'] else '📞 Групповой звонок'} · {_dur(dur)}")

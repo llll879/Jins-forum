@@ -266,6 +266,10 @@ async def a_auth_poll(request):
 async def a_logout(request):
     h = request.headers.get("Authorization") or ""
     await P().execute("DELETE FROM forum_sessions WHERE token=$1", h[7:].strip())
+    try:
+        await P().execute("DELETE FROM forum_push_tokens WHERE session=$1", h[7:].strip())     # после выхода пуши на это устройство не идут
+    except Exception:
+        pass
     return J({"ok": True})
 
 
@@ -490,6 +494,10 @@ async def notify(to, kind, actor, post_id=None, comment_id=None, group_id=None, 
             return
     await P().execute("INSERT INTO forum_notifs(user_id,kind,actor_id,post_id,comment_id,group_id,msg_id) VALUES($1,$2,$3,$4,$5,$6,$7)",
                       to, kind, actor, post_id, comment_id, group_id, msg_id)
+    # системный push на телефон (FCM): приходит и при закрытом приложении
+    import forum_fcm
+    if forum_fcm.enabled() and bm.rate_ok(("forum_fcm", to, kind, actor, group_id or post_id or 0), 20):
+        forum_fcm.spawn(_fcm_notify(to, kind, actor, post_id, comment_id, group_id))
     # дублирование в Telegram: работает и когда приложение закрыто (лайки в Telegram не шлём — слишком шумно)
     if kind in ("comment", "reply", "mention", "follow", "gmention", "greply") and pr["tg"] and bm._BOT and _base() and bm.rate_ok(("forum_push", to, kind), 120):
         try:
@@ -507,6 +515,37 @@ async def notify(to, kind, actor, post_id=None, comment_id=None, group_id=None, 
             await bm._BOT.send_message(to, f"💬 <b>KMBP FORUM</b>\n{bm.esc(who)} {what}.", reply_markup=kb)
         except Exception:
             pass
+
+
+_FCM_WHAT = {"like_p": "оценил(а) ваш пост", "like_c": "оценил(а) ваш комментарий", "comment": "прокомментировал(а) ваш пост",
+             "reply": "ответил(а) на ваш комментарий", "mention": "упомянул(а) вас", "follow": "подписался(лась) на вас",
+             "gmention": "упомянул(а) вас в чате", "greply": "ответил(а) вам в чате"}
+
+
+async def _fcm_notify(to, kind, actor, post_id, comment_id, group_id):
+    import forum_fcm
+    try:
+        what = _FCM_WHAT.get(kind)
+        if not what:
+            return
+        who = await bm.user_name(actor)
+        snippet = ""
+        if group_id:
+            snippet = await P().fetchval("SELECT title FROM forum_groups WHERE id=$1", group_id) or ""
+        elif post_id:
+            snippet = await P().fetchval("SELECT left(CASE WHEN title='' THEN body ELSE title END, 80) FROM forum_posts WHERE id=$1", post_id) or ""
+        href = f"#/g/{group_id}" if group_id else f"#/p/{post_id}" if post_id else f"#/u/{actor}"
+        forum_fcm.text(to, kind, who, what + (": «%s»" % " ".join(snippet.split()) if snippet else ""), href, f"n-{kind}-{post_id or group_id or actor}")
+    except Exception:
+        log.exception("FCM notify failed")
+
+
+def push_dm_all(sender, peer, post_id, body, fname, fmime):
+    """Новое личное сообщение: Telegram (как раньше) + системный push на телефон (FCM)."""
+    asyncio.create_task(bm.push_dm(sender, peer, post_id, body, fname, fmime))
+    import forum_fcm
+    if forum_fcm.enabled():
+        forum_fcm.spawn(forum_fcm.dm(sender, peer, body, fname, fmime))
 
 
 async def mentions(text, actor, post_id, comment_id=None):
@@ -1308,25 +1347,25 @@ async def a_message_send(request):
         mid = await P().fetchval(
             """INSERT INTO direct_messages(sender_id,recipient_id,body,file_data,file_mime,file_name,file_size,voice_dur,voice_wave,reply_to)
                VALUES($1,$2,'',$3,$4,$5,$6,$7,$8,$9) RETURNING id""", me, peer, fdata, vmime, vname, len(fdata), vdur, vwave, reply_to)
-        asyncio.create_task(bm.push_dm(me, peer, None, "", vname, vmime))
+        push_dm_all(me, peer, None, "", vname, vmime)
         return J({"ok": True, "id": mid})
     if attach:
         mid = await P().fetchval(
             """INSERT INTO direct_messages(sender_id,recipient_id,body,file_data,file_mime,file_name,file_size,reply_to)
                VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id""", me, peer, text, fdata, attach[0], attach[1], len(fdata), reply_to)
-        asyncio.create_task(bm.push_dm(me, peer, None, text, attach[1], attach[0]))
+        push_dm_all(me, peer, None, text, attach[1], attach[0])
         return J({"ok": True, "id": mid})
     mid = await P().fetchval("INSERT INTO direct_messages(sender_id,recipient_id,body,reply_to) VALUES($1,$2,$3,$4) RETURNING id", me, peer, text, reply_to)
     if sticker:
         await P().execute("INSERT INTO forum_msg_stickers(msg_id,sticker_id) VALUES($1,$2)", mid, sticker["id"])
     if ref_post:
         await P().execute("INSERT INTO forum_msg_posts(msg_id,post_id) VALUES($1,$2) ON CONFLICT DO NOTHING", mid, ref_post[0])
-        asyncio.create_task(bm.push_dm(me, peer, None, "↩ Пост «%s»: %s" % (ref_post[1][:40], text), None, None))
+        push_dm_all(me, peer, None, "↩ Пост «%s»: %s" % (ref_post[1][:40], text), None, None)
         return J({"ok": True, "id": mid})
     if peer == SUPPORT_ID:
         asyncio.create_task(on_user_message(me, text, mid))
     else:
-        asyncio.create_task(bm.push_dm(me, peer, None, strip_em(text), None, None))
+        push_dm_all(me, peer, None, strip_em(text), None, None)
     return J({"ok": True, "id": mid})
 
 
@@ -2744,6 +2783,8 @@ def install(app, bot_module):
     forum_groups.install(r, A)
     import forum_gifs
     forum_gifs.install(r, A)
+    import forum_fcm
+    forum_fcm.install(r, A)                    # push-токены устройств (FCM)
     import forum_calls
     forum_calls.install(r, A)                  # звонки: личные и групповые (WebRTC, сигнализация через long-poll)
     r.add_post(A + "/support/{act}", a_support_act)
@@ -2776,6 +2817,8 @@ async def start(bot_module):
     if not await bm.pool.fetchval("SELECT 1 FROM forum_boards LIMIT 1"):
         for name, emoji, sort, admin_only in SEED_BOARDS:
             await bm.pool.execute("INSERT INTO forum_boards(name,emoji,sort,admin_only) VALUES($1,$2,$3,$4)", name, emoji, sort, admin_only)
+    import forum_fcm
+    await forum_fcm.start(bm)                      # таблица push-токенов + чтение ключа FCM
     import forum_calls
     forum_calls.start()                            # фоновая уборка звонков (таймаут вызова, отвалившиеся участники)
     log.info("forum ready")

@@ -759,6 +759,11 @@ async def a_gsend(request):
     await P().execute("UPDATE forum_group_members SET last_read=GREATEST(last_read,$3) WHERE group_id=$1 AND user_id=$2", gid, me, mid)
     _gtyping.pop((gid, me), None)
     asyncio.create_task(_safe(_notify_mentions(gid, me, mid, text, reply_author)))
+    import forum_fcm
+    if forum_fcm.enabled():                       # системный push участникам (кроме тех, у кого чат «без звука»)
+        fa = voice or note or attach              # (mime, имя, …)
+        forum_fcm.spawn(forum_fcm.group_msg(gid, me, c.g["title"], text, fa[1] if fa else None, fa[0] if fa else None,
+                                            bool(sticker), c.channel))
     return J({"ok": True, "id": mid})
 
 
@@ -909,7 +914,7 @@ async def a_gmsg_forward(request):
             if sid and mid:
                 await P().execute("INSERT INTO forum_msg_stickers(msg_id,sticker_id) VALUES($1,$2) ON CONFLICT DO NOTHING", mid, sid)
         if ok_ids:
-            asyncio.create_task(bm().push_dm(me, to, None, "↪️ Пересланное сообщение", None, None))
+            F.push_dm_all(me, to, None, "↪️ Пересланное сообщение", None, None)
     return J({"ok": True, "count": len(ok_ids)})
 
 

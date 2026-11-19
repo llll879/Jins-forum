@@ -985,6 +985,36 @@ body.mu-playing .mu-wv.on .wv-eq i:nth-child(3){animation-delay:-.45s}
 body.mu-playing .mu-wv.on .wv-eq i:nth-child(4){animation-delay:-.65s}
 body.mu-playing .mu-wv.on .wv-eq i:nth-child(5){animation-delay:-.8s}
 @media (prefers-reduced-motion:reduce){.mu-wv{transition:none}body.mu-playing .mu-wv.on .wv-eq i{animation:none}}
+
+/* автозагрузка трендов для офлайн-волны */
+.mu-autobar{display:flex;align-items:center;gap:12px;width:calc(100% - 32px);margin:12px 16px 4px;padding:12px 14px;border-radius:16px;background:var(--acc-soft);border:1px solid var(--line2);color:inherit;text-align:left;font:inherit;cursor:pointer}
+.mu-autobar svg{width:22px;height:22px;color:var(--acc);flex:none}
+.mu-autobar span{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.mu-autobar small{color:var(--dim);font-size:12.5px;white-space:normal}
+.mu-autobar em{font-style:normal;color:var(--dim);font-size:22px}
+.mu-as{max-height:88vh;overflow:auto}
+.mu-asx{margin:2px 16px 10px;color:var(--dim);font-size:13.5px;line-height:1.45}
+.mu-asn{display:flex;align-items:center;gap:10px;margin:0 16px}
+.mu-asn .inp{flex:1;text-align:center;font-size:20px;font-weight:600;min-width:0}
+.mu-asn .btn{width:48px;padding:0;font-size:22px}
+.mu-asp{display:flex;gap:8px;flex-wrap:wrap;margin:10px 16px 0}
+.mu-asi{margin:12px 16px;color:var(--dim);font-size:13px;line-height:1.5}
+
+/* офлайн-режим: тонкая плашка и переключатель вместо отдельного экрана */
+.mu-offbar{display:flex;align-items:center;gap:10px;margin:8px 16px 0;padding:9px 12px;border-radius:14px;background:var(--acc-soft);border:1px solid var(--line2);font-size:13px;animation:muOffIn .25s ease}
+.mu-offbar[hidden]{display:none}
+.mu-offbar svg{width:18px;height:18px;color:var(--acc);flex:none}
+.mu-offbar span{flex:1;min-width:0}
+.mu-offbar button{background:none;border:0;color:var(--acc);font:inherit;font-weight:600;padding:2px 4px;cursor:pointer}
+@keyframes muOffIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.mu-offt{display:flex;align-items:center;gap:12px;width:calc(100% - 32px);margin:10px 16px 0;padding:11px 14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid var(--line2);color:inherit;text-align:left;font:inherit;cursor:pointer}
+.mu-offt.on{background:var(--acc-soft)}
+.mu-offt svg{width:20px;height:20px;color:var(--acc);flex:none}
+.mu-offt span{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.mu-offt small{color:var(--dim);font-size:12.5px;white-space:normal}
+.mu-as .mu-offt{width:calc(100% - 32px)}
+.mu-offh{margin:10px 16px 0;display:flex;flex-direction:column;gap:2px;color:var(--dim);font-size:13px}
+.mu-offh b{color:inherit;font-size:14px}
 .supbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px;color:var(--dim)}
 
 /* ---------- новый пост ---------- */
@@ -1674,6 +1704,36 @@ const EXGPerm=window.EXGPerm={
   settings(){try{window.ExgNative&&window.ExgNative.openSettings()}catch(e){}}
 };
 window.__exgPermDone=(id,ok)=>{const m=window.__exgPerm||{};const f=m[id];if(f){delete m[id];f(!!ok)}};
+/* ---------- системные push (Android, FCM): звонки и уведомления даже при ЗАКРЫТОМ приложении ----------
+   Нативная часть — tools/android_patch.py (ExgMessagingService, IncomingCallActivity). Здесь: регистрация токена на сервере
+   и обработка запуска из уведомления (открыть чат / принять звонок). */
+const EXGPush=window.EXGPush={
+  t:0,
+  ok(){const N=window.ExgNative;return !!(N&&typeof N.fcmInit==='function')},
+  on(){return ls.get('fcm')==='1'},
+  async init(force){
+    const N=window.ExgNative;if(!this.ok()||!S.token||!S.me)return;
+    try{
+      N.setAuth(BASE,S.token);                                   // чтобы «Отклонить» в уведомлении работало без открытия приложения
+      if(ls.get('sys')==='0')return;                             // пользователь выключил системные уведомления
+      if(!force&&Date.now()-this.t<600000)return;
+      if(!N.has('notif')){
+        if(!force&&ls.get('push_asked')==='1')return;ls.set('push_asked','1');
+        if(!(await EXGPerm.ensure('notif')))return}
+      if(ls.get('sys')===null)ls.set('sys','1');
+      this.t=Date.now();N.fcmInit()}catch(e){}},
+  reg(t){if(!t||!S.token)return;post_('/push/register',{token:t}).then(r=>{ls.set('fcm',r&&r.enabled?'1':'0')}).catch(()=>{})},
+  off(){ls.set('fcm','0');if(S.token)post_('/push/unregister',{}).catch(()=>{})},
+  /* открыли приложение из уведомления: {href, call, act:'accept', video} */
+  launch(){
+    const N=window.ExgNative;if(!N||typeof N.takeLaunch!=='function')return;
+    let o=null;try{const j=N.takeLaunch();o=j?JSON.parse(j):null}catch(e){}
+    if(!o)return;
+    const go=()=>{if(o.href)location.hash=o.href;if(o.call&&o.act==='accept')CALL.joinCall(o.call,!!o.video)};
+    if(S.token&&S.me)go();else{let n=0;const iv=setInterval(()=>{if(S.token&&S.me){clearInterval(iv);go()}else if(++n>80)clearInterval(iv)},250)}}
+};
+window.__exgFcm=t=>EXGPush.reg(t);
+window.__exgLaunch=()=>{try{EXGPush.launch();EXGPush.init()}catch(e){}};
 /*KV-JS:BEGIN*/
 const KV=(()=>{
 'use strict';
@@ -2173,7 +2233,7 @@ const PAL=['#9d92e6','#4cd6a0','#4aa8ff','#ff6fae','#ffb454','#ff6b7a','#b0b0c0'
 function applyTheme(){const t=ls.get('theme')||'dark';document.documentElement.dataset.theme=t;let a=ls.get('acc')||(S.me&&/^#[0-9a-f]{6}$/i.test(S.me.accent||'')?S.me.accent:'#9d92e6');document.documentElement.style.setProperty('--acc',a);const m=a.match(/\w\w/g).map(x=>parseInt(x,16));document.documentElement.style.setProperty('--acc-soft',`rgba(${m[0]},${m[1]},${m[2]},.16)`);const mt=$('meta[name=theme-color]');if(mt)mt.content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#050409'}
 
 /* ---------- авторизация ---------- */
-function logout(silent){DB.clear();MC.then(c=>c&&caches.delete('exg-media-v1')).catch(()=>{});if(!silent)api('/auth/logout',{method:'POST'}).catch(()=>{});S.token='';S.me=null;ls.del('token');location.hash='#/login';render()}
+function logout(silent){DB.clear();MC.then(c=>c&&caches.delete('exg-media-v1')).catch(()=>{});if(!silent)api('/auth/logout',{method:'POST'}).catch(()=>{});S.token='';S.me=null;ls.del('token');ls.del('fcm');try{window.ExgNative&&window.ExgNative.setAuth&&window.ExgNative.setAuth('','')}catch(e){}location.hash='#/login';render()}
 let pollT=null;
 async function viewLogin(el){
   if(!BASE){el.innerHTML=`<div class="login"><div class="logo">KMBP <b>FORUM</b></div><p style="color:var(--dim);max-width:320px">Приложение собрано неправильно. Скачайте актуальную версию и установите её заново.</p></div>`;return}
@@ -3502,7 +3562,7 @@ async function stkPanel(o){
     if(e.target.closest('[data-up]')){pickFiles('image/gif',async fs=>{let ok=0;toast('Загрузка…');
       for(const f of fs){try{const fd=new FormData();fd.append('file',f,f.name||'a.gif');await api('/gifs/save',{method:'POST',form:fd});ok++}catch(er){toast(er.message,1);break}}
       if(ok){toast(ok>1?'GIF сохранены: '+ok:'GIF сохранён');gif.ready=false;if(bg.isConnected&&tab==='g')draw()}});return}
-    const gi=e.target.closest('.gi[data-gif]');if(gi){if(gifLp){gifLp=false;return}close();o.gif(gi.dataset.gif,(gi.querySelector('img')||{dataset:{}}).dataset.bsrc);return}
+    const gi=e.target.closest('.gi[data-gif]');if(gi){if(gifLp){gifLp=false;return}close();o.gif(gi.dataset.gif);return}
     if(e.target.closest('[data-mg]')){close();location.hash='#/stickers';return}
     const j=e.target.closest('[data-j]');if(j){const h=$(`h4[data-s="${j.dataset.j}"]`,sgr);if(h)sgr.scrollTo({top:h.offsetTop-sgr.offsetTop-4,behavior:'smooth'});else sgr.scrollTo({top:0,behavior:'smooth'});return}
     const s=e.target.closest('button[data-s]');if(s){const id=+s.dataset.s;stkPush(id);close();o.sticker(id);return}
@@ -3911,6 +3971,76 @@ const jget=(k,d)=>{try{const v=ls.get(k);return v?JSON.parse(v):d}catch(e){retur
 const okT=x=>x&&(x.src||/^y?\d+$/.test(String(x.id)));
 let likes=jget('mu_likes',[]).filter(okT),hist=jget('mu_hist',[]).filter(okT);
 const isLiked=id=>likes.some(x=>x.id===id);
+/* ---------- вкусы: что слушаете, лайкаете, пропускаете ----------
+   «Моя волна» собирается по этому профилю: любимые исполнители и похожие на них, лайкнутые треки (не игравшие недавно),
+   плюс немного нового (случайный жанр из трендов), чтобы волна не замыкалась. Оценки затухают (период полураспада ≈ 30 дней). */
+const TASTE_K='mu_taste',HL=2592e6;
+let taste=jget(TASTE_K,{a:{},t:{}}),tasteT=0;
+if(!taste||!taste.a||!taste.t)taste={a:{},t:{}};
+const tasteSt={id:'',done:''};
+const aKey=t=>String(t.ai||('n:'+String(t.a||'').toLowerCase()));
+const tSc=a=>a.s*Math.pow(.5,(Date.now()-a.ts)/HL);
+function tasteSave(){clearTimeout(tasteT);tasteT=setTimeout(()=>{
+  const ak=Object.keys(taste.a);if(ak.length>220)ak.sort((x,y)=>Math.abs(tSc(taste.a[y]))-Math.abs(tSc(taste.a[x]))).slice(220).forEach(k=>delete taste.a[k]);
+  const tk=Object.keys(taste.t);if(tk.length>700)tk.sort((x,y)=>taste.t[y][1]-taste.t[x][1]).slice(700).forEach(k=>delete taste.t[k]);
+  ls.set(TASTE_K,JSON.stringify(taste))},800)}
+function tasteAdd(t,d){
+  if(!t||!t.id||t.src)return;
+  const k=aKey(t),now=Date.now(),a=taste.a[k]||(taste.a[k]={n:t.a,ai:t.ai||'',s:0,ts:now});
+  a.s=tSc(a)+d;a.ts=now;a.n=t.a;if(t.ai)a.ai=t.ai;
+  const o=taste.t[t.id]||[0,now];o[0]+=d;o[1]=now;taste.t[t.id]=o;tasteSave()}
+const aSc=t=>{const a=taste.a[aKey(t)];return a?tSc(a):0};
+const tkSc=t=>{const o=taste.t[t.id];return o?o[0]:0};
+const tasteN=()=>Object.values(taste.a).filter(a=>tSc(a)>.8).length;
+if(!Object.keys(taste.a).length&&(likes.length||hist.length)){likes.forEach(t=>tasteAdd(t,4));hist.forEach(t=>tasteAdd(t,1))}
+/* ушли с трека: слушали почти до конца — плюс, бросили в первые секунды — минус */
+function tasteLeave(next){
+  const p=cur();if(!p||!tasteSt.id||tasteSt.id!==p.id||(next&&next.id===p.id))return;
+  const lt=A.currentTime||0,d=(isFinite(A.duration)&&A.duration>0?A.duration:p.d)||0;
+  if(tasteSt.done!==p.id){if(lt>=2&&lt<15&&d>40)tasteAdd(p,-1.5);else if(lt>=Math.min(60,d*.6))tasteAdd(p,1.5)}
+  tasteSt.id=''}
+/* взвешенное перемешивание (чем больше вес, тем вероятнее ближе к началу) */
+const wshuf=(a,w)=>a.map(x=>({x,k:Math.pow(Math.random(),1/Math.max(.02,w(x)))})).sort((p,q)=>q.k-p.k).map(p=>p.x);
+const recentIds=()=>new Set(hist.slice(0,25).map(x=>x.id));
+const unlikedT=t=>aSc(t)<-3||tkSc(t)<-3;
+const tw=t=>{let w=1+Math.max(0,aSc(t))*.6+Math.max(0,tkSc(t))*.4;if(isLiked(t.id))w+=2;return w};
+/* офлайн: личная подборка из скачанного */
+function dlWave(){const rec=recentIds(),all=dlList();
+  const l=wshuf(all.filter(t=>!unlikedT(t)),t=>tw(t)*(rec.has(t.id)?.08:1));
+  return l.length?l:shuffled(all)}
+/* онлайн: подборка «по вкусам» (null — данных мало, волна пойдёт по-старому) */
+async function tasteWave(){
+  const rec=recentIds(),pool=[],pick=(l,n)=>shuffled(l).slice(0,n);
+  const favs=wshuf(Object.values(taste.a).map(a=>({a,s:tSc(a)})).filter(x=>x.s>.8),x=>x.s).slice(0,4);
+  await Promise.all(favs.map(async({a})=>{try{
+    if(/^[yj]\d+$/.test(a.ai||'')){
+      const d=await api('/music/artist?id='+encodeURIComponent(a.ai));
+      pick((d.top||[]).concat(d.tracks||[]).map(norm),5).forEach(t=>pool.push(t));pick((d.similar||[]).map(norm),6).forEach(t=>pool.push(t))}
+    else{pick(await ymOr({k:'search',q:a.n,limit:25},()=>[]),5).forEach(t=>pool.push(t))}}catch(e){}}));
+  pick(likes.filter(t=>!t.src&&!rec.has(t.id)),3).forEach(t=>pool.push(t));
+  try{const g=GENRES[1+Math.floor(Math.random()*(GENRES.length-1))][0];
+    pick(await ymOr({k:'search',q:GQ[g]||'русские хиты',limit:30},()=>catalog(RU,'popularity_month',g,30)),7).forEach(t=>pool.push(t))}catch(e){}
+  const seen=new Set();
+  const l=pool.filter(t=>t&&t.id&&!seen.has(t.id)&&seen.add(t.id)&&!unlikedT(t)&&(!rec.has(t.id)||(isLiked(t.id)&&Math.random()<.2)));
+  return l.length>=8?wshuf(l,tw):null}
+
+/* ---------- офлайн-режим: вручную (даже при интернете) или сам, когда пропала сеть ---------- */
+const offMode=()=>ls.get('mu_offm')==='1';
+const useOff=()=>offMode()||offline();
+function offPaint(){$$('[data-offt]').forEach(b=>{const on=offMode();b.classList.toggle('on',on);const w=$('.sw',b);if(w)w.classList.toggle('on',on);
+  const sm=$('small',b);if(sm)sm.textContent=on?'Включён: только скачанное, без трафика':'Играть только скачанное, даже если есть интернет'})}
+function setOffMode(on){ls.set('mu_offm',on?'1':'0');toast(on?'Офлайн-режим: играет только скачанное':'Офлайн-режим выключен');offPaint();if(subsFn)subsFn();if(netFn)netFn(true)}
+const offPill=()=>`<button type="button" class="mu-offt${offMode()?' on':''}" data-offt="1">${MI.dl}<span><b>Офлайн-режим</b><small>${offMode()?'Включён: только скачанное, без трафика':'Играть только скачанное, даже если есть интернет'}</small></span><i class="sw ${offMode()?'on':''}"></i></button>`;
+const wireOff=root=>{const b=$('[data-offt]',root);if(b)b.onclick=()=>setOffMode(!offMode())};
+let offToastT=0;
+/* пропала сеть (или включён офлайн-режим) во время волны/списка: продолжаем скачанным — сначала то, что уже стояло в очереди, потом личная подборка */
+function offlineQueue(){
+  const rest=Q.slice(qi+1).filter(x=>dlHas(x.id)),have=new Set(rest.map(x=>x.id));
+  const l=rest.concat(dlWave().filter(x=>!have.has(x.id)));
+  if(!l.length){toast('Нет скачанных треков. Скачайте музыку, пока есть интернет',1);return false}
+  wave=1;waveSel=null;Q=l;
+  if(Date.now()-offToastT>30000){offToastT=Date.now();toast('Нет сети — играет скачанное')}
+  playAt(0);return true}
 const cur=()=>Q[qi]||null;
 
 /* ---------- скачанная музыка (офлайн) ----------
@@ -3949,7 +4079,7 @@ async function dlAdd(t,quiet){
     await c.put(dlK('audio',t.id),new Response(b,{headers:{'Content-Type':b.type||'audio/mpeg'}}));
     let imgL='';
     if(t.img){try{const cr=await fetch(t.img,{referrerPolicy:'no-referrer'});if(cr.ok){const cb=await cr.blob();if(cb.size<600000){await c.put(dlK('cover',t.id),new Response(cb,{headers:{'Content-Type':cb.type||'image/jpeg'}}));imgL=URL.createObjectURL(cb)}}}catch(e){}}
-    const m={id:String(t.id),t:t.t,a:t.a,img:t.img||'',d:t.d|0,ai:t.ai||'',size:b.size,ts:Date.now()};
+    const m={id:String(t.id),t:t.t,a:t.a,img:t.img||'',d:t.d|0,ai:t.ai||'',size:b.size,ts:Date.now(),auto:t.auto?1:0};
     await c.put(dlK('meta',t.id),new Response(JSON.stringify(m),{headers:{'Content-Type':'application/json'}}));
     m.imgL=imgL;dlMeta.set(m.id,m);dlBusy.delete(t.id);paint();if(subsFn)subsFn();
     if(!quiet)toast('Скачано — доступно без интернета');return true}
@@ -3968,6 +4098,96 @@ async function dlMany(arr){
   toast('Скачиваю треков: '+todo.length+'…');let ok=0;
   for(const t of todo){if(offline())break;if(await dlAdd(t,true))ok++}
   toast(ok?'Скачано: '+ok+' из '+todo.length:'Не удалось скачать',!ok)}
+/* ---------- автозагрузка трендов для офлайн-волны ----------
+   Пока приложение открыто, телефон сам докачивает СЛУЧАЙНЫЕ трендовые треки (чарты РФ и мира, жанровые подборки, хиты),
+   пока скачанного не станет N штук (N настраивается, минимум 50). «Моя волна» без интернета крутит всё скачанное вперемешку. */
+const AUTO_MIN=50,AUTO_MAX=500;
+const autoCfg=()=>{const c=jget('mu_auto',{});return{on:!!c.on,n:Math.max(AUTO_MIN,Math.min(AUTO_MAX,(c.n|0)||AUTO_MIN)),wifi:c.wifi!==false}};
+const autoSave=c=>ls.set('mu_auto',JSON.stringify(c));
+const AP={run:0,got:0,need:0};
+const onWifi=()=>{try{const N=window.ExgNative;if(N&&typeof N.isWifi==='function')return !!N.isWifi();
+  const k=navigator.connection;if(!k||!k.type)return true;return k.type==='wifi'||k.type==='ethernet'}catch(e){return true}};
+const autoLoggedIn=()=>{try{return !!(S.token&&S.me)}catch(e){return false}};
+/* источники трендов: у каждого свой запрос; порядок случайный, чтобы каждый раз набирались разные песни */
+function autoSources(){
+  const L=[],add=(p,lang,order,tag)=>L.push(()=>ymOr(Object.assign({limit:50},p),()=>catalog(lang,order||'popularity_week',tag||'',50,Math.floor(Math.random()*4)*50)));
+  add({k:'chart',c:'russia'},RU);add({k:'chart',c:'world'},WORLD);
+  Object.keys(GQ).forEach(g=>add({k:'search',q:'топ '+GQ[g]+' хиты'},RU,'popularity_week',g));
+  ['русские хиты','новинки русской музыки','популярное сейчас','хиты 2025','хиты 2024','зарубежные хиты','хиты тиктока','топ чарт','русский рэп новинки','песни из тренд-подборок','хиты радио'].forEach(q=>add({k:'search',q},/зарубеж/.test(q)?WORLD:RU,'popularity_month'));
+  ['top hits','global top 50','viral hits','dance hits','pop hits'].forEach(q=>add({k:'search',q},WORLD,'popularity_week'));
+  return shuffled(L)}
+/* докачать до N штук. opt.cap — другой потолок (для «заменить»). Возвращает, сколько скачали */
+async function autoFill(manual,opt){
+  if(AP.run||!autoLoggedIn())return 0;
+  const c=autoCfg();if(!manual&&(!c.on||offMode()))return 0;
+  const cap=(opt&&opt.cap)||c.n;
+  if(offline()){if(manual)toast('Нет интернета — скачать нельзя',1);return 0}
+  if(c.wifi&&!onWifi()){if(manual)toast('Включена загрузка только по Wi-Fi, а сейчас мобильный интернет',1);return 0}
+  if(dlMeta.size>=cap){if(manual)toast('Уже скачано '+dlMeta.size+' из '+cap);return 0}
+  AP.run=1;AP.got=0;AP.need=cap-dlMeta.size;if(subsFn)subsFn();
+  const seen=new Set();let fails=0,stop=0;
+  try{
+    for(const src of autoSources()){
+      if(stop||dlMeta.size>=cap)break;
+      let l=[];try{l=await src()}catch(e){if(offline())break;continue}
+      for(const t of shuffled(l)){
+        if(dlMeta.size>=cap)break;
+        if(!t||!t.id||t.src||seen.has(t.id)||dlHas(t.id))continue;seen.add(t.id);
+        if(offline()||(c.wifi&&!onWifi())||!autoLoggedIn()){stop=1;break}
+        if(await dlAdd(Object.assign({},t,{auto:1}),true)){AP.got++;fails=0}else if(++fails>=12){stop=1;break}}}
+  }catch(e){}
+  const got=AP.got;AP.run=0;if(subsFn)subsFn();
+  if(manual||got)toast(got?'Автозагрузка: скачано '+got+' · всего '+dlMeta.size+' '+plural(dlMeta.size):'Не удалось скачать новые треки',!got&&manual);
+  return got}
+/* заменить автозагруженное новым: сначала качаем свежие, потом удаляем столько же старых (любимые и текущий трек не трогаем) */
+async function autoRenew(){
+  const keep=new Set(likes.map(x=>String(x.id)));if(cur())keep.add(String(cur().id));
+  const old=[...dlMeta.values()].filter(m=>m.auto&&!keep.has(m.id)).sort((a,b)=>(a.ts||0)-(b.ts||0)).map(m=>m.id);
+  if(!old.length){toast('Нет автозагруженных треков для замены');return}
+  const got=await autoFill(true,{cap:dlMeta.size+old.length});
+  for(const id of old.slice(0,got))await dlRemove(id,true);
+  if(got)toast('Обновлено треков: '+got)}
+const autoMB=n=>{let s=0,k=0;dlMeta.forEach(m=>{if(m.size){s+=m.size;k++}});return Math.round(n*(k?s/k:5.5*1048576)/1048576)};
+function autoSheet(){
+  const c=autoCfg(),bg=document.createElement('div');bg.className='sheet-bg';bg.style.zIndex=95;
+  const sw=on=>`<i class="sw ${on?'on':''}"></i>`;
+  bg.innerHTML=`<div class="sheet mu-as"><div class="sh-m">Автозагрузка для офлайн-волны</div>
+  <p class="mu-asx">Пока приложение открыто, телефон сам докачивает случайные трендовые песни. «Моя волна» без интернета играет всё скачанное вперемешку.</p>
+  ${offPill()}
+  <div class="grow glass" data-k="on" style="margin-top:8px"><span class="t"><b>Скачивать тренды сами</b><small>Чарты России и мира, жанры, новые хиты</small></span>${sw(c.on)}</div>
+  <label class="lbl" style="margin:14px 16px 6px">Сколько песен скачать (от ${AUTO_MIN})</label>
+  <div class="mu-asn"><button type="button" class="btn ghost" data-d="-10" aria-label="Меньше">−</button><input class="inp" type="number" inputmode="numeric" min="${AUTO_MIN}" max="${AUTO_MAX}" step="10" value="${c.n}"><button type="button" class="btn ghost" data-d="10" aria-label="Больше">+</button></div>
+  <div class="mu-asp">${[50,100,200,300,500].map(n=>`<button type="button" class="mu-chip ${c.n===n?'on':''}" data-n="${n}">${n}</button>`).join('')}</div>
+  <div class="mu-asi" id="muAsI"></div>
+  <div class="grow glass" data-k="wifi"><span class="t"><b>Только по Wi-Fi</b><small>Не тратить мобильный трафик</small></span>${sw(c.wifi)}</div>
+  <div style="padding:12px 16px 4px;display:flex;flex-direction:column;gap:8px"><button class="btn" data-a="now" type="button">Докачать сейчас</button><button class="btn ghost" data-a="new" type="button">Заменить автозагруженные новыми</button><button class="btn ghost" data-a="x" type="button">Готово</button></div></div>`;
+  document.body.appendChild(bg);
+  const inp=$('input',bg),info=$('#muAsI',bg);
+  const val=()=>Math.max(AUTO_MIN,Math.min(AUTO_MAX,(parseInt(inp.value,10)||0)));
+  const save=()=>{const k=autoCfg();k.n=val();autoSave(k)};
+  const paintI=()=>{if(!bg.isConnected){clearInterval(iv);return}
+    const n=val(),raw=parseInt(inp.value,10);
+    info.innerHTML=(raw&&raw<AUTO_MIN?`<b style="color:var(--bad)">Минимум ${AUTO_MIN} песен</b><br>`:'')
+      +(AP.run?`Качаю: ${AP.got} из ${AP.need}…`:`Скачано: ${dlMeta.size} из ${n}`)+` · ≈ ${autoMB(n)} МБ на телефоне`;
+    $$('.mu-chip',bg).forEach(b=>b.classList.toggle('on',+b.dataset.n===n))};
+  const iv=setInterval(paintI,800);paintI();
+  inp.oninput=()=>{paintI()};
+  inp.onchange=()=>{inp.value=val();save();paintI()};
+  bg.onclick=async e=>{
+    if(e.target===bg){clearInterval(iv);bg.remove();return}
+    if(e.target.closest('[data-offt]')){setOffMode(!offMode());return}
+    const d=e.target.closest('[data-d]');if(d){inp.value=Math.max(AUTO_MIN,val()+ +d.dataset.d);save();paintI();return}
+    const ch=e.target.closest('[data-n]');if(ch){inp.value=ch.dataset.n;save();paintI();return}
+    const g=e.target.closest('.grow[data-k]');
+    if(g){const k=autoCfg(),key=g.dataset.k;k[key]=!k[key];autoSave(k);$('.sw',g).classList.toggle('on',k[key]);if(key==='on'&&k.on)autoFill(true);return}
+    const a=e.target.closest('[data-a]');if(!a)return;
+    if(a.dataset.a==='x'){clearInterval(iv);bg.remove();return}
+    save();
+    if(a.dataset.a==='now'){const k=autoCfg();if(!k.on){k.on=true;autoSave(k);$('[data-k=on] .sw',bg).classList.add('on')}autoFill(true)}
+    else autoRenew()}}
+setInterval(()=>{autoFill(false)},300000);
+addEventListener('online',()=>setTimeout(()=>autoFill(false),4000));
+setTimeout(()=>autoFill(false),20000);
 const fmt=s=>{s=Math.max(0,Math.round(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 const hue=id=>{let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))%360;return h};
 
@@ -4101,7 +4321,7 @@ const skel=n=>'<div class="mu-skel"></div>'.repeat(n||6);
 const uiOn=()=>{const a=$('#app');if(a)a.classList.add('mu-on')};
 function start(arr,i){wave=0;waveSel=null;Q=arr.slice();playAt(i)}
 function playAt(i){
-  const t=Q[i];if(!t)return;qi=i;
+  const t=Q[i];if(!t)return;tasteLeave(t);qi=i;tasteSt.id=t.id;tasteSt.done='';tasteAdd(t,.4);
   if(NM()&&!permAsked){permAsked=1;try{window.EXGPerm&&EXGPerm.ensure('notif').then(()=>nat(true))}catch(e){}}   /* Android 13+: без разрешения на уведомления шторки с плеером не будет */
  tryFb=(t.src||!t.u)?1:0;uiOn();
   document.body.classList.add('mu-loading');
@@ -4115,6 +4335,16 @@ function next(auto){
   if(!Q.length)return;
   if(auto&&rep===2){A.currentTime=0;const p=A.play();if(p&&p.catch)p.catch(()=>{});return}
   let n;
+  if(useOff()&&dlMeta.size){                      /* нет сети / офлайн-режим: перескакиваем то, что не скачано (без остановок и ошибок) */
+    const ok=[];Q.forEach((x,k)=>{if(dlHas(x.id)&&k!==qi)ok.push(k)});
+    if(!ok.length){offlineQueue();return}
+    if(shuf)n=ok[Math.floor(Math.random()*ok.length)];
+    else{const f=ok.find(k=>k>qi);
+      if(f!==undefined)n=f;
+      else if(wave){loadWave(true);return}
+      else if(rep===1||!auto)n=ok[0];
+      else{try{A.pause()}catch(e){}A.currentTime=0;paint();return}}
+    playAt(n);return}
   if(shuf&&Q.length>1){do{n=Math.floor(Math.random()*Q.length)}while(n===qi)}else n=qi+1;
   if(n>=Q.length){
     if(wave){loadWave(true);return}
@@ -4123,28 +4353,32 @@ function next(auto){
 function prev(){if(A.currentTime>3){A.currentTime=0;return}playAt(qi>0?qi-1:(Q.length?Q.length-1:0))}
 async function loadWave(append,w){
   if(w===undefined)w=append?waveSel:null;          /* без аргумента — продолжаем текущую волну */
-  if(offline()){                                   /* без интернета «волна» крутит скачанное */
-    const l=shuffled(dlList());if(!l.length){toast('Нет скачанных треков. Скачайте музыку, пока есть интернет',1);return}
+  if(useOff()){                                    /* без интернета / в офлайн-режиме «волна» крутит скачанное — по вашим вкусам */
+    const l=dlWave();if(!l.length){toast('Нет скачанных треков. Скачайте музыку, пока есть интернет',1);return}
     if(append&&wave){Q=Q.concat(l);playAt(qi+1)}else{wave=1;waveSel=null;Q=l;playAt(0)}return}
   document.body.classList.add('mu-loading');
   try{
-    let l;
+    let l,personal=0;
     if(w){                                         /* тематическая волна: запрос Яндекса, запасной — каталог Jamendo по тегу */
       const q=wavePick(w),lang=w.w?WORLD:RU,tag=w.j||'',off=Math.floor(Math.random()*3)*15;
       l=await ymOr({k:'search',q,limit:50},()=>catalog(lang,'popularity_month',tag,40,off));
       if(l.length<5)l=await catalog(lang,'popularity_total',tag,40,off)}
     else{
-      const pool=GENRES,g=pool[Math.floor(Math.random()*pool.length)][0];
-      l=await ymOr({k:'search',q:GQ[g]||'русские хиты',limit:50},()=>catalog(RU,'popularity_month',g,40,Math.floor(Math.random()*3)*15));
-      if(l.length<5)l=await catalog(RU,'popularity_total','',40)}
-    l=shuffled(l);if(!l.length)throw new Error('empty');
+      let tl=null;if(tasteN()>=1){try{tl=await tasteWave()}catch(e){}}      /* «Моя волна» — по вашим вкусам */
+      if(tl){l=tl;personal=1}
+      else{
+        const pool=GENRES,g=pool[Math.floor(Math.random()*pool.length)][0];
+        l=await ymOr({k:'search',q:GQ[g]||'русские хиты',limit:50},()=>catalog(RU,'popularity_month',g,40,Math.floor(Math.random()*3)*15));
+        if(l.length<5)l=await catalog(RU,'popularity_total','',40)}}
+    const rec=recentIds(),f2=l.filter(t=>!unlikedT(t)&&(personal||!rec.has(t.id)));if(f2.length>=5)l=f2;
+    l=personal?l:shuffled(l);if(!l.length)throw new Error('empty');
     if(append&&wave){
       const have=new Set(Q.map(x=>x.id)),f=l.filter(x=>!have.has(x.id));if(f.length>=3)l=f;
       if(qi>60){Q=Q.slice(qi-10);qi=10}
       Q=Q.concat(l);playAt(qi+1)}
-    else{wave=1;waveSel=w||null;Q=l;playAt(0);if(w)toast('Волна «'+w.t+'»')}}
+    else{wave=1;waveSel=w||null;Q=l;playAt(0);if(w)toast('Волна «'+w.t+'»');else if(personal)toast('Моя волна — по вашим вкусам')}}
   catch(e){document.body.classList.remove('mu-loading');toast('Не удалось загрузить '+(w?'волну «'+w.t+'»':'«Мою волну»'),1)}}
-function toggleLike(t){const i=likes.findIndex(x=>x.id===t.id);if(i>=0)likes.splice(i,1);else likes.unshift(t);likes=likes.slice(0,500);ls.set('mu_likes',JSON.stringify(likes));if(subsFn)subsFn();
+function toggleLike(t){const i=likes.findIndex(x=>x.id===t.id);tasteAdd(t,i>=0?-4:4);if(i>=0)likes.splice(i,1);else likes.unshift(t);likes=likes.slice(0,500);ls.set('mu_likes',JSON.stringify(likes));if(subsFn)subsFn();
   $$('.mu-row').forEach(r=>{if(r.dataset.id===t.id){const b=$('.mu-lk',r);if(b)b.classList.toggle('on',isLiked(t.id))}});paint();
   toast(i>=0?'Убрано из любимого':'Добавлено в любимое')}
 /* ---------- фоновое воспроизведение и управление из шторки/экрана блокировки ----------
@@ -4204,12 +4438,17 @@ A.addEventListener('durationchange',()=>{posState();nat()});
 A.addEventListener('ratechange',posState);
 A.addEventListener('waiting',()=>document.body.classList.add('mu-loading'));
 A.addEventListener('canplay',()=>document.body.classList.remove('mu-loading'));
-A.addEventListener('ended',()=>{if(slp.eot){slpClear('Таймер сна: музыка остановлена');return}next(true)});
+A.addEventListener('ended',()=>{const c=cur();if(c&&c.id===tasteSt.id&&tasteSt.done!==c.id){tasteSt.done=c.id;tasteAdd(c,2)}
+  if(slp.eot){slpClear('Таймер сна: музыка остановлена');return}next(true)});
+/* сеть пропала посреди стримингового трека: буфер кончился — тихо переходим на скачанное */
+const dropToDl=()=>{const t=cur();if(t&&offline()&&!dlHas(t.id)&&dlMeta.size&&!A.paused)offlineQueue()};
+A.addEventListener('waiting',()=>setTimeout(dropToDl,1200));A.addEventListener('stalled',()=>setTimeout(dropToDl,2500));
+addEventListener('offline',()=>setTimeout(dropToDl,4000));
 A.addEventListener('timeupdate',progress);
 A.addEventListener('seeked',()=>{lyI=-2;lyTick();posState();nat(true)});
 A.addEventListener('error',()=>{
   const t=cur();if(!t||!A.src)return;
-  if(offline()&&!dlHas(t.id)&&dlMeta.size){wave=1;Q=shuffled(dlList());toast('Нет сети — играет скачанное');playAt(0);return}
+  if(useOff()&&!dlHas(t.id)&&dlMeta.size){offlineQueue();return}
   if(!tryFb){tryFb=1;A.src=fbUrl(t.id);const p=A.play();if(p&&p.catch)p.catch(()=>{});return}
   document.body.classList.remove('mu-loading');
   if(++fails>=4){toast('Не удалось воспроизвести музыку. Проверьте интернет',1);try{A.pause()}catch(e){}return}
@@ -4415,7 +4654,7 @@ const CARDS=[
  {k:'search',tab:'search',t:'Поиск',ic:'search',sub:'Трек, исполнитель, текст'}];
 const cardOf=tab=>Math.max(0,CARDS.findIndex(c=>c.tab===tab));
 const plural=n=>n%10===1&&n%100!==11?'трек':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'трека':'треков');
-const subTxt=c=>c.k==='dl'?(dlMeta.size?dlMeta.size+' '+plural(dlMeta.size)+' · '+dlMB()+' МБ':'Для офлайна'):c.k==='likes'?(likes.length?likes.length+' '+plural(likes.length):'Отмечайте сердечком'):c.k==='hist'?(hist.length?hist.length+' '+plural(hist.length):'Пока пусто'):(c.sub||'');
+const subTxt=c=>c.k==='dl'?(AP.run?'Докачка… '+dlMeta.size+' из '+autoCfg().n:dlMeta.size?dlMeta.size+' '+plural(dlMeta.size)+' · '+dlMB()+' МБ':'Для офлайна'):c.k==='likes'?(likes.length?likes.length+' '+plural(likes.length):'Отмечайте сердечком'):c.k==='hist'?(hist.length?hist.length+' '+plural(hist.length):'Пока пусто'):(c.sub||'');
 const plMemo=new Map();
 
 /* ---------- экран «EXG Music» ---------- */
@@ -4456,6 +4695,7 @@ function view(el){
     ${g?'':`<div class="mu-h"><h3>Новинки на русском</h3></div><div id="muNew"></div>
     <div class="mu-h"><h3>Русское — лучшее за всё время</h3></div><div id="muTop"></div>
     <div class="mu-h"><h3>Зарубежная подборка</h3><button class="btn sm ghost" id="muWorld">Все</button></div><div id="muWd"></div>`}`;
+    body.insertAdjacentHTML('afterbegin',offPill());wireOff(body);
     wvDraw();
     $$('.mu-chip',body).forEach(b=>b.onclick=()=>{st.genre=b.dataset.g;home()});
     const w=$('#muWorld',body);if(w)w.onclick=()=>goCard(cardOf('world'));
@@ -4564,10 +4804,10 @@ function view(el){
     const vw=$('#view');if(vw)vw.scrollTop=0}
   function artistBack(){st.artist=st.ahist.pop()||null;draw()}
   function draw(){
-    const q=st.q.trim(),off=offline(),art=!!st.artist&&!off,srch=(st.tab==='search'||!!st.q)&&!off;
-    rlw.hidden=art;dots.hidden=art||off;sb.hidden=!srch||art;x.hidden=!st.q;
+    const q=st.q.trim(),off=useOff(),art=!!st.artist,srch=st.tab==='search'||!!st.q;
+    rlw.hidden=art;dots.hidden=art;sb.hidden=!srch||art;x.hidden=!st.q;
     if(!art)requestAnimationFrame(()=>fit());
-    if(off)return offBody();
+    shownOff=0;if(off&&!art&&needsNet()){shownOff=1;return offList()}
     if(q.length>=2)return search(q);
     if(q){body.innerHTML='';return}
     if(art)return artistPage(st.artist);
@@ -4577,7 +4817,8 @@ function view(el){
     else if(st.tab==='likes'){collection(likes,'Отмечайте треки сердечком — они появятся здесь',true);
       const h=$('.mu-h',body);if(h&&likes.length){h.insertAdjacentHTML('beforeend',`<button class="btn sm ghost" id="muDlAll">${MI.dl}Скачать</button>`);$('#muDlAll',body).onclick=()=>dlMany(likes)}}
     else if(st.tab==='dl'){const l=dlList();collection(l,'Здесь будут скачанные треки. Нажмите ↓ в плеере или «Скачать» в «Любимом» — и они заиграют без интернета',true);
-      const h=$('.mu-h',body);if(h&&l.length){h.insertAdjacentHTML('beforeend',`<button class="btn sm ghost" id="muDlClr">Очистить</button>`);$('#muDlClr',body).onclick=async()=>{if(await confirmBox('Удалить все скачанные треки?')){await dlClear();draw()}}}}
+      const h=$('.mu-h',body);if(h&&l.length){h.insertAdjacentHTML('beforeend',`<button class="btn sm ghost" id="muDlClr">Очистить</button>`);$('#muDlClr',body).onclick=async()=>{if(await confirmBox('Удалить все скачанные треки?')){await dlClear();draw()}}}
+      const ac=autoCfg();body.insertAdjacentHTML('afterbegin',offPill());wireOff(body);body.insertAdjacentHTML('afterbegin',`<button class="mu-autobar" id="muAuto" type="button">${MI.dl}<span><b>Автозагрузка трендов</b><small>${ac.on?'Включена · до '+ac.n+' '+plural(ac.n)+(ac.wifi?' · Wi-Fi':''):'Выключена · скачивает случайные хиты для офлайн-волны'}</small></span><em>›</em></button>`);$('#muAuto',body).onclick=autoSheet}
     else if(st.tab==='hist')collection(hist,'Вы пока ничего не слушали',false);
     else if(st.tab==='world')world();
     else home()}
@@ -4634,19 +4875,26 @@ function view(el){
   inp.oninput=()=>{st.q=inp.value;x.hidden=!st.q;clearTimeout(timer);timer=setTimeout(draw,450)};
   inp.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(timer);inp.blur();draw()}};
   x.onclick=()=>{st.q='';inp.value='';clearTimeout(timer);draw()};
-  /* без интернета: остаётся одна карточка «Моя волна» (она играет скачанное), остальное скрыто */
-  const offBody=()=>{seq++;const n=dlMeta.size;
-    body.innerHTML=`<div class="mu-offn">${MI.dl}<b>Нет интернета</b><span>${n?'«Моя волна» включит скачанные треки вперемешку — их '+n:'Скачанных треков пока нет. Пока есть интернет, нажимайте ↓ в плеере или «Скачать» в «Любимом»'}</span></div>`};
-  let wasOff=null;
-  function applyNet(init){
-    if(!init&&!rl.isConnected)return;
-    const off=offline();if(off===wasOff)return;const first=wasOff===null;wasOff=off;if(first&&!off)return;
-    $('.mu',el).classList.toggle('mu-off',off);
-    $$('.mu-cd',rl).forEach(c=>c.classList.toggle('offh',off&&c.dataset.k!=='wave'));
-    if(off){curI=cardOf('home');st.tab='home';st.q='';inp.value='';st.artist=null;st.ahist=[]}
-    measure();fit();draw()}
+  /* без интернета / в офлайн-режиме: ничего не прячем и не перескакиваем — экраны, которым нужна сеть, просто показывают скачанное,
+     а сверху появляется тонкая плашка. Поиск ищет по скачанному. */
+  const obar=document.createElement('div');obar.className='mu-offbar';obar.hidden=true;body.before(obar);
+  function barPaint(){const r=offline(),m=offMode();obar.hidden=!(r||m);
+    obar.innerHTML=r?`${MI.dl}<span>Нет интернета · играет скачанное</span>`:`${MI.dl}<span>Офлайн-режим · только скачанное</span><button type="button" data-offx>Выключить</button>`;
+    const xb=$('[data-offx]',obar);if(xb)xb.onclick=()=>setOffMode(false)}
+  const needsNet=()=>!!st.q.trim()||st.tab==='home'||st.tab==='world'||st.tab==='search'||!!CARDS.find(c=>c.tab===st.tab&&c.q);
+  function offList(){
+    seq++;const q=st.q.trim().toLowerCase();let l=dlList();
+    if(q.length>=2)l=l.filter(t=>(t.t+' '+t.a).toLowerCase().includes(q));
+    collection(l,q.length>=2?'В скачанном ничего не нашлось':'Скачанных треков пока нет. Пока есть интернет, нажимайте ↓ в плеере или включите «Автозагрузку» на карточке «Скачанное»',true);
+    body.insertAdjacentHTML('afterbegin',`<div class="mu-offh"><b>${offline()?'Нет интернета':'Офлайн-режим'}</b><small>Показано скачанное${q.length>=2?' · поиск по скачанному':''}</small></div>`)}
+  let wasOff=null,shownOff=0;
+  function applyNet(force){
+    if(!rl.isConnected)return;
+    const off=useOff();barPaint();offPaint();
+    if(off===wasOff&&!force)return;wasOff=off;
+    if(!st.artist&&needsNet()&&(!!shownOff)!==off)draw()}
   netFn=applyNet;
-  subsFn=subs;applyNet(true);
+  subsFn=subs;barPaint();wasOff=useOff();
   redraw=draw;draw()}
 
 /* ---------- исполнитель: открыть карточку откуда угодно (список, полный плеер) ---------- */
@@ -4862,7 +5110,7 @@ function viewSettings(el){
   $('#out',el).onclick=async()=>{if(await confirmBox('Выйти из аккаунта?'))logout()}}
 
 /* ---------- каркас и роутер ---------- */
-async function boot(){const b=await api('/boot',{onfresh:b=>{S.boards=b.boards;S.bot=b.bot}});S.boards=b.boards;S.bot=b.bot;if(S.token){const m=await api('/me',{onfresh:m=>{S.me=m.me;try{chrome()}catch(e){}}});S.me=m.me;ping()}applyTheme()}
+async function boot(){const b=await api('/boot',{onfresh:b=>{S.boards=b.boards;S.bot=b.bot}});S.boards=b.boards;S.bot=b.bot;if(S.token){const m=await api('/me',{onfresh:m=>{S.me=m.me;try{chrome()}catch(e){}}});S.me=m.me;ping();EXGPush.init()}applyTheme()}
 function paintAv(sel){const n=$(sel);if(n&&S.me)n.outerHTML=av(S.me,'').replace('class="av ','id="'+sel.slice(1)+'" class="av ')}
 /* ---------- уведомления на устройстве: баннер, звук, вибрация, системные ---------- */
 let AC=null;document.addEventListener('pointerdown',()=>{if(!AC)try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}},{once:true});
@@ -4871,7 +5119,7 @@ function nBanner(title,body,href){$$('.nbn').forEach(x=>x.remove());const d=docu
 function alertUser(title,body,href){
   if(ls.get('vib')!=='0'&&navigator.vibrate)try{navigator.vibrate([70,40,70])}catch(e){}
   if(ls.get('snd')!=='0')beep();
-  if(document.hidden){if(ls.get('sys')==='1'&&window.ExgNative&&window.ExgNative.has('notif')){try{window.ExgNative.notify(title,body,href||'')}catch(e){}}
+  if(document.hidden&&ls.get('fcm')!=='1'){if(ls.get('sys')==='1'&&window.ExgNative&&window.ExgNative.has('notif')){try{window.ExgNative.notify(title,body,href||'')}catch(e){}}
     else if(ls.get('sys')==='1'&&'Notification' in window&&Notification.permission==='granted')try{const n=new Notification(title,{body,tag:'kf-'+(href||'')});n.onclick=()=>{try{window.focus()}catch(e){}if(href)location.hash=href;n.close()}}catch(e){}}
   else nBanner(title,body,href)}
 const NTXT={like_p:'оценил(а) ваш пост',like_c:'оценил(а) ваш комментарий',comment:'прокомментировал(а) ваш пост',reply:'ответил(а) на ваш комментарий',mention:'упомянул(а) вас',follow:'подписался(лась) на вас',gmention:'упомянул(а) вас в чате',greply:'ответил(а) вам в чате'};
@@ -5205,20 +5453,31 @@ async function viewNotifSettings(el){
   <label class="lbl" style="margin:6px 16px 4px">Что присылать</label>
   ${row('s','likes','Лайки','Оценили ваш пост или комментарий',p.likes)}${row('s','comments','Комментарии и ответы','К вашим постам и комментариям',p.comments)}${row('s','mentions','Упоминания','Когда вас отметили через @',p.mentions)}${row('s','follows','Новые подписчики','Кто-то подписался на вас',p.follows)}${row('s','dms','Личные сообщения','Баннер, звук и вибрация о новых сообщениях',p.dms)}
   <label class="lbl" style="margin:18px 16px 4px">Когда приложение закрыто</label>
+  ${EXGPush.ok()?`<div class="grow glass" data-k="fcmi" style="cursor:default"><span class="t"><b>Звонки и уведомления на телефон</b><small id="fcmS">Проверяем…</small></span></div><div class="grow glass" data-k="fsi" id="fsiRow" hidden><span class="t"><b>Разрешить звонок на весь экран</b><small>Без этого вызов при заблокированном телефоне покажется только баннером. Нажмите и включите разрешение</small></span></div>`:''}
   ${row('s','tg','Дублировать в Telegram','Бот пришлёт сообщение о комментариях, ответах, упоминаниях и подписках',p.tg)}
   <label class="lbl" style="margin:18px 16px 4px">На этом устройстве</label>
   ${row('d','snd','Звук','Короткий сигнал при новом уведомлении',ls.get('snd')!=='0')}${row('d','vib','Вибрация','Если телефон поддерживает',ls.get('vib')!=='0')}
   ${canSys?row('d','sys','Системные уведомления','Показывать, когда приложение свёрнуто',sysOn()):`<div class="grow glass" style="cursor:default"><span class="t"><b>Системные уведомления</b><small>В этом приложении недоступны — включите дублирование в Telegram</small></span></div>`}
   <div style="padding:14px 16px 24px"><button class="btn ghost" id="nTest" style="width:100%">Проверить уведомление</button></div>`;
+  if(EXGPush.ok()){
+    const fs=()=>{const s=$('#fcmS',el);if(!s)return;const N=window.ExgNative;
+      api('/push/status').then(r=>{if(!$('#fcmS',el))return;
+        s.textContent=!r.enabled?'Сервер ещё не настроен (нужен ключ Firebase) — пока уведомления приходят только при открытом приложении и в Telegram':
+          (EXGPush.on()&&N.has('notif')&&ls.get('sys')!=='0')?'Включено: звонок и сообщения придут, даже если приложение закрыто':'Выключено — включите «Системные уведомления» ниже';
+        const fr=$('#fsiRow',el);if(fr)fr.hidden=!(r.enabled&&typeof N.fsiOk==='function'&&!N.fsiOk())}).catch(()=>{s.textContent='Не удалось проверить'})};
+    fs();EXGPush.init(true);setTimeout(fs,2500)}
   el.onclick=async e=>{
     if(e.target.closest('#nTest')){alertUser('KMBP FORUM','Так будут выглядеть уведомления','#/notif');return}
-    const r=e.target.closest('[data-k]');if(!r)return;const sw=$('.sw',r),on=!sw.classList.contains('on'),k=r.dataset.k;
+    const r=e.target.closest('[data-k]');if(!r)return;
+    if(r.dataset.k==='fsi'){try{NN.openFsiSettings()}catch(x){}return}
+    if(r.dataset.k==='fcmi')return;
+    const sw=$('.sw',r),on=!sw.classList.contains('on'),k=r.dataset.k;
     try{
       if(r.dataset.g==='s'){await post_('/notifs/prefs',{[k]:on})}
       else if(k==='sys'){
         if(on){if(NN){if(!(await EXGPerm.ensure('notif'))){toast('Разрешение не выдано — включите его в настройках телефона',1);EXGPerm.settings();return}}
           else{const res=await Notification.requestPermission();if(res!=='granted'){toast('Разрешение не выдано — включите его в настройках телефона',1);return}}}
-        ls.set('sys',on?'1':'0')}
+        ls.set('sys',on?'1':'0');if(on)EXGPush.init(true);else EXGPush.off()}
       else ls.set(k,on?'1':'0');
       sw.classList.toggle('on',on);if(on&&k==='snd')beep()
     }catch(x){toast(x.message,1)}}}
@@ -5285,9 +5544,9 @@ async function render(){
 document.addEventListener('pointerdown',e=>{const el=e.target.closest('.btn,.tab,.send');if(!el||el.disabled)return;const r=el.getBoundingClientRect(),d=Math.max(r.width,r.height)*2;const s=document.createElement('span');s.className='rp';s.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left-d/2}px;top:${e.clientY-r.top-d/2}px`;el.appendChild(s);setTimeout(()=>s.remove(),650)},{passive:true});
 window.addEventListener('hashchange',render);
 let pingT=0;setInterval(()=>{CALL.ensure();if(!S.token)return;const gap=document.hidden?40000:8000;if(Date.now()-pingT>=gap-500){pingT=Date.now();ping()}},4000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token){pingT=Date.now();ping()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token){pingT=Date.now();ping();EXGPush.init()}});
 (async()=>{applyTheme();if(!location.hash)location.hash=S.token?'#/':'#/login';
-  try{if(BASE)await boot()}catch(e){}render()})();
+  try{if(BASE)await boot()}catch(e){}render();setTimeout(()=>EXGPush.launch(),400)})();
 </script>
 </body>
 </html>

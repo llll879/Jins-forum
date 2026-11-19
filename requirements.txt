@@ -2,3 +2,4 @@ aiogram>=3.13,<4
 asyncpg>=0.29
 aiohttp>=3.9
 yandex-music>=2.2.0
+cryptography>=42          # подпись ключа для push (FCM), см. forum_fcm.py

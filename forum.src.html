@@ -1037,6 +1037,36 @@ const EXGPerm=window.EXGPerm={
   settings(){try{window.ExgNative&&window.ExgNative.openSettings()}catch(e){}}
 };
 window.__exgPermDone=(id,ok)=>{const m=window.__exgPerm||{};const f=m[id];if(f){delete m[id];f(!!ok)}};
+/* ---------- системные push (Android, FCM): звонки и уведомления даже при ЗАКРЫТОМ приложении ----------
+   Нативная часть — tools/android_patch.py (ExgMessagingService, IncomingCallActivity). Здесь: регистрация токена на сервере
+   и обработка запуска из уведомления (открыть чат / принять звонок). */
+const EXGPush=window.EXGPush={
+  t:0,
+  ok(){const N=window.ExgNative;return !!(N&&typeof N.fcmInit==='function')},
+  on(){return ls.get('fcm')==='1'},
+  async init(force){
+    const N=window.ExgNative;if(!this.ok()||!S.token||!S.me)return;
+    try{
+      N.setAuth(BASE,S.token);                                   // чтобы «Отклонить» в уведомлении работало без открытия приложения
+      if(ls.get('sys')==='0')return;                             // пользователь выключил системные уведомления
+      if(!force&&Date.now()-this.t<600000)return;
+      if(!N.has('notif')){
+        if(!force&&ls.get('push_asked')==='1')return;ls.set('push_asked','1');
+        if(!(await EXGPerm.ensure('notif')))return}
+      if(ls.get('sys')===null)ls.set('sys','1');
+      this.t=Date.now();N.fcmInit()}catch(e){}},
+  reg(t){if(!t||!S.token)return;post_('/push/register',{token:t}).then(r=>{ls.set('fcm',r&&r.enabled?'1':'0')}).catch(()=>{})},
+  off(){ls.set('fcm','0');if(S.token)post_('/push/unregister',{}).catch(()=>{})},
+  /* открыли приложение из уведомления: {href, call, act:'accept', video} */
+  launch(){
+    const N=window.ExgNative;if(!N||typeof N.takeLaunch!=='function')return;
+    let o=null;try{const j=N.takeLaunch();o=j?JSON.parse(j):null}catch(e){}
+    if(!o)return;
+    const go=()=>{if(o.href)location.hash=o.href;if(o.call&&o.act==='accept')CALL.joinCall(o.call,!!o.video)};
+    if(S.token&&S.me)go();else{let n=0;const iv=setInterval(()=>{if(S.token&&S.me){clearInterval(iv);go()}else if(++n>80)clearInterval(iv)},250)}}
+};
+window.__exgFcm=t=>EXGPush.reg(t);
+window.__exgLaunch=()=>{try{EXGPush.launch();EXGPush.init()}catch(e){}};
 /*KV-JS:BEGIN*/
 const KV=(()=>{
 'use strict';
@@ -1536,7 +1566,7 @@ const PAL=['#9d92e6','#4cd6a0','#4aa8ff','#ff6fae','#ffb454','#ff6b7a','#b0b0c0'
 function applyTheme(){const t=ls.get('theme')||'dark';document.documentElement.dataset.theme=t;let a=ls.get('acc')||(S.me&&/^#[0-9a-f]{6}$/i.test(S.me.accent||'')?S.me.accent:'#9d92e6');document.documentElement.style.setProperty('--acc',a);const m=a.match(/\w\w/g).map(x=>parseInt(x,16));document.documentElement.style.setProperty('--acc-soft',`rgba(${m[0]},${m[1]},${m[2]},.16)`);const mt=$('meta[name=theme-color]');if(mt)mt.content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#050409'}
 
 /* ---------- авторизация ---------- */
-function logout(silent){DB.clear();MC.then(c=>c&&caches.delete('exg-media-v1')).catch(()=>{});if(!silent)api('/auth/logout',{method:'POST'}).catch(()=>{});S.token='';S.me=null;ls.del('token');location.hash='#/login';render()}
+function logout(silent){DB.clear();MC.then(c=>c&&caches.delete('exg-media-v1')).catch(()=>{});if(!silent)api('/auth/logout',{method:'POST'}).catch(()=>{});S.token='';S.me=null;ls.del('token');ls.del('fcm');try{window.ExgNative&&window.ExgNative.setAuth&&window.ExgNative.setAuth('','')}catch(e){}location.hash='#/login';render()}
 let pollT=null;
 async function viewLogin(el){
   if(!BASE){el.innerHTML=`<div class="login"><div class="logo">KMBP <b>FORUM</b></div><p style="color:var(--dim);max-width:320px">Приложение собрано неправильно. Скачайте актуальную версию и установите её заново.</p></div>`;return}
@@ -2478,7 +2508,7 @@ function viewSettings(el){
   $('#out',el).onclick=async()=>{if(await confirmBox('Выйти из аккаунта?'))logout()}}
 
 /* ---------- каркас и роутер ---------- */
-async function boot(){const b=await api('/boot',{onfresh:b=>{S.boards=b.boards;S.bot=b.bot}});S.boards=b.boards;S.bot=b.bot;if(S.token){const m=await api('/me',{onfresh:m=>{S.me=m.me;try{chrome()}catch(e){}}});S.me=m.me;ping()}applyTheme()}
+async function boot(){const b=await api('/boot',{onfresh:b=>{S.boards=b.boards;S.bot=b.bot}});S.boards=b.boards;S.bot=b.bot;if(S.token){const m=await api('/me',{onfresh:m=>{S.me=m.me;try{chrome()}catch(e){}}});S.me=m.me;ping();EXGPush.init()}applyTheme()}
 function paintAv(sel){const n=$(sel);if(n&&S.me)n.outerHTML=av(S.me,'').replace('class="av ','id="'+sel.slice(1)+'" class="av ')}
 /* ---------- уведомления на устройстве: баннер, звук, вибрация, системные ---------- */
 let AC=null;document.addEventListener('pointerdown',()=>{if(!AC)try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}},{once:true});
@@ -2487,7 +2517,7 @@ function nBanner(title,body,href){$$('.nbn').forEach(x=>x.remove());const d=docu
 function alertUser(title,body,href){
   if(ls.get('vib')!=='0'&&navigator.vibrate)try{navigator.vibrate([70,40,70])}catch(e){}
   if(ls.get('snd')!=='0')beep();
-  if(document.hidden){if(ls.get('sys')==='1'&&window.ExgNative&&window.ExgNative.has('notif')){try{window.ExgNative.notify(title,body,href||'')}catch(e){}}
+  if(document.hidden&&ls.get('fcm')!=='1'){if(ls.get('sys')==='1'&&window.ExgNative&&window.ExgNative.has('notif')){try{window.ExgNative.notify(title,body,href||'')}catch(e){}}
     else if(ls.get('sys')==='1'&&'Notification' in window&&Notification.permission==='granted')try{const n=new Notification(title,{body,tag:'kf-'+(href||'')});n.onclick=()=>{try{window.focus()}catch(e){}if(href)location.hash=href;n.close()}}catch(e){}}
   else nBanner(title,body,href)}
 const NTXT={like_p:'оценил(а) ваш пост',like_c:'оценил(а) ваш комментарий',comment:'прокомментировал(а) ваш пост',reply:'ответил(а) на ваш комментарий',mention:'упомянул(а) вас',follow:'подписался(лась) на вас',gmention:'упомянул(а) вас в чате',greply:'ответил(а) вам в чате'};
@@ -2821,20 +2851,31 @@ async function viewNotifSettings(el){
   <label class="lbl" style="margin:6px 16px 4px">Что присылать</label>
   ${row('s','likes','Лайки','Оценили ваш пост или комментарий',p.likes)}${row('s','comments','Комментарии и ответы','К вашим постам и комментариям',p.comments)}${row('s','mentions','Упоминания','Когда вас отметили через @',p.mentions)}${row('s','follows','Новые подписчики','Кто-то подписался на вас',p.follows)}${row('s','dms','Личные сообщения','Баннер, звук и вибрация о новых сообщениях',p.dms)}
   <label class="lbl" style="margin:18px 16px 4px">Когда приложение закрыто</label>
+  ${EXGPush.ok()?`<div class="grow glass" data-k="fcmi" style="cursor:default"><span class="t"><b>Звонки и уведомления на телефон</b><small id="fcmS">Проверяем…</small></span></div><div class="grow glass" data-k="fsi" id="fsiRow" hidden><span class="t"><b>Разрешить звонок на весь экран</b><small>Без этого вызов при заблокированном телефоне покажется только баннером. Нажмите и включите разрешение</small></span></div>`:''}
   ${row('s','tg','Дублировать в Telegram','Бот пришлёт сообщение о комментариях, ответах, упоминаниях и подписках',p.tg)}
   <label class="lbl" style="margin:18px 16px 4px">На этом устройстве</label>
   ${row('d','snd','Звук','Короткий сигнал при новом уведомлении',ls.get('snd')!=='0')}${row('d','vib','Вибрация','Если телефон поддерживает',ls.get('vib')!=='0')}
   ${canSys?row('d','sys','Системные уведомления','Показывать, когда приложение свёрнуто',sysOn()):`<div class="grow glass" style="cursor:default"><span class="t"><b>Системные уведомления</b><small>В этом приложении недоступны — включите дублирование в Telegram</small></span></div>`}
   <div style="padding:14px 16px 24px"><button class="btn ghost" id="nTest" style="width:100%">Проверить уведомление</button></div>`;
+  if(EXGPush.ok()){
+    const fs=()=>{const s=$('#fcmS',el);if(!s)return;const N=window.ExgNative;
+      api('/push/status').then(r=>{if(!$('#fcmS',el))return;
+        s.textContent=!r.enabled?'Сервер ещё не настроен (нужен ключ Firebase) — пока уведомления приходят только при открытом приложении и в Telegram':
+          (EXGPush.on()&&N.has('notif')&&ls.get('sys')!=='0')?'Включено: звонок и сообщения придут, даже если приложение закрыто':'Выключено — включите «Системные уведомления» ниже';
+        const fr=$('#fsiRow',el);if(fr)fr.hidden=!(r.enabled&&typeof N.fsiOk==='function'&&!N.fsiOk())}).catch(()=>{s.textContent='Не удалось проверить'})};
+    fs();EXGPush.init(true);setTimeout(fs,2500)}
   el.onclick=async e=>{
     if(e.target.closest('#nTest')){alertUser('KMBP FORUM','Так будут выглядеть уведомления','#/notif');return}
-    const r=e.target.closest('[data-k]');if(!r)return;const sw=$('.sw',r),on=!sw.classList.contains('on'),k=r.dataset.k;
+    const r=e.target.closest('[data-k]');if(!r)return;
+    if(r.dataset.k==='fsi'){try{NN.openFsiSettings()}catch(x){}return}
+    if(r.dataset.k==='fcmi')return;
+    const sw=$('.sw',r),on=!sw.classList.contains('on'),k=r.dataset.k;
     try{
       if(r.dataset.g==='s'){await post_('/notifs/prefs',{[k]:on})}
       else if(k==='sys'){
         if(on){if(NN){if(!(await EXGPerm.ensure('notif'))){toast('Разрешение не выдано — включите его в настройках телефона',1);EXGPerm.settings();return}}
           else{const res=await Notification.requestPermission();if(res!=='granted'){toast('Разрешение не выдано — включите его в настройках телефона',1);return}}}
-        ls.set('sys',on?'1':'0')}
+        ls.set('sys',on?'1':'0');if(on)EXGPush.init(true);else EXGPush.off()}
       else ls.set(k,on?'1':'0');
       sw.classList.toggle('on',on);if(on&&k==='snd')beep()
     }catch(x){toast(x.message,1)}}}
@@ -2901,9 +2942,9 @@ async function render(){
 document.addEventListener('pointerdown',e=>{const el=e.target.closest('.btn,.tab,.send');if(!el||el.disabled)return;const r=el.getBoundingClientRect(),d=Math.max(r.width,r.height)*2;const s=document.createElement('span');s.className='rp';s.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left-d/2}px;top:${e.clientY-r.top-d/2}px`;el.appendChild(s);setTimeout(()=>s.remove(),650)},{passive:true});
 window.addEventListener('hashchange',render);
 let pingT=0;setInterval(()=>{CALL.ensure();if(!S.token)return;const gap=document.hidden?40000:8000;if(Date.now()-pingT>=gap-500){pingT=Date.now();ping()}},4000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token){pingT=Date.now();ping()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token){pingT=Date.now();ping();EXGPush.init()}});
 (async()=>{applyTheme();if(!location.hash)location.hash=S.token?'#/':'#/login';
-  try{if(BASE)await boot()}catch(e){}render()})();
+  try{if(BASE)await boot()}catch(e){}render();setTimeout(()=>EXGPush.launch(),400)})();
 </script>
 </body>
 </html>
