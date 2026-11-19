@@ -48,7 +48,20 @@ jobs:
           sed -i 's|<string name="app_name">.*</string>|<string name="app_name">EXG FORUM</string>|; s|<string name="title_activity_main">.*</string>|<string name="title_activity_main">EXG FORUM</string>|' $res/values/strings.xml
           cat $res/values/strings.xml
 
-      - name: Разрешения и мост (камера, микрофон, уведомления)
+      - name: Firebase (звонки и уведомления при закрытом приложении)
+        working-directory: android-app
+        env:
+          GSJ: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GSJ" ]; then
+            if printf '%s' "$GSJ" | head -c1 | grep -q '{'; then printf '%s' "$GSJ" > android/app/google-services.json
+            else printf '%s' "$GSJ" | base64 -d > android/app/google-services.json; fi
+            echo "google-services.json: OK"
+          else
+            echo "::warning::Секрет GOOGLE_SERVICES_JSON не задан — push при закрытом приложении в этой сборке работать не будут"
+          fi
+
+      - name: Разрешения и мост (камера, микрофон, уведомления, push)
         working-directory: android-app
         run: |
           python3 ../tools/android_patch.py android/app/src/main
