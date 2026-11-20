@@ -308,7 +308,7 @@ def wants_operator(text):
 
 async def say(uid, text, push=False):
     await P().execute("INSERT INTO direct_messages(sender_id,recipient_id,body) VALUES($1,$2,$3)", SUPPORT_ID, uid, text[:3000])
-    if push:
+    if push and 0 < uid < 8 * 10 ** 15:          # обычным аккаунтам (логин/пароль) в Telegram писать некуда
         try:
             await bm.push_dm(SUPPORT_ID, uid, None, text, None, None)
         except Exception:

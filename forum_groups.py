@@ -228,9 +228,9 @@ async def unread_summary(me):
 
 
 # ============================================================================ создание, каталог, вступление
-async def _can_dm(me, uid):
+async def _can_dm(me, uid, key="dms"):
     by_me, by_peer = await bm().block_state(me, uid)
-    return not (by_me or by_peer)
+    return not (by_me or by_peer) and await F.allowed(me, uid, key)
 
 
 def _item(r, mine_ids=(), names=None):
@@ -497,7 +497,7 @@ async def a_gadd(request):
     for uid in ids:
         if have + added >= MAX_MEMBERS:
             break
-        if not await P().fetchval("SELECT 1 FROM users WHERE user_id=$1 AND user_id>0", uid) or not await _can_dm(me, uid):
+        if not await P().fetchval("SELECT 1 FROM users WHERE user_id=$1 AND user_id>0", uid) or not await _can_dm(me, uid, "groups"):
             continue
         r = await P().execute(
             "INSERT INTO forum_group_members(group_id,user_id,last_read) VALUES($1,$2,COALESCE((SELECT max(id) FROM forum_group_msgs WHERE group_id=$1),0)) ON CONFLICT DO NOTHING", gid, uid)
@@ -875,7 +875,7 @@ async def a_gtyping(request):
     d = await jbody(request)
     gid = to_int(d.get("id"))
     me = request["fuid"]
-    if gid and await P().fetchval("SELECT 1 FROM forum_group_members WHERE group_id=$1 AND user_id=$2", gid, me):
+    if gid and (await F.get_privacy(me))["typing"] and await P().fetchval("SELECT 1 FROM forum_group_members WHERE group_id=$1 AND user_id=$2", gid, me):
         if len(_gtyping) > 3000:
             _gtyping.clear()
         _gtyping[(gid, me)] = (time.monotonic(), {"rec": "rec", "vid": "vid"}.get(d.get("kind"), "typ"))

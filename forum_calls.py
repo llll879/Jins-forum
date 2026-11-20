@@ -164,6 +164,11 @@ async def can_talk(a, b):
     return not (by_me or by_peer)
 
 
+async def can_call(a, b):
+    """Блокировки + настройка «Кто может мне звонить»."""
+    return await can_talk(a, b) and await F.allowed(a, b, "calls")
+
+
 def new_call(kind, host, video, gid=0, title=""):
     c = {"id": secrets.token_urlsafe(9), "kind": kind, "gid": gid, "title": title, "video": bool(video), "host": host, "peer": 0,
          "created": time.time(), "answered": 0, "parts": {}, "inv": {}, "why": "", "alone": 0}
@@ -197,7 +202,7 @@ async def tg_push(to, who_id, c):
     """Звонок тому, кто сейчас не в приложении: сообщение от бота с кнопкой «Открыть» (как остальные уведомления форума)."""
     bm = F.bm
     try:
-        if not (bm._BOT and bm.WEBAPP_URL and bm.rate_ok(("fcallpush", to), 45)):
+        if not (F.is_biz(to) and bm._BOT and bm.WEBAPP_URL and bm.rate_ok(("fcallpush", to), 45)):
             return
         if not (await F.get_prefs(to)).get("tg", True):
             return
@@ -216,7 +221,7 @@ async def tg_push(to, who_id, c):
 async def tg_missed(to, who_id, video):
     bm = F.bm
     try:
-        if not (bm._BOT and bm.WEBAPP_URL and bm.rate_ok(("fcallmiss", to), 30)):
+        if not (F.is_biz(to) and bm._BOT and bm.WEBAPP_URL and bm.rate_ok(("fcallmiss", to), 30)):
             return
         if not (await F.get_prefs(to)).get("tg", True):
             return
@@ -381,7 +386,7 @@ async def a_start(request):
             rows = await P().fetch("SELECT user_id FROM forum_group_members WHERE group_id=$1 AND user_id<>$2 AND NOT muted", gid, me)
             for r in rows:
                 u = r["user_id"]
-                if not IN_CALL.get(u) and await can_talk(me, u):
+                if not IN_CALL.get(u) and await can_call(me, u):
                     ring(c, u, me)
                     if not online(u):
                         asyncio.create_task(tg_push(u, me, c))
@@ -390,7 +395,7 @@ async def a_start(request):
         from support import SUPPORT_ID
         if peer == me or peer == SUPPORT_ID or not await P().fetchval("SELECT 1 FROM users WHERE user_id=$1 AND user_id>0", peer):
             raise FErr(400, "bad_peer", "Этому пользователю позвонить нельзя")
-        if not await can_talk(me, peer):
+        if not await can_call(me, peer):
             raise FErr(403, "blocked", "Звонок недоступен (блокировка)")
         if IN_CALL.get(peer):
             raise FErr(409, "busy", "Абонент сейчас занят")
@@ -496,7 +501,7 @@ async def a_invite(request):
         if u == SUPPORT_ID or not await P().fetchval("SELECT 1 FROM users WHERE user_id=$1 AND user_id>0", u):
             out["bad"].append(u)
             continue
-        if not await can_talk(me, u):
+        if not await can_call(me, u):
             out["blocked"].append(u)
             continue
         if IN_CALL.get(u):

@@ -1158,6 +1158,16 @@ nav.bar .badge{top:0;right:calc(50% - 20px)}
 .login>*{position:relative;z-index:1}
 .login .logo{font-family:var(--serif);font-size:44px;font-weight:600;letter-spacing:3px;line-height:1;text-transform:uppercase}.login .logo b{display:block;font-weight:500;color:#b3aed0;font-size:42px;letter-spacing:2px}
 .code{font:700 26px/1 ui-monospace,Menlo,monospace;letter-spacing:3px;background:var(--glass);border:1px dashed var(--acc);border-radius:18px;padding:16px 20px;color:var(--acc)}
+.lg-sub{color:#b5b0cf;max-width:320px;margin:0}
+.lg-tabs{display:flex;gap:8px;justify-content:center;margin-top:6px}
+.lg-body{width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.lg-form{display:flex;flex-direction:column;gap:10px}
+.lg-wide{width:100%;height:50px;border-radius:25px}
+.lg-err{color:var(--bad);font-size:13px;min-height:0;text-align:left;padding:0 6px}.lg-err:empty{display:none}
+.lg-or{display:flex;align-items:center;gap:12px;color:var(--dim);font-size:12.5px}.lg-or::before,.lg-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.lg-kind{text-align:left;padding:16px 18px;border-radius:20px;border:1px solid var(--line2);background:var(--glass);cursor:pointer;display:flex;flex-direction:column;gap:4px}
+.lg-kind:active{transform:scale(.98)}.lg-kind b{font-size:16px}.lg-kind small{color:var(--dim);font-size:13px;line-height:1.35}
+.lg-note{color:var(--dim);font-size:13.5px;margin:0}
 
 /* =================== АНИМАЦИИ =================== */
 :root{--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1)}
@@ -2309,14 +2319,53 @@ function applyTheme(){const t=ls.get('theme')||'dark';document.documentElement.d
 /* ---------- авторизация ---------- */
 function logout(silent){DB.clear();MC.then(c=>c&&caches.delete('exg-media-v1')).catch(()=>{});if(!silent)api('/auth/logout',{method:'POST'}).catch(()=>{});S.token='';S.me=null;ls.del('token');ls.del('fcm');try{window.ExgNative&&window.ExgNative.setAuth&&window.ExgNative.setAuth('','')}catch(e){}location.hash='#/login';render()}
 let pollT=null;
+async function loginDone(r){S.token=r.token;ls.set('token',r.token);S.me=r.me;await boot();const pn=ls.get('pend_n');ls.set('pend_n','');location.hash=pn?'#/n/'+pn:'#/';render()}
 async function viewLogin(el){
   if(!BASE){el.innerHTML=`<div class="login"><div class="logo">KMBP <b>FORUM</b></div><p style="color:var(--dim);max-width:320px">Приложение собрано неправильно. Скачайте актуальную версию и установите её заново.</p></div>`;return}
-  el.innerHTML=`<div class="login"><div class="logo">KMBP <b>FORUM</b></div><p style="color:#b5b0cf;max-width:320px;margin:0">Форум и соцсеть сообщества. Аккаунт общий с ботом и мини-аппом KMBP EXCHANGE — вход через Telegram, без паролей.</p><button class="btn" id="lgBtn" style="width:100%;max-width:320px;margin-top:10px;height:50px;border-radius:25px">Войти через Telegram</button><div id="lgBox"></div></div>`;
-  $('#lgBtn').onclick=async()=>{const b=$('#lgBtn');b.disabled=true;try{const d=await post_('/auth/start');
-    $('#lgBox').innerHTML=`<p style="color:var(--dim);margin:14px 0 8px">Нажмите «Открыть Telegram» и подтвердите вход в боте. Если бот не открылся — отправьте ему вручную:</p><div class="code" id="cmd">/start forum_${d.code}</div><div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap"><a class="btn" href="${d.tg}" id="oTg">Открыть Telegram</a><a class="btn ghost" href="${d.link}" target="_blank" rel="noopener">Через браузер</a></div><div class="spin"></div><small style="color:var(--dim)">Жду подтверждения…</small>`;
-    $('#cmd').onclick=()=>{try{navigator.clipboard.writeText('/start forum_'+d.code);toast('Скопировано')}catch(e){}};
-    clearInterval(pollT);let n=0;pollT=setInterval(async()=>{if(++n>300){clearInterval(pollT);return}try{const r=await api('/auth/poll?code='+d.code);if(r.status==='ok'){clearInterval(pollT);S.token=r.token;ls.set('token',r.token);S.me=r.me;try{await boot()}catch(e){const sm=document.querySelector('#lgBox small');if(sm)sm.textContent='Вход выполнен, но форум не загрузился: '+(e&&e.message||e)+' [сервер: '+BASE+']';return}const pn=ls.get('pend_n');ls.set('pend_n','');location.hash=pn?'#/n/'+pn:'#/';render()}else if(r.status==='expired'){clearInterval(pollT);$('#lgBox').innerHTML='<p style="color:var(--bad)">Код устарел. Нажмите «Войти через Telegram» ещё раз.</p>';b.disabled=false}}catch(e){const sm=document.querySelector('#lgBox small');if(sm)sm.textContent='Ошибка связи с сервером: '+(e&&e.message||e)+' [сервер: '+BASE+']'}},2000)
-  }catch(e){toast(e.message,1);b.disabled=false}}}
+  clearInterval(pollT);
+  let mode=ls.get('lgmode')==='reg'?'reg':'in',kind='';   // mode: in — вход, reg — регистрация; kind: simple | biz
+  const paint=()=>{
+    const tabs=`<div class="lg-tabs"><button class="tab ${mode==='in'?'on':''}" data-m="in">Вход</button><button class="tab ${mode==='reg'?'on':''}" data-m="reg">Регистрация</button></div>`;
+    const tgBtn=t=>`<button class="btn ${mode==='in'?'ghost':''} lg-wide" id="lgTg">${t}</button>`;
+    const pwForm=reg=>`<form class="lg-form" id="lgForm" autocomplete="on">${reg?`<input class="inp" id="lgName" maxlength="40" placeholder="Имя (необязательно)" autocomplete="nickname">`:''}
+      <input class="inp" id="lgLogin" maxlength="32" placeholder="Логин" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="${reg?'username':'username'}">
+      <input class="inp" id="lgPass" type="password" maxlength="128" placeholder="Пароль${reg?' (от 8 символов)':''}" autocomplete="${reg?'new-password':'current-password'}">
+      ${reg?`<input class="inp" id="lgPass2" type="password" maxlength="128" placeholder="Повторите пароль" autocomplete="new-password">`:''}
+      <div class="lg-err" id="lgErr"></div>
+      <button class="btn lg-wide" id="lgGo" type="submit">${reg?'Создать аккаунт':'Войти'}</button></form>`;
+    let body='';
+    if(mode==='in'){
+      body=`${pwForm(false)}<div class="lg-or"><span>или</span></div>${tgBtn('Бизнес-аккаунт · через Telegram')}<div id="lgBox"></div>`;
+    }else if(!kind){
+      body=`<div class="lg-kind" data-k="simple"><b>Обычный аккаунт</b><small>Логин и пароль, без Telegram. Посты, чаты, группы, звонки.</small></div>
+      <div class="lg-kind" data-k="biz"><b>Бизнес-аккаунт</b><small>Через Telegram. Всё то же + рейтинг, отзывы, сделки, проекты и уведомления от бота.</small></div>`;
+    }else if(kind==='simple'){
+      body=`${pwForm(true)}<button class="btn ghost lg-wide" id="lgBack">Назад</button>`;
+    }else{
+      body=`<p class="lg-note">Бизнес-аккаунт привязан к вашему Telegram: подтвердите вход в боте — аккаунт создастся автоматически.</p>${tgBtn('Зарегистрироваться через Telegram')}<div id="lgBox"></div><button class="btn ghost lg-wide" id="lgBack">Назад</button>`;
+    }
+    el.innerHTML=`<div class="login"><div class="logo">KMBP <b>FORUM</b></div><p class="lg-sub">Форум и соцсеть сообщества.${mode==='reg'&&!kind?' Выберите тип аккаунта.':''}</p>${tabs}<div class="lg-body">${body}</div></div>`;
+    $$('.lg-tabs [data-m]',el).forEach(b=>b.onclick=()=>{mode=b.dataset.m;kind='';ls.set('lgmode',mode);clearInterval(pollT);paint()});
+    $$('.lg-kind',el).forEach(b=>b.onclick=()=>{kind=b.dataset.k;paint()});
+    const bk=$('#lgBack',el);if(bk)bk.onclick=()=>{kind='';clearInterval(pollT);paint()};
+    const tg=$('#lgTg',el);if(tg)tg.onclick=()=>startTg(tg);
+    const fm=$('#lgForm',el);if(fm)fm.onsubmit=e=>{e.preventDefault();submitPw(mode==='reg')};
+  };
+  const submitPw=async reg=>{
+    const err=$('#lgErr',el),go=$('#lgGo',el),login=$('#lgLogin',el).value.trim(),pw=$('#lgPass',el).value;
+    const bad=t=>{err.textContent=t};bad('');
+    if(!login||!pw)return bad('Введите логин и пароль');
+    if(reg){if(pw!==$('#lgPass2',el).value)return bad('Пароли не совпадают')}
+    go.disabled=true;
+    try{const r=await post_(reg?'/auth/register':'/auth/login',reg?{login,password:pw,name:$('#lgName',el).value.trim()}:{login,password:pw});await loginDone(r)}
+    catch(e){bad(e.message||'Не удалось войти');go.disabled=false}
+  };
+  const startTg=async b=>{b.disabled=true;try{const d=await post_('/auth/start');
+    $('#lgBox',el).innerHTML=`<p style="color:var(--dim);margin:14px 0 8px">Нажмите «Открыть Telegram» и подтвердите вход в боте. Если бот не открылся — отправьте ему вручную:</p><div class="code" id="cmd">/start forum_${d.code}</div><div style="display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap"><a class="btn" href="${d.tg}" id="oTg">Открыть Telegram</a><a class="btn ghost" href="${d.link}" target="_blank" rel="noopener">Через браузер</a></div><div class="spin"></div><small style="color:var(--dim)">Жду подтверждения…</small>`;
+    $('#cmd',el).onclick=()=>{try{navigator.clipboard.writeText('/start forum_'+d.code);toast('Скопировано')}catch(e){}};
+    clearInterval(pollT);let n=0;pollT=setInterval(async()=>{if(++n>300){clearInterval(pollT);return}try{const r=await api('/auth/poll?code='+d.code);if(r.status==='ok'){clearInterval(pollT);try{await loginDone(r)}catch(e){const sm=document.querySelector('#lgBox small');if(sm)sm.textContent='Вход выполнен, но форум не загрузился: '+(e&&e.message||e)+' [сервер: '+BASE+']'}}else if(r.status==='expired'){clearInterval(pollT);$('#lgBox',el).innerHTML='<p style="color:var(--bad)">Код устарел. Нажмите кнопку ещё раз.</p>';b.disabled=false}}catch(e){const sm=document.querySelector('#lgBox small');if(sm)sm.textContent='Ошибка связи с сервером: '+(e&&e.message||e)+' [сервер: '+BASE+']'}},2000)
+  }catch(e){toast(e.message,1);b.disabled=false}};
+  paint()}
 
 /* ---------- альбом: фото и видео в посте ---------- */
 const ALB=new Map(),VID_INLINE=6*1024*1024;
@@ -2591,28 +2640,29 @@ function reportSheet(title,cats,send,photos){
 async function viewUser(el,id){
   const [d,x]=await Promise.all([api('/user?id='+id),api('/x/profile?id='+id).catch(()=>null)]);
   const u=d.user,own=d.me;
+  const biz=!!x&&x.biz!==false;   // бизнес-аккаунт (через Telegram): рейтинг, отзывы, сделки, проекты, VETRIXBASE; у обычного их нет
   if(!own&&x&&x.profile_theme)profileTheme(x.profile_theme);
   const roles=[];
   if((u.sb||'').includes('d'))roles.push([BADGE.d,'Разработчик','Создатель форума']);
   if((u.sb||'').includes('a'))roles.push([BADGE.a,'Администратор','Модератор форума']);
-  const ach=x&&x.badges&&x.badges.length?`<div class="bdgs">${x.badges.map(b=>`<span class="bdg ${esc(b.tone)}">${b.i} ${esc(b.t)}</span>`).join('')}</div>`:'';
-  const base=x&&x.base?(()=>{const b=x.base,rated=b.minus||b.stars>0;return `<div class="bchip t-${esc(b.tier)}">📖 ${rated?(b.minus?esc(b.status):`★ ${b.score} · ${esc(b.label)}`):'VETRIXBASE: пока без оценки'}</div>`})():'';
+  const ach=biz&&x.badges&&x.badges.length?`<div class="bdgs">${x.badges.map(b=>`<span class="bdg ${esc(b.tone)}">${b.i} ${esc(b.t)}</span>`).join('')}</div>`:'';
+  const base=biz&&x.base?(()=>{const b=x.base,rated=b.minus||b.stars>0;return `<div class="bchip t-${esc(b.tier)}">📖 ${rated?(b.minus?esc(b.status):`★ ${b.score} · ${esc(b.label)}`):'VETRIXBASE: пока без оценки'}</div>`})():'';
   const online=x?x.online:own;
   const since=d.joined?new Date(d.joined*1000).toLocaleDateString('ru-RU',{month:'long',year:'numeric'}):'';
   el.innerHTML=`<div class="pcover ${u.bn?'own':''}"${u.bn&&!u.bnv?` data-bbg="/forum/api/banner/${u.id}?v=${S.avv||0}"`:''}>${u.bn&&u.bnv?`<video data-bsrc="/forum/api/banner/${u.id}?v=${S.avv||0}" autoplay muted loop playsinline preload="auto" disablepictureinpicture></video>`:''}</div>
   <div class="pwrap"><div class="ptop"><button class="ib round" onclick="history.back()">${IC.back}</button><button class="ib round" id="pMore">${IC.more}</button></div>
   <div class="pmain"><div class="pavrow"><span class="avw ${online?'on':''}">${av(u,'xl')}</span><div style="display:flex;gap:8px;padding-bottom:6px" id="pbt"></div></div>
   <div class="pname">${esc(u.name)}${tags(u.sb)}</div><div class="puser"${u.username?` data-lnk="${esc(u.username)}"`:''}>${u.username?'@'+esc(u.username)+`<span class="exg"> · exg/${esc(u.username)}</span>`:'ID '+u.id}</div>
-  <div class="pstat">${online?'<i></i>В сети':'Не в сети'}${since?` · В сообществе с ${since}`:''}</div>
+  <div class="pstat">${online?'<i></i>В сети':(x&&x.seen_hidden?'Был(а) недавно':'Не в сети')}${since?` · В сообществе с ${since}`:''}</div>
   <div class="chips-row"></div>
   ${ach}${base}
   <p class="pbio">${u.bio?fmt(u.bio):'<span style="color:var(--dim)">Пользователь пока ничего не рассказал о себе.</span>'}</p>
   ${x&&x.blocked_by_me?'<div class="blk-note">Вы заблокировали этого пользователя</div>':''}
   <div class="stats3"><div><b>${d.posts}</b><small>Постов</small></div><div data-href="#/fl/${u.id}/followers"><b id="fc">${num(d.followers)}</b><small>Подписчиков</small></div><div data-href="#/fl/${u.id}/following"><b>${num(d.following)}</b><small>Подписок</small></div></div>
-  ${x?`<div class="stats3 alt"><div data-go="reviews"><b>${x.rating||'—'}</b><small>Рейтинг ★</small></div><div data-go="reviews"><b>${x.reviews}</b><small>Отзывов</small></div><div data-go="deals"><b>${x.completed_deals}</b><small>Сделок</small></div></div>`:''}</div>
+  ${biz?`<div class="stats3 alt"><div data-go="reviews"><b>${x.rating||'—'}</b><small>Рейтинг ★</small></div><div data-go="reviews"><b>${x.reviews}</b><small>Отзывов</small></div><div data-go="deals"><b>${x.completed_deals}</b><small>Сделок</small></div></div>`:''}</div>
   <div id="pmBox"></div>
   <div id="prow">${roles.map(r=>`<div class="grow glass"><span class="gi role">${r[0]}</span><span class="t"><b>${r[1]}</b><small>${r[2]}</small></span></div>`).join('')}${own?`<div class="grow glass" data-href="#/saved"><span class="gi">${IC.bookmark}</span><span class="t"><b>Закладки</b><small>Сохранённые посты</small></span>${IC.chev}</div><div class="grow glass" data-href="#/blocks"><span class="gi">${IC.ban}</span><span class="t"><b>Чёрный список</b><small>Заблокированные пользователи</small></span>${IC.chev}</div><div class="grow glass" data-href="#/settings"><span class="gi">${IC.gear}</span><span class="t"><b>Настройки</b><small>Тема, акцентный цвет, выход</small></span>${IC.chev}</div>`:''}</div>
-  <div class="ptabs" id="ptabs"><button class="tab on" data-t="posts">Посты</button>${x?`<button class="tab" data-t="reviews">Отзывы · ${x.reviews}</button><button class="tab" data-t="deals">Сделки</button>`:''}${x&&x.projects&&x.projects.length?`<button class="tab" data-t="projects">Проекты · ${x.projects.length}</button>`:''}</div><div id="ptab" style="margin-top:8px"></div></div>`;
+  <div class="ptabs" id="ptabs"><button class="tab on" data-t="posts">Посты</button>${biz?`<button class="tab" data-t="reviews">Отзывы · ${x.reviews}</button><button class="tab" data-t="deals">Сделки</button>`:''}${biz&&x.projects&&x.projects.length?`<button class="tab" data-t="projects">Проекты · ${x.projects.length}</button>`:''}</div><div id="ptab" style="margin-top:8px"></div></div>`;
   const pu=$('.puser[data-lnk]',el);if(pu)pu.onclick=()=>copyLink(pu.dataset.lnk);
   api('/pmusic?id='+u.id).then(r=>{const b=$('#pmBox',el);if(b)MU.profile(b,r,{own})}).catch(()=>{});
   const avEl=$('.av.xl',el);if(avEl&&u.av){avEl.removeAttribute('data-href');avEl.dataset.lb=`/forum/api/avatar/${u.id}?v=${S.avv||0}`}
@@ -2635,9 +2685,9 @@ async function viewUser(el,id){
   const box=$('#ptab',el);let cur='';
   const tabs={
     posts:()=>{box.innerHTML='';return loadPosts(box,{user:u.id},{off:0,empty:'Постов пока нет'})},
-    reviews:()=>profReviews(box,u,x,own),
-    deals:()=>{const h=(x&&x.history)||[];box.innerHTML=h.length?`<div class="card-l glass">${h.map(r=>`<div class="hist"><span>Сделка #${r.id}<small>${esc(r.side)} · ${esc(r.created||'')} · ${r.kind==='direct'?'без гаранта':'через гаранта'}</small></span><b>${r.amount?r.amount+' ⭐':'Без суммы'}<small>${esc(DEAL_ST[r.status]||r.status)}</small></b></div>`).join('')}</div>`:emptyBox('chart','Здесь отображаются сделки через гаранта и прямые сделки.')},
-    projects:()=>{box.innerHTML=x.projects.map(p=>`<div class="grow glass"><span class="gi">${IC.cube}</span><span class="t"><b>${esc(p.name)}${p.mark&&PMARK[p.mark]?' <small style="display:inline">'+PMARK[p.mark].split(' ')[0]+'</small>':''}</b><small>${PK[p.kind]||'Проект'}${p.username?' · @'+esc(p.username):''}${p.reviews?` · ★ ${(+p.rating).toFixed(1)}`:''}</small></span></div>`).join('')}
+    reviews:()=>biz?profReviews(box,u,x,own):tabs.posts(),
+    deals:()=>{if(!biz)return tabs.posts();if(x.deals_hidden){box.innerHTML=emptyBox('chart','Пользователь скрыл историю сделок');return}const h=(x&&x.history)||[];box.innerHTML=h.length?`<div class="card-l glass">${h.map(r=>`<div class="hist"><span>Сделка #${r.id}<small>${esc(r.side)} · ${esc(r.created||'')} · ${r.kind==='direct'?'без гаранта':'через гаранта'}</small></span><b>${r.amount?r.amount+' ⭐':'Без суммы'}<small>${esc(DEAL_ST[r.status]||r.status)}</small></b></div>`).join('')}</div>`:emptyBox('chart','Здесь отображаются сделки через гаранта и прямые сделки.')},
+    projects:()=>{if(!biz)return tabs.posts();box.innerHTML=x.projects.map(p=>`<div class="grow glass"><span class="gi">${IC.cube}</span><span class="t"><b>${esc(p.name)}${p.mark&&PMARK[p.mark]?' <small style="display:inline">'+PMARK[p.mark].split(' ')[0]+'</small>':''}</b><small>${PK[p.kind]||'Проект'}${p.username?' · @'+esc(p.username):''}${p.reviews?` · ★ ${(+p.rating).toFixed(1)}`:''}</small></span></div>`).join('')}
   };
   const open=async t=>{if(!tabs[t])t='posts';cur=t;$$('#ptabs .tab',el).forEach(b=>b.classList.toggle('on',b.dataset.t===t));box.innerHTML='<div class="spin"></div>';try{await tabs[t]()}catch(e){box.innerHTML=emptyBox('bellbig',esc(e.message))}};
   $('#ptabs',el).onclick=e=>{const b=e.target.closest('[data-t]');if(b&&b.dataset.t!==cur)open(b.dataset.t)};
@@ -2670,20 +2720,22 @@ async function profReviews(box,u,x,own){
   btn.onclick=async()=>{if(!rate)return;btn.disabled=true;try{const fd=new FormData();fd.append('target_id',u.id);fd.append('rating',rate);fd.append('text',txt.value);if(file)fd.append('photo',await compress(file),'review.jpg');await api('/x/review',{method:'POST',form:fd});toast('Отзыв сохранён');render()}catch(e){toast(e.message,1);btn.disabled=false}}}
 
 async function viewFollows(el,id,kind){const d=await api(`/user/list?id=${id}&kind=${kind}`);
+  if(d.hidden){el.innerHTML=`${head(kind==='following'?'Подписки':'Подписчики')}${emptyBox('users','Пользователь скрыл этот список')}`;return}
   el.innerHTML=`${head(kind==='following'?'Подписки':'Подписчики')}${d.users.length?d.users.map(u=>`<div class="crow" data-href="#/u/${u.id}">${av(u,'m')}<span class="t"><b>${esc(u.name)} ${tags(u.sb)}</b><small>${u.username?'@'+esc(u.username):''}</small></span></div>`).join(''):emptyBox('users','Пока никого')}`}
 async function viewEditProfile(el){
   const x=await api('/x/profile?id='+S.me.id).catch(()=>({}));
   const u=S.me;let pt=x.profile_theme||'';
   const th=ls.get('theme')||'dark',ac=(ls.get('acc')||u.accent||getComputedStyle(document.documentElement).getPropertyValue('--acc')||'#9d92e6').trim();
   el.innerHTML=`${head('Профиль','<button class="btn sm" id="sv">Сохранить</button>')}<div style="padding:0 16px">
-  <p style="color:var(--dim);font-size:13.5px;margin-top:0">Профиль общий с ботом и мини-аппом KMBP EXCHANGE — изменения видны везде. Имя берётся из Telegram.</p>
+  ${u.biz===false?'':`<p style="color:var(--dim);font-size:13.5px;margin-top:0">Профиль общий с ботом и мини-аппом KMBP EXCHANGE — изменения видны везде. Имя берётся из Telegram.</p>`}
   <div class="ed-card glass"><div class="ed-av">${av(u,'l')}<div class="ed-btns"><button class="btn sm" id="chA">Изменить фото</button>${x.has_avatar?'<button class="btn ghost sm" id="delA">Удалить фото</button>':''}</div></div>
   <div class="ed-ban ${x.has_banner?'has':''}" id="banPrev"${x.has_banner&&!x.has_banner_video?` data-bbg="/forum/api/banner/${u.id}?v=${S.avv||0}"`:''}>${x.has_banner&&x.has_banner_video?`<video data-bsrc="/forum/api/banner/${u.id}?v=${S.avv||0}" autoplay muted loop playsinline preload="auto" disablepictureinpicture></video>`:''}<span>${IC.img}Баннер профиля</span></div>
   <div class="ed-btns" style="margin-top:10px"><button class="btn sm" id="chB">Свой баннер</button>${x.has_banner?'<button class="btn ghost sm" id="delB">Убрать баннер</button>':''}</div>
    <p style="color:var(--dim);font-size:12.5px;margin:8px 2px 0">Фото или короткое видео (MP4/WebM до 8 МБ) — видео играет без звука по кругу.</p>
   <input type="file" id="fa" accept="image/*" hidden><input type="file" id="fb" accept="image/*,video/mp4,video/webm,video/quicktime" hidden></div>
+  ${u.biz===false?`<label class="lbl">Имя</label><input class="inp" id="dispName" maxlength="40" value="${esc(u.name)}" placeholder="Как вас называть">`:''}
   <label class="lbl">Юзернейм</label>${nameField(u.own_name?u.username:'',u.username||'ваше_имя')}
-  <p style="color:var(--dim);font-size:13px;margin:6px 2px 0">Ссылка на профиль: <b>exg/${esc(u.own_name?u.username:(u.username||'имя'))}</b>. Если оставить пустым, работает ник из Telegram${u.username&&!u.own_name?' (@'+esc(u.username)+')':''}. Латиница, цифры и «_», от 4 символов.</p>
+  <p style="color:var(--dim);font-size:13px;margin:6px 2px 0">Ссылка на профиль: <b>exg/${esc(u.own_name?u.username:(u.username||'имя'))}</b>. ${u.biz===false?'Это же ваш логин для входа остаётся прежним.':'Если оставить пустым, работает ник из Telegram'+(u.username&&!u.own_name?' (@'+esc(u.username)+')':'')+'.'} Латиница, цифры и «_», от 4 символов.</p>
   <label class="lbl">О себе</label><textarea class="inp" id="bio" maxlength="500" style="min-height:110px" placeholder="Расскажите о себе…">${esc(u.bio)}</textarea><div class="rcount"><span id="bc">${(u.bio||'').length}</span> / 500</div>
   <label class="lbl">Музыка в профиле</label><p style="color:var(--dim);font-size:13px;margin:-4px 2px 8px">Загрузите свои треки или добавьте из EXG Music — они появятся в вашем профиле.</p><div id="pmEd"></div>
   <label class="lbl">Тема вашего профиля</label><p style="color:var(--dim);font-size:13px;margin:-4px 2px 10px">В какой теме люди увидят ваш профиль — независимо от их настроек.</p>
@@ -2704,10 +2756,10 @@ async function viewEditProfile(el){
   $('#chA',el).onclick=()=>pickImg(fs=>upload('/me/avatar',fs[0],'Аватар обновлён'),'image/*');$('#chB',el).onclick=()=>$('#fb',el).click();
   $('#fa',el).onchange=e=>{const f=e.target.files[0];if(f)upload('/me/avatar',f,'Аватар обновлён')};
   $('#fb',el).onchange=e=>{const f=e.target.files[0];if(f)upload('/me/banner',f,'Баннер обновлён')};
-  const da=$('#delA',el);if(da)da.onclick=async()=>{if(!await confirmBox('Удалить фото профиля? Вернётся фото из Telegram.'))return;try{await post_('/x/avatar/delete');S.avv=Date.now();toast('Фото удалено');await refreshMe();viewEditProfile(el)}catch(e){toast(e.message,1)}};
+  const da=$('#delA',el);if(da)da.onclick=async()=>{if(!await confirmBox(u.biz===false?'Удалить фото профиля?':'Удалить фото профиля? Вернётся фото из Telegram.'))return;try{await post_('/x/avatar/delete');S.avv=Date.now();toast('Фото удалено');await refreshMe();viewEditProfile(el)}catch(e){toast(e.message,1)}};
   const db=$('#delB',el);if(db)db.onclick=async()=>{try{await post_('/x/banner/delete');S.avv=Date.now();toast('Баннер убран');viewEditProfile(el)}catch(e){toast(e.message,1)}};
   const mb=$('#myB',el);if(mb)mb.onclick=async()=>{const rows=[['dev','Разработчик'],['adm','Админ'],['bad','Bad rep'],['scam','Scam']].map(([k,n])=>{const on=!!(x.badge_flags&&x.badge_flags[k]);return {t:(on?'Снять значок «':'Выдать значок «')+n+'»',bad:on,k,on}});const c=await sheet(rows);if(!c)return;try{await post_('/x/user_badge',{user_id:S.me.id,badge:c.k,on:!c.on});toast('Готово');await refreshMe();viewEditProfile(el)}catch(e){toast(e.message,1)}};
-  $('#sv',el).onclick=async()=>{const b=$('#sv',el);b.disabled=true;try{const nm=getNm();if(nm!==(u.own_name?u.username:''))await post_('/me/update',{username:nm});await post_('/x/profile',{bio:$('#bio',el).value});await refreshMe();toast('Профиль сохранён');location.hash='#/me'}catch(e){toast(e.message,1);b.disabled=false}}}
+  $('#sv',el).onclick=async()=>{const b=$('#sv',el);b.disabled=true;try{const nm=getNm();if(nm!==(u.own_name?u.username:''))await post_('/me/update',{username:nm});await post_('/x/profile',{bio:$('#bio',el).value});if(u.biz===false){const dn=$('#dispName',el).value.trim();if(dn&&dn!==u.name)await post_('/me/update',{name:dn})}await refreshMe();toast('Профиль сохранён');location.hash='#/me'}catch(e){toast(e.message,1);b.disabled=false}}}
 
 async function viewBlocks(el){
   const d=await api('/x/blocks');
@@ -3224,7 +3276,7 @@ async function viewChat(el,peer,G){
     if(pinIdx>=pinList.length)pinIdx=0;const p=pinList[pinIdx];
     pinBar.hidden=false;$('b',pinBar).textContent='Закреплённое сообщение'+(pinList.length>1?' #'+(pinList.length-pinIdx):'');$('span',pinBar).textContent=p.text}
   const subLine=d=>G?gSub(d):d.recording==='video'?'записывает видеосообщение…':d.recording?'записывает голосовое…':d.typing?'печатает…':
-    d.support_mode!==undefined?(d.peer.username?'@'+d.peer.username:''):d.online?'в сети':d.seen?'был(а) '+seenLbl(d.seen):(d.peer.username?'@'+d.peer.username:'был(а) недавно');
+    d.support_mode!==undefined?(d.peer.username?'@'+d.peer.username:''):d.online?'в сети':d.seen?'был(а) '+seenLbl(d.seen):d.seen_hidden?'был(а) недавно':(d.peer.username?'@'+d.peer.username:'был(а) недавно');
   const apply=(d,force)=>{CHATC.set(ck,d);
     if(G){grp=d.group;users=d.users||{};d.peer={id:grp.id,name:grp.title,username:''}}else peerU=d.peer;
     pname=d.peer.name;cur=d.messages;pinList=d.pins||[];
@@ -5226,18 +5278,69 @@ async function viewSearch(el,q){
     try{const d=await api('/search?q='+encodeURIComponent(v));r.innerHTML=((d.groups&&d.groups.length)?`<div class="sec">Чаты и каналы</div>${d.groups.map(gItemRow).join('')}`:'')+(d.users.length?`<div class="sec">Люди</div>${d.users.map(u=>`<div class="crow" data-href="#/u/${u.id}">${av(u,'m')}<span class="t"><b>${esc(u.name)} ${tags(u.sb)}</b><small>${u.username?'@'+esc(u.username):''}</small></span></div>`).join('')}`:'')+(d.posts.length?`<div class="sec">Посты</div>${d.posts.map(p=>postCard(p)).join('')}`:'')||emptyBox('find','Ничего не найдено')}catch(e){toast(e.message,1)}};
   let t;$('#q',el).oninput=()=>{clearTimeout(t);t=setTimeout(run,350)};run()}
 
+
+/* ---------- конфиденциальность ---------- */
+const PRV_LV={all:'Все',following:'Только те, на кого я подписан',none:'Никто'};
+const PRV_LV2={all:'Все',none:'Никто'};
+async function viewPrivacy(el){
+  const d=await api('/privacy'),p=d.privacy,biz=d.biz;
+  const lvl=(k,t,sub,opts)=>`<div class="grow glass" data-lv="${k}"><span class="t"><b>${t}</b><small>${esc(sub)}</small></span><span style="color:var(--acc);font-size:13.5px;text-align:right;max-width:46%">${esc(opts[p[k]])}</span>${IC.chev}</div>`;
+  const tog=(k,t,sub)=>`<div class="grow glass" data-bk="${k}"><span class="t"><b>${t}</b><small>${sub}</small></span><i class="sw ${p[k]?'on':''}"></i></div>`;
+  const sec=t=>`<label class="lbl" style="margin:18px 16px 4px">${t}</label>`;
+  el.innerHTML=`${head('Конфиденциальность')}
+  ${sec('Кто может со мной связаться')}
+  ${lvl('dms','Личные сообщения','Кто может писать вам первым',PRV_LV)}
+  ${lvl('calls','Звонки','Кто может вам звонить',PRV_LV)}
+  ${lvl('groups','Добавление в группы','Кто может добавлять вас в группы и каналы (по ссылке вступить можно всегда)',PRV_LV)}
+  ${sec('Что видят другие')}
+  ${lvl('seen','«В сети» и «был(а)»','Кому показывать, когда вы онлайн',PRV_LV2)}
+  ${lvl('lists','Подписчики и подписки','Кто видит списки (счётчики видны всем)',PRV_LV2)}
+  ${tog('show_joined','Дата регистрации','Показывать «В сообществе с …» в профиле')}
+  ${tog('typing','«Печатает…»','Показывать собеседникам, что вы печатаете или записываете голосовое')}
+  ${biz?lvl('deals','История сделок и проекты','Кто видит сделки и проекты в вашем профиле',PRV_LV2):''}
+  ${sec('Поиск')}
+  ${tog('searchable','Показывать меня в поиске людей','Если выключить, найти вас можно будет только по прямой ссылке exg/имя')}
+  ${biz?tog('tg_find','Находить по нику Telegram','Ссылка по @нику из Telegram будет открывать ваш профиль'):''}
+  ${sec('Безопасность')}
+  <div id="sesBox"><div class="spin"></div></div>
+  <p style="color:var(--dim);font-size:12.5px;margin:14px 16px 24px">Модераторы форума могут писать вам независимо от этих ограничений — это нужно для защиты сообщества. Заблокированные пользователи не смогут связаться с вами в любом случае.</p>`;
+  $$('[data-lv]',el).forEach(r=>r.onclick=async()=>{const k=r.dataset.lv,opts=(k==='seen'||k==='lists'||k==='deals')?PRV_LV2:PRV_LV;
+    const c=await sheet(Object.keys(opts).map(v=>({t:(p[k]===v?'✓ ':'')+opts[v],v})),r.querySelector('b').textContent);if(!c)return;
+    try{const n=await post_('/privacy',{[k]:c.v});p[k]=n.privacy[k];r.querySelector('span:nth-of-type(2)').textContent=opts[p[k]];toast('Сохранено')}catch(e){toast(e.message,1)}});
+  $$('[data-bk]',el).forEach(r=>r.onclick=async()=>{const k=r.dataset.bk,sw=$('.sw',r),on=!sw.classList.contains('on');sw.classList.toggle('on',on);
+    try{await post_('/privacy',{[k]:on});p[k]=on}catch(e){sw.classList.toggle('on',!on);toast(e.message,1)}});
+  const ses=async()=>{const box=$('#sesBox',el);if(!box)return;
+    try{const r=await api('/sessions');const ago=t=>{const s=Date.now()/1000-t;return s<90?'сейчас онлайн':s<3600?Math.round(s/60)+' мин назад':s<86400?Math.round(s/3600)+' ч назад':new Date(t*1000).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})};
+      box.innerHTML=`<div class="grow glass" style="cursor:default"><span class="t"><b>Активные устройства</b><small>Где выполнен вход в ваш аккаунт</small></span></div>`+r.sessions.map(x=>`<div class="grow glass" style="cursor:default"><span class="t"><b>${esc(x.device)}${x.current?' · это устройство':''}</b><small>${esc(ago(x.last))}${x.ip?' · '+esc(x.ip):''}</small></span>${x.current?'':`<button class="btn ghost sm" data-end="${x.id}">Завершить</button>`}</div>`).join('')+(r.sessions.length>1?`<div style="padding:10px 16px 0"><button class="btn bad" id="endAll" style="width:100%">Выйти на всех остальных устройствах</button></div>`:'');
+      $$('[data-end]',box).forEach(b=>b.onclick=async()=>{b.disabled=true;try{await post_('/sessions/end',{id:b.dataset.end});ses()}catch(e){toast(e.message,1);b.disabled=false}});
+      const ea=$('#endAll',box);if(ea)ea.onclick=async()=>{if(!await confirmBox('Завершить все сеансы, кроме этого?'))return;try{await post_('/sessions/end',{others:true});toast('Готово');ses()}catch(e){toast(e.message,1)}}
+    }catch(e){box.innerHTML=''}};
+  ses()}
+
 /* ---------- настройки ---------- */
 function viewSettings(el){
   const th=ls.get('theme')||'dark',ac=ls.get('acc')||getComputedStyle(document.documentElement).getPropertyValue('--acc').trim();
   el.innerHTML=`${head('Настройки')}<div style="padding:0 16px">
   <label class="lbl">Тема</label><div style="display:flex;gap:8px;flex-wrap:wrap">${[['dark','Тёмная'],['amoled','AMOLED'],['light','Светлая']].map(([k,n])=>`<button class="tab ${th===k?'on':''}" data-th="${k}">${n}</button>`).join('')}</div>
   <label class="lbl">Акцентный цвет</label><div class="pal">${PAL.map(c=>`<i style="background:${c}" class="${c.toLowerCase()===ac.toLowerCase()?'on':''}" data-ac="${c}"></i>`).join('')}</div>
-  <div style="margin-top:26px;display:flex;flex-direction:column;gap:10px"><button class="btn ghost" data-href="#/edit-profile">${sm('pencil',19)}Редактировать профиль</button><button class="btn ghost" id="csAll">${CS.icon}Оформление чатов</button><button class="btn ghost" data-href="#/stickers">${sm('smile',19)}Стикеры и эмодзи</button><button class="btn ghost" data-href="#/gfind">${sm('users',19)}Группы и каналы</button><button class="btn ghost" data-href="#/blocks">${sm('ban',19)}Чёрный список</button><button class="btn ghost" data-href="#/c/-777">${sm('chat',19)}Поддержка</button><button class="btn bad" id="out">Выйти из аккаунта</button></div>
-  <p style="color:var(--dim);font-size:12px;margin-top:22px">KMBP FORUM · аккаунты, профили и личные сообщения общие с ботом KMBP EXCHANGE.</p></div>`;
+  <div style="margin-top:26px;display:flex;flex-direction:column;gap:10px"><button class="btn ghost" data-href="#/edit-profile">${sm('pencil',19)}Редактировать профиль</button><button class="btn ghost" id="csAll">${CS.icon}Оформление чатов</button><button class="btn ghost" data-href="#/stickers">${sm('smile',19)}Стикеры и эмодзи</button><button class="btn ghost" data-href="#/gfind">${sm('users',19)}Группы и каналы</button><button class="btn ghost" data-href="#/privacy">${sm('ban',19)}Конфиденциальность</button><button class="btn ghost" data-href="#/blocks">${sm('ban',19)}Чёрный список</button><button class="btn ghost" data-href="#/c/-777">${sm('chat',19)}Поддержка</button>${S.me.biz===false?`<button class="btn ghost" id="chPw">${sm('pencil',19)}Сменить пароль</button>`:''}<button class="btn bad" id="out">Выйти из аккаунта</button></div>
+  <p style="color:var(--dim);font-size:12px;margin-top:22px">${S.me.biz===false?'KMBP FORUM · обычный аккаунт (логин и пароль).':'KMBP FORUM · бизнес-аккаунт: аккаунты, профили и личные сообщения общие с ботом KMBP EXCHANGE.'}</p></div>`;
   $$('[data-th]',el).forEach(b=>b.onclick=()=>{ls.set('theme',b.dataset.th);applyTheme();viewSettings(el)});
   $$('[data-ac]',el).forEach(b=>b.onclick=()=>{ls.set('acc',b.dataset.ac);applyTheme();viewSettings(el)});
   $('#csAll',el).onclick=()=>CS.open({});
+  const cp=$('#chPw',el);if(cp)cp.onclick=()=>pwSheet();
   $('#out',el).onclick=async()=>{if(await confirmBox('Выйти из аккаунта?'))logout()}}
+function pwSheet(){const bg=document.createElement('div');bg.className='sheet-bg';
+  bg.innerHTML=`<div class="sheet" style="padding:18px 16px;gap:10px;display:flex;flex-direction:column"><div class="sh-m">Смена пароля</div>
+  <input class="inp" id="pwO" type="password" maxlength="128" placeholder="Текущий пароль" autocomplete="current-password">
+  <input class="inp" id="pwN" type="password" maxlength="128" placeholder="Новый пароль (от 8 символов)" autocomplete="new-password">
+  <input class="inp" id="pwN2" type="password" maxlength="128" placeholder="Повторите новый пароль" autocomplete="new-password">
+  <div class="lg-err" id="pwE"></div><button class="btn" id="pwS">Сохранить</button><button class="btn ghost" id="pwC">Отмена</button></div>`;
+  const close=()=>bg.remove();bg.onclick=e=>{if(e.target===bg)close()};$('#pwC',bg).onclick=close;
+  $('#pwS',bg).onclick=async()=>{const b=$('#pwS',bg),er=$('#pwE',bg),n=$('#pwN',bg).value;er.textContent='';
+    if(n!==$('#pwN2',bg).value){er.textContent='Пароли не совпадают';return}
+    b.disabled=true;try{await post_('/auth/password',{old:$('#pwO',bg).value,new:n});toast('Пароль изменён');close()}catch(e){er.textContent=e.message;b.disabled=false}};
+  document.body.appendChild(bg)}
 
 /* ---------- каркас и роутер ---------- */
 async function boot(){const b=await api('/boot',{onfresh:b=>{S.boards=b.boards;S.bot=b.bot}});S.boards=b.boards;S.bot=b.bot;if(S.token){const m=await api('/me',{onfresh:m=>{S.me=m.me;try{chrome()}catch(e){}}});S.me=m.me;ping();EXGPush.init()}applyTheme()}
@@ -5584,10 +5687,10 @@ async function viewNotifSettings(el){
   ${row('s','likes','Лайки','Оценили ваш пост или комментарий',p.likes)}${row('s','comments','Комментарии и ответы','К вашим постам и комментариям',p.comments)}${row('s','mentions','Упоминания','Когда вас отметили через @',p.mentions)}${row('s','follows','Новые подписчики','Кто-то подписался на вас',p.follows)}${row('s','dms','Личные сообщения','Баннер, звук и вибрация о новых сообщениях',p.dms)}
   <label class="lbl" style="margin:18px 16px 4px">Когда приложение закрыто</label>
   ${EXGPush.ok()?`<div class="grow glass" data-k="fcmi" style="cursor:default"><span class="t"><b>Звонки и уведомления на телефон</b><small id="fcmS">Проверяем…</small></span></div><div class="grow glass" data-k="fsi" id="fsiRow" hidden><span class="t"><b>Разрешить звонок на весь экран</b><small>Без этого вызов при заблокированном телефоне покажется только баннером. Нажмите и включите разрешение</small></span></div>`:''}
-  ${row('s','tg','Дублировать в Telegram','Бот пришлёт сообщение о комментариях, ответах, упоминаниях и подписках',p.tg)}
+  ${S.me.biz===false?'':row('s','tg','Дублировать в Telegram','Бот пришлёт сообщение о комментариях, ответах, упоминаниях и подписках',p.tg)}
   <label class="lbl" style="margin:18px 16px 4px">На этом устройстве</label>
   ${row('d','snd','Звук','Короткий сигнал при новом уведомлении',ls.get('snd')!=='0')}${row('d','vib','Вибрация','Если телефон поддерживает',ls.get('vib')!=='0')}
-  ${canSys?row('d','sys','Системные уведомления','Показывать, когда приложение свёрнуто',sysOn()):`<div class="grow glass" style="cursor:default"><span class="t"><b>Системные уведомления</b><small>В этом приложении недоступны — включите дублирование в Telegram</small></span></div>`}
+  ${canSys?row('d','sys','Системные уведомления','Показывать, когда приложение свёрнуто',sysOn()):`<div class="grow glass" style="cursor:default"><span class="t"><b>Системные уведомления</b><small>${S.me.biz===false?'В этом приложении недоступны':'В этом приложении недоступны — включите дублирование в Telegram'}</small></span></div>`}
   <div style="padding:14px 16px 24px"><button class="btn ghost" id="nTest" style="width:100%">Проверить уведомление</button></div>`;
   if(EXGPush.ok()){
     const fs=()=>{const s=$('#fcmS',el);if(!s)return;const N=window.ExgNative;
@@ -5662,6 +5765,7 @@ async function render(){
     else if(r==='saved')fn=()=>viewSaved(t);
     else if(r==='settings')fn=()=>viewSettings(t);
     else if(r==='blocks')fn=()=>viewBlocks(t);
+    else if(r==='privacy')fn=()=>viewPrivacy(t);
     else fn=()=>viewFeed(t);
     await fn();
     if(my!==rid)return;

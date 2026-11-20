@@ -163,5 +163,6 @@ async def resolve(raw):
     row = await P().fetchrow("SELECT kind,ref FROM forum_names WHERE name=$1", s)
     if row and await _alive(row["kind"], row["ref"]):
         return {"kind": row["kind"], "id": row["ref"], "via": "name"}
-    uid = await P().fetchval("SELECT user_id FROM users WHERE lower(username)=$1 AND user_id>0 ORDER BY last_seen DESC NULLS LAST LIMIT 1", s)
+    uid = await P().fetchval("SELECT user_id FROM users WHERE lower(username)=$1 AND user_id>0 "
+        "AND COALESCE((SELECT tg_find FROM forum_privacy WHERE user_id=users.user_id),TRUE) ORDER BY last_seen DESC NULLS LAST LIMIT 1", s)
     return {"kind": "user", "id": uid, "via": "tg"} if uid else None

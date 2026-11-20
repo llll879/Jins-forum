@@ -4,8 +4,11 @@ KMBP FORUM — вторая часть проекта: форум / соцсет
 
   • Работает в том же процессе и в той же базе, поэтому общие: аккаунты (users), аватар, баннер, описание, значки у ника,
     личные сообщения (direct_messages — это те же чаты, что в мини-аппе, включая «Поддержку»), блокировки.
-  • Вход без паролей — через бота: приложение показывает код, пользователь нажимает «Войти через Telegram» (/start forum_КОД),
-    бот подтверждает, приложение получает токен.
+  • Два типа аккаунтов:
+      – бизнес-аккаунт: вход через бота — приложение показывает код, пользователь нажимает «Войти через Telegram» (/start forum_КОД),
+        бот подтверждает, приложение получает токен. Ему доступны рейтинг, отзывы, сделки, проекты и уведомления в Telegram;
+      – обычный аккаунт: логин + пароль, без Telegram (таблица forum_accounts, user_id ≥ ACC_BASE). Только форум/соцсеть:
+        посты, чаты, группы, звонки. Без рейтинга, отзывов, сделок и всего, что связано с ботом.
   • Клиент — один файл forum.html (без внешних библиотек). Отдаётся по /forum, скачивается с /forum/app.html?dl=1
     (адрес сервера уже вписан) и собирается в APK любым конвертером «HTML to APK».
   • API: /forum/api/* (JSON, заголовок Authorization: Bearer <token>, CORS открыт — нужен для APK).
@@ -69,6 +72,16 @@ DDL = """
 CREATE TABLE IF NOT EXISTS forum_sessions(token TEXT PRIMARY KEY, user_id BIGINT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), last_used TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS forum_sessions_user_idx ON forum_sessions(user_id);
 CREATE TABLE IF NOT EXISTS forum_login(code TEXT PRIMARY KEY, user_id BIGINT, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+ALTER TABLE forum_sessions ADD COLUMN IF NOT EXISTS ua TEXT;
+ALTER TABLE forum_sessions ADD COLUMN IF NOT EXISTS ip TEXT;
+CREATE TABLE IF NOT EXISTS forum_privacy(
+    user_id BIGINT PRIMARY KEY, dms TEXT NOT NULL DEFAULT 'all', calls TEXT NOT NULL DEFAULT 'all', groups TEXT NOT NULL DEFAULT 'all',
+    seen TEXT NOT NULL DEFAULT 'all', lists TEXT NOT NULL DEFAULT 'all', deals TEXT NOT NULL DEFAULT 'all',
+    searchable BOOLEAN NOT NULL DEFAULT TRUE, typing BOOLEAN NOT NULL DEFAULT TRUE, show_joined BOOLEAN NOT NULL DEFAULT TRUE,
+    tg_find BOOLEAN NOT NULL DEFAULT TRUE);
+CREATE SEQUENCE IF NOT EXISTS forum_acc_seq;
+CREATE TABLE IF NOT EXISTS forum_accounts(user_id BIGINT PRIMARY KEY, login TEXT NOT NULL, pass_hash TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX IF NOT EXISTS forum_accounts_login_idx ON forum_accounts(login);
 CREATE TABLE IF NOT EXISTS forum_boards(id SERIAL PRIMARY KEY, name TEXT NOT NULL, emoji TEXT NOT NULL DEFAULT '💬', sort INT NOT NULL DEFAULT 0, admin_only BOOLEAN NOT NULL DEFAULT FALSE);
 CREATE TABLE IF NOT EXISTS forum_posts(
     id SERIAL PRIMARY KEY, user_id BIGINT NOT NULL, board_id INT REFERENCES forum_boards(id) ON DELETE SET NULL,
@@ -232,7 +245,283 @@ async def me_json(uid):
     u = dict(u)
     u["staff"] = await is_staff(uid)
     u["main"] = await bm.is_main(uid)
+    u["biz"] = is_biz(uid)                    # бизнес-аккаунт (через Telegram) или обычный (логин/пароль)
     return u
+
+
+# ============================================================================ типы аккаунтов
+# Бизнес-аккаунт = обычный пользователь Telegram (user_id = Telegram ID). Обычный аккаунт (логин + пароль) получает служебный
+# user_id из диапазона, который Telegram не использует (ID Telegram < 2^52 ≈ 4.5e15), и целое число остаётся точным в JS (< 2^53).
+ACC_BASE = 8 * 10 ** 15
+PASS_MIN, PASS_MAX = 8, 128
+_auth_fail = {}          # ("ip"/"login", ключ) -> [время неудач…] — защита от перебора пароля
+_reg_ip = {}             # ip -> [время регистраций…]
+
+
+def is_biz(uid):
+    """True — бизнес-аккаунт (через Telegram); False — обычный (логин/пароль) или служебный id."""
+    return 0 < int(uid or 0) < ACC_BASE
+
+
+def _hash_pw(pw):
+    salt = secrets.token_bytes(16)
+    h = hashlib.scrypt(pw.encode(), salt=salt, n=2 ** 14, r=8, p=1, dklen=32)
+    return "scrypt$16384$8$1$%s$%s" % (salt.hex(), h.hex())
+
+
+def _check_pw(pw, stored):
+    try:
+        _, n, r, p, salt, h = stored.split("$")
+        calc = hashlib.scrypt(pw.encode(), salt=bytes.fromhex(salt), n=int(n), r=int(r), p=int(p), dklen=32)
+        return secrets.compare_digest(calc.hex(), h)
+    except Exception:
+        return False
+
+
+def _client_ip(request):
+    xf = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+    return xf or request.remote or "?"
+
+
+def _too_many(store, key, limit, window):
+    now = time.monotonic()
+    lst = [t for t in store.get(key, []) if now - t < window]
+    store[key] = lst
+    if len(store) > 5000:
+        store.clear()
+    return len(lst) >= limit
+
+
+def _bump(store, key):
+    store.setdefault(key, []).append(time.monotonic())
+
+
+def _clean_login(raw):
+    import forum_names
+    return forum_names.clean(raw)
+
+
+def _check_password(pw):
+    if not isinstance(pw, str) or len(pw) < PASS_MIN:
+        raise FErr(400, "bad_password", "Пароль — минимум %d символов" % PASS_MIN)
+    if len(pw) > PASS_MAX:
+        raise FErr(400, "bad_password", "Пароль слишком длинный")
+
+
+async def _new_session(uid, request=None):
+    tok = secrets.token_urlsafe(32)
+    ua = (request.headers.get("User-Agent") or "")[:300] if request is not None else ""
+    await P().execute("INSERT INTO forum_sessions(token,user_id,ua,ip) VALUES($1,$2,$3,$4)", tok, uid, ua, _client_ip(request) if request is not None else "")
+    return tok
+
+
+async def a_register(request):
+    """Обычная регистрация: логин + пароль (без Telegram)."""
+    try:
+        import forum_names
+        d = await jbody(request)
+        ip = _client_ip(request)
+        if _too_many(_reg_ip, ip, 5, 3600):
+            raise FErr(429, "too_fast", "Слишком много регистраций с этого адреса. Попробуйте позже")
+        login = _clean_login(d.get("login"))
+        pw = d.get("password")
+        name = " ".join(str(d.get("name") or "").split())[:40]
+        err = forum_names.valid(login)
+        if err:
+            raise FErr(400, "bad_login", "Логин: " + err[0].lower() + err[1:])
+        _check_password(pw)
+        if login in pw.lower():
+            raise FErr(400, "bad_password", "Пароль не должен содержать логин")
+        if await P().fetchval("SELECT 1 FROM forum_accounts WHERE login=$1", login) or await forum_names.taken_error(login, "user", 0):
+            raise FErr(409, "name_taken", "Этот логин уже занят")
+        ph = await asyncio.to_thread(_hash_pw, pw)
+        async with P().acquire() as con:
+            async with con.transaction():
+                uid = ACC_BASE + await con.fetchval("SELECT nextval('forum_acc_seq')")
+                await con.execute("INSERT INTO users(user_id,username,first_name,last_name,last_seen) VALUES($1,NULL,$2,NULL,now())", uid, name or login)
+                try:
+                    await con.execute("INSERT INTO forum_accounts(user_id,login,pass_hash) VALUES($1,$2,$3)", uid, login, ph)
+                    await con.execute("INSERT INTO forum_names(name,kind,ref) VALUES($1,'user',$2)", login, uid)
+                except Exception as e:
+                    if getattr(e, "sqlstate", None) == "23505":
+                        raise FErr(409, "name_taken", "Этот логин уже занят")
+                    raise
+        _bump(_reg_ip, ip)
+        return J({"status": "ok", "token": await _new_session(uid, request), "me": await me_json(uid)})
+    except FErr as e:
+        return J({"error": e.code, "message": e.msg}, e.status)
+    except Exception:
+        log.exception("forum register failed")
+        return J({"error": "server", "message": "Что-то пошло не так, попробуйте позже"}, 500)
+
+
+async def a_login(request):
+    """Вход обычного аккаунта по логину и паролю."""
+    try:
+        d = await jbody(request)
+        ip = _client_ip(request)
+        login = _clean_login(d.get("login"))
+        pw = d.get("password")
+        if _too_many(_auth_fail, ("ip", ip), 20, 600) or _too_many(_auth_fail, ("login", login), 8, 600):
+            raise FErr(429, "too_fast", "Слишком много попыток. Подождите несколько минут")
+        row = await P().fetchrow("SELECT user_id,pass_hash FROM forum_accounts WHERE login=$1", login) if login else None
+        ok = bool(row) and isinstance(pw, str) and 0 < len(pw) <= PASS_MAX and await asyncio.to_thread(_check_pw, pw, row["pass_hash"])
+        if not ok:
+            if not row:
+                await asyncio.to_thread(_check_pw, "x", _DUMMY_HASH)        # одинаковое время ответа: логин не угадать по задержке
+            _bump(_auth_fail, ("ip", ip))
+            _bump(_auth_fail, ("login", login))
+            raise FErr(401, "bad_credentials", "Неверный логин или пароль")
+        _auth_fail.pop(("login", login), None)
+        return J({"status": "ok", "token": await _new_session(row["user_id"], request), "me": await me_json(row["user_id"])})
+    except FErr as e:
+        return J({"error": e.code, "message": e.msg}, e.status)
+    except Exception:
+        log.exception("forum login failed")
+        return J({"error": "server", "message": "Что-то пошло не так, попробуйте позже"}, 500)
+
+
+_DUMMY_HASH = "scrypt$16384$8$1$" + "00" * 16 + "$" + "00" * 32
+
+
+@api
+async def a_password(request):
+    """Смена пароля (только обычный аккаунт). Остальные сессии выходят."""
+    uid = request["fuid"]
+    if is_biz(uid):
+        raise FErr(400, "not_simple", "У бизнес-аккаунта нет пароля — вход через Telegram")
+    d = await jbody(request)
+    if _too_many(_auth_fail, ("pw", uid), 5, 600):
+        raise FErr(429, "too_fast", "Слишком много попыток. Подождите несколько минут")
+    row = await P().fetchrow("SELECT pass_hash FROM forum_accounts WHERE user_id=$1", uid)
+    old = d.get("old")
+    if not row or not isinstance(old, str) or not await asyncio.to_thread(_check_pw, old, row["pass_hash"]):
+        _bump(_auth_fail, ("pw", uid))
+        raise FErr(403, "bad_credentials", "Текущий пароль неверный")
+    new = d.get("new")
+    _check_password(new)
+    await P().execute("UPDATE forum_accounts SET pass_hash=$2 WHERE user_id=$1", uid, await asyncio.to_thread(_hash_pw, new))
+    h = request.headers.get("Authorization") or ""
+    await P().execute("DELETE FROM forum_sessions WHERE user_id=$1 AND token<>$2", uid, h[7:].strip())
+    return J({"ok": True})
+
+
+# ============================================================================ конфиденциальность
+PRIV_LEVELS = ("all", "following", "none")        # все / только те, на кого я подписан / никто
+PRIV_LVL_KEYS = {"dms": PRIV_LEVELS, "calls": PRIV_LEVELS, "groups": PRIV_LEVELS, "seen": ("all", "none"), "lists": ("all", "none"),
+                 "deals": ("all", "none")}
+PRIV_BOOL_KEYS = ("searchable", "typing", "show_joined", "tg_find")
+PRIV_BIZ_ONLY = ("deals", "tg_find")               # относятся к сделкам и Telegram — у обычного аккаунта их нет
+PRIV_KEYS = tuple(PRIV_LVL_KEYS) + PRIV_BOOL_KEYS
+PRIV_MSG = {"dms": "Пользователь ограничил личные сообщения", "calls": "Пользователь ограничил звонки",
+            "groups": "Пользователь запретил добавлять себя в группы"}
+
+
+async def get_privacy(uid):
+    r = await P().fetchrow("SELECT " + ",".join(PRIV_KEYS) + " FROM forum_privacy WHERE user_id=$1", uid)
+    out = {k: (r[k] if r else ("all" if k in PRIV_LVL_KEYS else True)) for k in PRIV_KEYS}
+    return out
+
+
+async def allowed(me, target, key):
+    """Можно ли пользователю me писать / звонить / добавлять в группу пользователя target (по его настройкам конфиденциальности)."""
+    if not target or me == target or target < 0 or me < 0:      # поддержка и «сам себе» — всегда
+        return True
+    lvl = (await get_privacy(target))[key]
+    if lvl == "all" or await is_staff(me):                      # модераторам ограничения не мешают
+        return True
+    if lvl == "following":
+        return bool(await P().fetchval("SELECT 1 FROM forum_follows WHERE follower_id=$1 AND followee_id=$2", target, me))
+    return False
+
+
+async def need_allowed(me, target, key):
+    if not await allowed(me, target, key):
+        raise FErr(403, "privacy", PRIV_MSG[key])
+
+
+async def _privacy_json(uid):
+    pr = await get_privacy(uid)
+    if not is_biz(uid):
+        for k in PRIV_BIZ_ONLY:
+            pr.pop(k, None)
+    return J({"privacy": pr, "biz": is_biz(uid)})
+
+
+@api
+async def a_privacy(request):
+    return await _privacy_json(request["fuid"])
+
+
+@api
+async def a_privacy_set(request):
+    uid = request["fuid"]
+    d = await jbody(request)
+    sets, args = [], [uid]
+    for k, v in d.items():
+        if k not in PRIV_KEYS or (k in PRIV_BIZ_ONLY and not is_biz(uid)):
+            continue
+        if k in PRIV_LVL_KEYS:
+            if v not in PRIV_LVL_KEYS[k]:
+                raise FErr(400, "bad_value", "Неверное значение")
+        else:
+            v = bool(v)
+        args.append(v)
+        sets.append(f"{k}=${len(args)}")
+    if sets:
+        cols = [x.split("=")[0] for x in sets]
+        await P().execute(
+            f"INSERT INTO forum_privacy(user_id,{','.join(cols)}) VALUES($1,{','.join('$%d' % (i + 2) for i in range(len(cols)))}) "
+            f"ON CONFLICT(user_id) DO UPDATE SET {','.join(f'{c}=EXCLUDED.{c}' for c in cols)}", *args)
+    return await _privacy_json(uid)
+
+
+def _device(ua):
+    ua = ua or ""
+    low = ua.lower()
+    os_ = ("Android" if "android" in low else "iPhone" if "iphone" in low else "iPad" if "ipad" in low else "Windows" if "windows" in low
+           else "Mac" if "mac os" in low or "macintosh" in low else "Linux" if "linux" in low else "")
+    br = ("Edge" if "edg/" in low else "Opera" if "opr/" in low or "opera" in low else "Firefox" if "firefox" in low
+          else "Chrome" if "chrome" in low or "crios" in low else "Safari" if "safari" in low else "")
+    if "wv)" in low or "; wv" in low:
+        br = "Приложение"
+    return " · ".join(x for x in (os_, br) if x) or "Неизвестное устройство"
+
+
+def _sid(tok):
+    return hashlib.sha256(tok.encode()).hexdigest()[:12]
+
+
+@api
+async def a_sessions(request):
+    uid = request["fuid"]
+    cur = _sid((request.headers.get("Authorization") or "")[7:].strip())
+    rows = await P().fetch("SELECT token,ua,ip,created_at,last_used FROM forum_sessions WHERE user_id=$1 ORDER BY last_used DESC LIMIT 50", uid)
+    return J({"sessions": [{"id": _sid(r["token"]), "device": _device(r["ua"]), "ip": r["ip"] or "", "created": r["created_at"].timestamp(),
+                            "last": r["last_used"].timestamp(), "current": _sid(r["token"]) == cur} for r in rows]})
+
+
+@api
+async def a_session_end(request):
+    uid = request["fuid"]
+    d = await jbody(request)
+    cur = (request.headers.get("Authorization") or "")[7:].strip()
+    if d.get("others"):
+        await P().execute("DELETE FROM forum_sessions WHERE user_id=$1 AND token<>$2", uid, cur)
+        try:
+            await P().execute("DELETE FROM forum_push_tokens WHERE user_id=$1 AND session<>$2", uid, cur)
+        except Exception:
+            pass
+        return J({"ok": True})
+    sid = str(d.get("id") or "")
+    for r in await P().fetch("SELECT token FROM forum_sessions WHERE user_id=$1", uid):
+        if _sid(r["token"]) == sid and r["token"] != cur:
+            await P().execute("DELETE FROM forum_sessions WHERE token=$1", r["token"])
+            try:
+                await P().execute("DELETE FROM forum_push_tokens WHERE session=$1", r["token"])
+            except Exception:
+                pass
+    return J({"ok": True})
 
 
 # ============================================================================ вход через бота
@@ -256,8 +545,7 @@ async def a_auth_poll(request):
         return J({"status": "expired"})
     if not row["user_id"]:
         return J({"status": "wait"})
-    tok = secrets.token_urlsafe(32)
-    await P().execute("INSERT INTO forum_sessions(token,user_id) VALUES($1,$2)", tok, row["user_id"])
+    tok = await _new_session(row["user_id"], request)
     await P().execute("DELETE FROM forum_login WHERE code=$1", code)
     return J({"status": "ok", "token": tok, "me": await me_json(row["user_id"])})
 
@@ -307,10 +595,17 @@ async def a_me_update(request):
             if not bm.rate_ok(("fname", uid), 3):
                 raise FErr(429, "too_fast", "Не так быстро")
             await forum_names.put("user", uid, await forum_names.check(raw, "user", uid))
+        elif not is_biz(uid):
+            raise FErr(400, "bad_name", "Юзернейм обязателен — это ваш логин")
         else:
             await forum_names.drop("user", uid)
     if "bio" in d:
         await P().execute("UPDATE users SET bio=$2 WHERE user_id=$1", uid, str(d.get("bio") or "").strip()[:BIO_MAX])
+    if "name" in d and not is_biz(uid):          # у бизнес-аккаунта имя берётся из Telegram, у обычного — своё
+        nm = " ".join(str(d.get("name") or "").split())[:40]
+        if not nm:
+            raise FErr(400, "bad_name", "Введите имя")
+        await P().execute("UPDATE users SET first_name=$2, last_name=NULL WHERE user_id=$1", uid, nm)
     return J({"me": await me_json(uid)})
 
 
@@ -437,7 +732,8 @@ async def a_user(request):
         "EXISTS(SELECT 1 FROM forum_follows WHERE follower_id=$2 AND followee_id=$1) is_following,"
         "(SELECT created_at FROM users WHERE user_id=$1) joined", uid, me)
     return J({"user": dict(u), "posts": st["posts"], "followers": st["followers"], "following": st["following"],
-              "is_following": st["is_following"], "joined": st["joined"].timestamp() if st["joined"] else None, "me": uid == me})
+              "is_following": st["is_following"], "me": uid == me,
+              "joined": st["joined"].timestamp() if st["joined"] and (uid == me or (await get_privacy(uid))["show_joined"]) else None})
 
 
 @api
@@ -460,6 +756,8 @@ async def a_follow(request):
 async def a_user_list(request):
     uid = to_int(request.query.get("id"))
     kind = request.query.get("kind")
+    if uid != request["fuid"] and (await get_privacy(uid))["lists"] == "none" and not await is_staff(request["fuid"]):
+        return J({"users": [], "hidden": True})
     if kind == "following":
         rows = await P().fetch("SELECT followee_id u FROM forum_follows WHERE follower_id=$1 ORDER BY created_at DESC LIMIT 200", uid)
     else:
@@ -499,7 +797,7 @@ async def notify(to, kind, actor, post_id=None, comment_id=None, group_id=None, 
     if forum_fcm.enabled() and bm.rate_ok(("forum_fcm", to, kind, actor, group_id or post_id or 0), 20):
         forum_fcm.spawn(_fcm_notify(to, kind, actor, post_id, comment_id, group_id))
     # дублирование в Telegram: работает и когда приложение закрыто (лайки в Telegram не шлём — слишком шумно)
-    if kind in ("comment", "reply", "mention", "follow", "gmention", "greply") and pr["tg"] and bm._BOT and _base() and bm.rate_ok(("forum_push", to, kind), 120):
+    if kind in ("comment", "reply", "mention", "follow", "gmention", "greply") and pr["tg"] and is_biz(to) and bm._BOT and _base() and bm.rate_ok(("forum_push", to, kind), 120):
         try:
             who = await bm.user_name(actor)
             what = {"comment": "прокомментировал(а) ваш пост", "reply": "ответил(а) на ваш комментарий", "mention": "упомянул(а) вас",
@@ -542,7 +840,8 @@ async def _fcm_notify(to, kind, actor, post_id, comment_id, group_id):
 
 def push_dm_all(sender, peer, post_id, body, fname, fmime):
     """Новое личное сообщение: Telegram (как раньше) + системный push на телефон (FCM)."""
-    asyncio.create_task(bm.push_dm(sender, peer, post_id, body, fname, fmime))
+    if is_biz(peer):                                 # обычному аккаунту в Telegram писать некуда
+        asyncio.create_task(bm.push_dm(sender, peer, post_id, body, fname, fmime))
     import forum_fcm
     if forum_fcm.enabled():
         forum_fcm.spawn(forum_fcm.dm(sender, peer, body, fname, fmime))
@@ -994,7 +1293,8 @@ async def a_search(request):
     rows = await P().fetch(f"{POST_SQL} WHERE NOT p.deleted AND (p.title ILIKE $2 OR p.body ILIKE $2) ORDER BY p.id DESC LIMIT 30", me, _like(q))
     ur = await P().fetch(
         "SELECT u.user_id FROM users u LEFT JOIN forum_names fn ON fn.kind='user' AND fn.ref=u.user_id "
-        "WHERE u.user_id>0 AND (u.username ILIKE $1 OR fn.name ILIKE $1 OR u.first_name ILIKE $1 OR u.last_name ILIKE $1) ORDER BY u.last_seen DESC NULLS LAST LIMIT 20", _like(q.lstrip("@")))
+        "WHERE u.user_id>0 AND (u.username ILIKE $1 OR fn.name ILIKE $1 OR u.first_name ILIKE $1 OR u.last_name ILIKE $1) "
+        "AND COALESCE((SELECT searchable FROM forum_privacy WHERE user_id=u.user_id),TRUE) ORDER BY u.last_seen DESC NULLS LAST LIMIT 20", _like(q.lstrip("@")))
     um = await users_map([r["user_id"] for r in ur])
     gr = await P().fetch(
         "SELECT g.id,g.kind,g.title,g.descr,g.board_id,(g.avatar_data IS NOT NULL) av,(SELECT count(*) FROM forum_group_members x WHERE x.group_id=g.id)::int n "
@@ -1179,6 +1479,9 @@ async def a_messages(request):
     extra = {"support_mode": await mode_of(me)} if peer == SUPPORT_ID else {}
     seen = await P().fetchval("SELECT last_seen FROM users WHERE user_id=$1", peer)
     online = bool(seen and (datetime.now(timezone.utc) - seen).total_seconds() < 90)
+    seen_hidden = False
+    if peer > 0 and peer != me and (await get_privacy(peer))["seen"] == "none":
+        online, seen, seen_hidden = False, None, True
     # ответы: оригиналы могут лежать за пределами окна из 120 сообщений
     rids = list({r["reply_to"] for r in rows if r["reply_to"]})
     replies = {}
@@ -1262,7 +1565,7 @@ async def a_messages(request):
             m["note"] = note
         return m
     return J({"peer": um.get(peer) or ghost(peer), "typing": typing, "recording": recording, "blocked": bool(by_me or by_peer),
-              "blocked_by_me": bool(by_me), "online": online, "seen": seen.timestamp() if seen else None, "pins": pins, **extra,
+              "blocked_by_me": bool(by_me), "online": online, "seen": seen.timestamp() if seen else None, "seen_hidden": seen_hidden, "pins": pins, **extra,
               "messages": [one(r) for r in rows]})
 
 
@@ -1320,6 +1623,7 @@ async def a_message_send(request):
     by_me, by_peer = await bm.block_state(me, peer)
     if by_me or by_peer:
         raise FErr(403, "blocked", "Сообщения недоступны (блокировка)")
+    await need_allowed(me, peer, "dms")
     if not bm.rate_ok(("fdm", me), 0.6):
         raise FErr(429, "too_fast", "Не так быстро")
     ref_post = None   # ответ на пост ленты: только текст, адресат — автор поста
@@ -1637,7 +1941,7 @@ async def a_support_act(request):
 async def a_typing(request):
     d = await jbody(request)
     peer = to_int(d.get("peer"))
-    if peer:
+    if peer and (peer < 0 or (await get_privacy(request["fuid"]))["typing"]):      # «печатает…» можно отключить в конфиденциальности
         bm._typing[(request["fuid"], peer, {"rec": 1, "vid": 2}.get(d.get("kind"), 0))] = time.monotonic()
     return J({"ok": True})
 
@@ -1703,6 +2007,30 @@ def bridge(name):
         except bm.ApiError as e:
             raise FErr(e.status, e.msg, ERR_RU.get(e.msg, e.msg))
     return handler
+
+
+_x_profile = bridge("api_profile")
+
+
+@api
+async def a_x_profile(request):
+    """Профиль «как в мини-аппе». Для обычного аккаунта — без рейтинга, отзывов, сделок, проектов и карточки VETRIXBASE."""
+    target = to_int(request.query.get("id")) or request["fuid"]
+    resp = await _x_profile(request)
+    if resp.status != 200:
+        return resp
+    data = json.loads(resp.body)
+    data["biz"] = is_biz(target)
+    if target != request["fuid"]:
+        pr = await get_privacy(target)
+        if pr["seen"] == "none":
+            data["online"] = False
+            data["seen_hidden"] = True
+        if data["biz"] and pr["deals"] == "none" and not await is_staff(request["fuid"]):
+            data["history"], data["projects"], data["deals_hidden"] = [], [], True
+    if not data["biz"]:
+        data.update(rating=0, reviews=0, completed_deals=0, history=[], badges=[], base=None, projects=[])
+    return J(data)
 
 
 @api
@@ -2600,6 +2928,13 @@ def install(app, bot_module):
     r.add_post(A + "/auth/start", a_auth_start)
     r.add_get(A + "/auth/poll", a_auth_poll)
     r.add_post(A + "/auth/logout", a_logout)
+    r.add_post(A + "/auth/register", a_register)
+    r.add_post(A + "/auth/login", a_login)
+    r.add_post(A + "/auth/password", a_password)
+    r.add_get(A + "/privacy", a_privacy)
+    r.add_post(A + "/privacy", a_privacy_set)
+    r.add_get(A + "/sessions", a_sessions)
+    r.add_post(A + "/sessions/end", a_session_end)
     r.add_get(A + "/me", a_me)
     r.add_post(A + "/me/update", a_me_update)
     r.add_post(A + "/me/avatar", a_me_avatar)
@@ -2670,7 +3005,7 @@ def install(app, bot_module):
     forum_calls.install(r, A)                  # звонки: личные и групповые (WebRTC, сигнализация через long-poll)
     r.add_post(A + "/support/{act}", a_support_act)
     X = A + "/x"
-    r.add_get(X + "/profile", bridge("api_profile"))
+    r.add_get(X + "/profile", a_x_profile)
     r.add_post(X + "/profile", bridge("api_profile_update"))
     r.add_get(X + "/reviews", bridge("api_profile_reviews"))
     r.add_post(X + "/review", bridge("api_profile_review_save"))
