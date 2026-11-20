@@ -24,7 +24,9 @@ const MI={
  globe:I('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9S14.6 18.4 12 21c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3z"/>'),
  dl:I('<path d="M12 3.5v11m0 0-4-4m4 4 4-4M5 20h14"/>'),
  ok:I('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
- clock:I('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>')
+ clock:I('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>'),
+ dice:I('<rect x="4" y="4" width="16" height="16" rx="4.5"/><path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" stroke-width="3"/>'),
+ users:I('<circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14c2.4 0 4 1.6 4 4"/>')
 };
 IC.music=MI.note;IC.moon=MI.moon;
 const A=new Audio();A.preload='auto';
@@ -491,7 +493,7 @@ function bindUi(app){
 function syncPP(){
   pmSync();
   const html=A.paused?MI.play:MI.pause;
-  $$('#muMini [data-a=pp],#muFull [data-a=pp]').forEach(b=>{if(b._h!==html){b._h=html;b.innerHTML=html}})}
+  $$('#muMini [data-a=pp],#muFull [data-a=pp],.ar-rc [data-rpp]').forEach(b=>{if(b._h!==html){b._h=html;b.innerHTML=html}})}
 function progress(){
   const t=cur();if(!t)return;
   if(!raf)lyTick();
@@ -531,14 +533,14 @@ function stop(){lyReset();slpClear();try{A.pause()}catch(e){}A.removeAttribute('
 
 /* карточки-«рулетка» вместо поиска и вкладок: тап по боковой — докрутить, по кнопке на центральной — включить */
 const CARDS=[
- {k:'karaoke',tab:'karaoke',t:'Караоке 2007',ic:'mic',pl:1,q:'караоке хиты 2007 русские',fb:'popularity_total'},
- {k:'wave',tab:'home',t:'Моя волна',ic:'eq',pl:1,big:1},
- {k:'nostalg',tab:'nostalg',t:'Ностальгия 2010-х',ic:'eq',pl:1,q:'русские хиты 2010-х ностальгия',fb:'popularity_month'},
- {k:'world',tab:'world',t:'Зарубежное',ic:'globe',sub:'Хиты со всего мира'},
- {k:'likes',tab:'likes',t:'Любимое',ic:'heart'},
- {k:'dl',tab:'dl',t:'Скачанное',ic:'dl'},
- {k:'hist',tab:'hist',t:'История',ic:'clock'},
- {k:'search',tab:'search',t:'Поиск',ic:'search',sub:'Трек, исполнитель, текст'}];
+ {h:300,k:'karaoke',tab:'karaoke',t:'Караоке 2007',ic:'mic',pl:1,q:'караоке хиты 2007 русские',fb:'popularity_total'},
+ {h:250,k:'wave',tab:'home',t:'Моя волна',ic:'eq',pl:1,big:1},
+ {h:28,k:'nostalg',tab:'nostalg',t:'Ностальгия 2010-х',ic:'eq',pl:1,q:'русские хиты 2010-х ностальгия',fb:'popularity_month'},
+ {h:190,k:'world',tab:'world',t:'Зарубежное',ic:'globe',sub:'Хиты со всего мира'},
+ {h:345,k:'likes',tab:'likes',t:'Любимое',ic:'heart'},
+ {h:150,k:'dl',tab:'dl',t:'Скачанное',ic:'dl'},
+ {h:42,k:'hist',tab:'hist',t:'История',ic:'clock'},
+ {h:215,k:'search',tab:'search',t:'Поиск',ic:'search',sub:'Трек, исполнитель, текст'}];
 const cardOf=tab=>Math.max(0,CARDS.findIndex(c=>c.tab===tab));
 const plural=n=>n%10===1&&n%100!==11?'трек':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'трека':'треков');
 const subTxt=c=>c.k==='dl'?(dlMeta.size?dlMeta.size+' '+plural(dlMeta.size)+' · '+dlMB()+' МБ':'Для офлайна'):c.k==='likes'?(likes.length?likes.length+' '+plural(likes.length):'Отмечайте сердечком'):c.k==='hist'?(hist.length?hist.length+' '+plural(hist.length):'Пока пусто'):(c.sub||'');
@@ -547,11 +549,13 @@ const plMemo=new Map();
 /* ---------- экран «EXG Music» ---------- */
 function view(el){
   if(!st.go){st.artist=null;st.ahist=[]}st.go=0;
-  const cardHtml=(c,i)=>`<div class="mu-cd${c.big?' big':''}" data-i="${i}" data-k="${c.k}" role="button" tabindex="0" aria-label="${esc(c.t)}"><span class="cd-ic">${MI[c.ic]||IC[c.ic]}</span><b>${esc(c.t)}</b><span class="cd-bt">${c.pl?`<span class="cd-go" data-go="1" role="button" aria-label="Включить">${MI.play}</span>`:`<small data-sub="${c.k}">${esc(subTxt(c))}</small>`}</span></div>`;
+  const icHtml=c=>c.ic==='eq'?'<span class="cd-eqb"><i></i><i></i><i></i><i></i><i></i></span>':c.ic==='mic'?`<span class="cd-mic">${MI.mic}</span>`:(MI[c.ic]||IC[c.ic]);
+  const cardHtml=(c,i)=>`<div class="mu-cd${c.big?' big':''}" style="--ch:${c.h}" data-i="${i}" data-k="${c.k}" role="button" tabindex="0" aria-label="${esc(c.t)}"><span class="cd-ic">${icHtml(c)}</span><b>${esc(c.t)}</b><span class="cd-bt">${c.pl?`<span class="cd-go" data-go="1" role="button" aria-label="Включить">${MI.play}</span>`:`<small data-sub="${c.k}">${esc(subTxt(c))}</small>`}</span></div>`;
   el.innerHTML=`<div class="mu">
+  <canvas class="mu-fx" id="muFx"></canvas>
   <div class="mu-top"><button class="ib round" data-href="#/boards" aria-label="Назад">${IC.back}</button><span class="mu-logo">${MI.note}</span><div><h2>EXG <b>Music</b></h2><small>Русская музыка без рекламы</small></div></div>
   <div class="mu-search" ${st.q||st.tab==='search'?'':'hidden'}>${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, текст песни" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
-  <div class="mu-rl-w" id="muRlw"><div class="mu-pod"></div><div class="mu-rl" id="muRl"><span class="mu-rl-sp"></span>${CARDS.map(cardHtml).join('')}<span class="mu-rl-sp"></span></div></div>
+  <div class="mu-rl-w" id="muRlw"><div class="mu-pod"><i></i><i></i><i></i></div><span class="mu-mark"></span><div class="mu-rl" id="muRl">${CARDS.map(cardHtml).join('')}</div><button class="mu-spinb" id="muSpin" aria-label="Крутануть рулетку">${MI.dice}</button></div>
   <div class="mu-dots" id="muDots">${CARDS.map((c,i)=>`<button data-i="${i}" aria-label="${esc(c.t)}"></button>`).join('')}</div>
   <div id="muBody"></div>
   <p class="mu-note">Каталог — Яндекс Музыка, запасной — Jamendo (независимые исполнители). Полные треки зависят от подписки аккаунта сервера. Любимое и история хранятся на этом устройстве.</p></div>`;
@@ -657,41 +661,72 @@ function view(el){
   async function artistData(id){const c=aCache.get(id);if(c&&Date.now()-c.t<300000)return c.d;
     const d=await api('/music/artist?id='+encodeURIComponent(id));aCache.set(id,{t:Date.now(),d});if(aCache.size>20)aCache.delete(aCache.keys().next().value);return d}
   const uniq=a=>{const s=new Set();return a.filter(t=>!s.has(t.id)&&s.add(t.id))};
+  /* буквы имени выезжают по очереди */
+  const nameHtml=n=>String(n||'Исполнитель').split(/(\s+)/).map(w=>/^\s+$/.test(w)?' ':`<span class="w">${[...w].map(ch=>`<span class="l" style="--i:${nameHtml.i++}">${esc(ch)}</span>`).join('')}</span>`).join('');
+  const numUp=(box,txt)=>{               /* «12 345 слушателей» — число набегает с нуля */
+    const m=/^(\d[\d   ]*\d|\d)\s+(.*)$/.exec(txt);if(!m||REDUCE){box.textContent=txt;return}
+    const n=parseInt(m[1].replace(/\D/g,''),10);if(!n){box.textContent=txt;return}
+    const t0=performance.now(),D=1100,f=v=>String(v).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+    const st_=now=>{if(!box.isConnected)return;const p=Math.min(1,(now-t0)/D),e=1-Math.pow(1-p,3);box.textContent=f(Math.round(n*e))+' '+m[2];if(p<1)requestAnimationFrame(st_)};
+    box.textContent='0 '+m[2];setTimeout(()=>requestAnimationFrame(st_),500)};
+  const rowR=(t,i)=>`<div class="mu-row rv${cur()&&cur().id===t.id?' cur':''}" style="--r:${i}" data-i="${i}" data-id="${esc(t.id)}"><span class="ar-n">${i+1}</span>${cover(t)}<span class="mu-ti"><b>${esc(t.t)}</b><small>${arName(t)}</small></span><span class="mu-dur">${t.d?fmt(t.d):''}</span><button class="mu-lk${isLiked(t.id)?' on':''}" data-lk="1" aria-label="Нравится">${IC.heart}</button><span class="ar-rc"><button data-rpp="1" aria-label="Пуск/пауза">${A.paused?MI.play:MI.pause}</button><button data-rnx="1" aria-label="Дальше">${MI.next}</button></span></div>`;
+  function wireR(box,arr){
+    wire(box,arr);const h=box.onclick;
+    box.onclick=e=>{
+      if(e.target.closest('[data-rpp]')){e.stopPropagation();toggle();return}
+      if(e.target.closest('[data-rnx]')){e.stopPropagation();next(false);return}
+      h(e)}}
+  /* появление блоков при прокрутке */
+  function reveal(box){
+    const els=$$('.rv',box);
+    if(!('IntersectionObserver' in window)||REDUCE){els.forEach(x=>x.classList.add('in'));return}
+    const io=new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target)}}),{root:$('#view'),rootMargin:'0px 0px -6% 0px'});
+    els.forEach(x=>io.observe(x))}
   async function artistPage(id){
-    const my=++seq;
-    body.innerHTML=`<div class="ar-hero"><button class="ib round ar-back" data-ab="1" aria-label="Назад">${IC.back}</button></div>${skel(7)}`;
+    const my=++seq,back=`<button class="ib round ar-back" data-ab="1" aria-label="Назад">${IC.back}</button>`;
+    body.innerHTML=`<div class="ar-pg"><div class="ar-hero">${back}<div class="ar-skph"></div></div>${skel(7)}</div>`;
     $('[data-ab]',body).onclick=artistBack;
     let d;
     try{d=await artistData(id);if(my!==seq)return}
-    catch(e){if(my===seq){body.innerHTML=`<div class="ar-hero"><button class="ib round ar-back" data-ab="1" aria-label="Назад">${IC.back}</button></div><div class="empty">Не удалось загрузить исполнителя<br><br><button class="btn ghost" id="muRetry">Повторить</button></div>`;$('[data-ab]',body).onclick=artistBack;$('#muRetry',body).onclick=()=>artistPage(id)}return}
+    catch(e){if(my===seq){body.innerHTML=`<div class="ar-pg"><div class="ar-hero">${back}</div><div class="empty">Не удалось загрузить исполнителя<br><br><button class="btn ghost" id="muRetry">Повторить</button></div></div>`;$('[data-ab]',body).onclick=artistBack;$('#muRetry',body).onclick=()=>artistPage(id)}return}
     const a=d.artist||{},all=(d.tracks||[]).map(norm),top=(d.top||[]).map(norm),sim=(d.similar||[]).map(norm),sa=d.sim_artists||[];
     const main=uniq(top.concat(all)),five=(top.length?top:all).slice(0,5),h=hue(a.id||'x');
-    const chips=[a.sub].concat(a.genres||[]).filter(Boolean).map((x,i)=>`<span class="ar-chip${i?' g':''}">${esc(x)}</span>`).join('');
-    body.innerHTML=`<div class="ar-hero" style="--h:${h}"><div class="ar-bg"${a.img?` style="background-image:url('${esc(a.img).replace(/'/g,'%27')}')"`:''}></div>
-      <button class="ib round ar-back" data-ab="1" aria-label="Назад">${IC.back}</button>
-      <span class="ar-ph"><span class="ar-pi"><em>${esc(ini(a.name))}</em>${arImg(a.img)}</span></span>
-      <div class="ar-kick">Исполнитель</div>
-      <h2 class="ar-name">${esc(a.name||'Исполнитель')}</h2>${chips?`<div class="ar-chips">${chips}</div>`:''}
+    const chips=(a.sub?`<span class="ar-chip ar-lis">${MI.users}<span class="ar-num"></span></span>`:'')+(a.genres||[]).filter(Boolean).map(x=>`<span class="ar-chip g">${esc(x)}</span>`).join('');
+    nameHtml.i=0;
+    body.innerHTML=`<div class="ar-pg" style="--h:${h}"><div class="ar-hero">${back}
+      <div class="ar-ph"><i class="ar-rg"></i><i class="ar-rg r2"></i><div class="ar-fl"><div class="ar-fr"><div class="ar-pi"><em>${esc(ini(a.name))}</em>${arImg(a.img)}</div></div></div></div>
+      <div class="ar-kick"><span>Исполнитель</span></div>
+      <h2 class="ar-name">${nameHtml(a.name)}</h2>${chips?`<div class="ar-chips">${chips}</div>`:''}
       <div class="ar-act"><button class="btn ar-play" id="arPlay">${MI.play}Слушать</button><button class="btn ghost ar-rd" id="arRadio">${MI.wave}Радио</button><button class="btn ghost ar-sh" id="arSh" aria-label="Вперемешку">${MI.shuf}</button></div></div>
-    ${five.length?`<div class="mu-h"><h3>Популярное</h3></div><div id="arTop" class="ar-rank"></div>`:''}
-    ${all.length>five.length?`<div class="mu-h"><h3>Все песни</h3><small class="ar-cnt">${all.length}</small></div><div id="arAll"></div>`:''}
-    ${sa.length?`<div class="mu-h"><h3>Похожие исполнители</h3></div>${cards(sa)}`:''}
-    ${sim.length?`<div class="mu-h"><h3>Похожие песни</h3><button class="btn sm ghost" id="arSimPlay">${MI.play}Слушать</button></div><div id="arSim"></div>`:''}
-    ${!all.length&&!sim.length?'<div class="empty" style="padding:24px">Песен исполнителя пока нет</div>':''}`;
+    ${five.length?`<div class="mu-h rv"><h3>Популярное</h3>${all.length>five.length?'<button class="ar-more" id="arMore">Все треки ›</button>':''}</div><div id="arTop" class="ar-rank"></div>`:''}
+    ${all.length>five.length?`<div class="mu-h rv" id="arAllH"><h3>Все песни</h3><small class="ar-cnt">${all.length}</small></div><div id="arAll"></div>`:''}
+    ${sa.length?`<div class="mu-h rv"><h3>Похожие исполнители</h3></div><div class="rv">${cards(sa)}</div>`:''}
+    ${sim.length?`<div class="mu-h rv"><h3>Похожие песни</h3><button class="btn sm ghost" id="arSimPlay">${MI.play}Слушать</button></div><div id="arSim"></div>`:''}
+    ${!all.length&&!sim.length?'<div class="empty" style="padding:24px">Песен исполнителя пока нет</div>':''}</div>`;
     $('[data-ab]',body).onclick=artistBack;
-    const put=(sel,arr)=>{const el=$(sel,body);if(el){el.innerHTML=listHtml(arr);wire(el,arr)}};
-    put('#arTop',five);put('#arAll',all);put('#arSim',sim);
+    const ln=$('.ar-num',body);if(ln)numUp(ln,a.sub);
+    const put=(sel,arr,rk)=>{const el=$(sel,body);if(el){el.innerHTML=rk?`<div class="mu-list">${arr.map(rowR).join('')}</div>`:listHtml(arr);(rk?wireR:wire)(el,arr);if(!rk)$$('.mu-row',el).forEach(r=>r.classList.add('rv'))}};
+    put('#arTop',five,1);put('#arAll',all);put('#arSim',sim);
+    reveal(body);
     $('#arPlay',body).onclick=()=>{if(main.length)start(main,0);else toast('Нет треков для воспроизведения',1)};
     $('#arSh',body).onclick=()=>{if(main.length)start(shuffled(main),0)};
     /* радио исполнителя: его песни вперемешку с песнями похожих исполнителей */
     $('#arRadio',body).onclick=()=>{const l=shuffled(uniq(main.slice(0,25).concat(sim)));if(l.length)start(l,0);else toast('Нет треков для воспроизведения',1)};
+    const mo=$('#arMore',body);if(mo)mo.onclick=()=>{const t=$('#arAllH',body);if(t)t.scrollIntoView({behavior:'smooth',block:'start'})};
     const sp=$('#arSimPlay',body);if(sp)sp.onclick=()=>start(sim,0);
     const sl=$('.ar-sim',body);if(sl)sl.onclick=e=>{const c=e.target.closest('[data-ar]');if(c)openArtist(c.dataset.ar)};
+    /* фото чуть наклоняется вслед за пальцем */
+    const ph=$('.ar-ph',body);
+    if(ph&&!REDUCE){
+      const tilt=(x,y)=>{ph.style.setProperty('--ry',x.toFixed(1)+'deg');ph.style.setProperty('--rx',y.toFixed(1)+'deg')};
+      ph.addEventListener('pointermove',e=>{const r=ph.getBoundingClientRect();tilt(((e.clientX-r.left)/r.width-.5)*18,-((e.clientY-r.top)/r.height-.5)*18)});
+      ['pointerleave','pointerup','pointercancel'].forEach(ev=>ph.addEventListener(ev,()=>tilt(0,0)))}
     const vw=$('#view');if(vw)vw.scrollTop=0}
   function artistBack(){st.artist=st.ahist.pop()||null;draw()}
   function draw(){
     const q=st.q.trim(),off=offline(),art=!!st.artist&&!off,srch=(st.tab==='search'||!!st.q)&&!off;
     rlw.hidden=art;dots.hidden=art||off;sb.hidden=!srch||art;x.hidden=!st.q;
+    $('.mu',el).classList.toggle('mu-art',art);fx.set(art,art?346:(CARDS[curI]||CARDS[0]).h);
     if(!art)requestAnimationFrame(()=>fit());
     if(off)return offBody();
     if(q.length>=2)return search(q);
@@ -707,54 +742,173 @@ function view(el){
     else if(st.tab==='hist')collection(hist,'Вы пока ничего не слушали',false);
     else if(st.tab==='world')world();
     else home()}
-  /* ---- рулетка: карточки едут по дуге, центральная крупная, боковые наклонены и уходят вглубь ---- */
-  let geo=[],cw=0,curI=cardOf(st.tab),raf2=0,stTm=0,lastI=-1;
+  /* ---- живой фон: шёлковые волны, свечение и искры (canvas). На экране артиста — бордовый «шёлк» ---- */
+  const REDUCE=(()=>{try{return matchMedia('(prefers-reduced-motion:reduce)').matches}catch(e){return false}})();
+  const fx=(()=>{
+    const cv=$('#muFx',el),g=cv.getContext('2d');
+    let W=0,H=0,dpr=1,hue=250,hueT=250,inten=0,modeK=0,art=0,last=performance.now(),ph=0,lastDraw=0;
+    const sp=Array.from({length:34},()=>({x:Math.random(),y:Math.random(),r:.5+Math.random()*1.5,s:.01+Math.random()*.03,p:Math.random()*6.28}));
+    const lerp=(a,b,k)=>a+(b-a)*k;
+    function size(){
+      const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return false;
+      if(w===W&&h===H)return true;
+      dpr=Math.min(window.devicePixelRatio||1,1.5);W=w;H=h;cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);return true}
+    function glow(x,y,r,col){const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,col);gr.addColorStop(1,'hsla(0,0%,0%,0)');g.fillStyle=gr;g.fillRect(x-r,y-r,r*2,r*2)}
+    /* пучок лент: n линий, фаза каждой чуть сдвинута — получается шёлковая лента */
+    function ribbon(b,area,k,A,sx){
+      const n=7,top=[],bot=[],pts=Math.max(14,Math.round(W/12));
+      for(let j=0;j<n;j++){
+        const line=[];
+        for(let i=0;i<=pts;i++){
+          const xn=i/pts,x=xn*W;
+          const base=area*(.16+.26*b)+Math.sin(xn*2.4+ph*.35+b*2.1)*area*.05;
+          const y=base+j*(7+5*Math.sin(xn*3+ph*.5+b))
+            +A*Math.sin(xn*(3.1+b*.7)+ph*sx+b*1.7+j*.24)
+            +A*.45*Math.sin(xn*(7+b)-ph*sx*1.3+j*.17);
+          line.push(x,y)}
+        if(j===0)top.push(...line);if(j===n-1)bot.push(...line);
+        g.beginPath();g.moveTo(line[0],line[1]);for(let i=2;i<line.length;i+=2)g.lineTo(line[i],line[i+1]);
+        const mid=1-Math.abs(j-(n-1)/2)/((n-1)/2);
+        g.strokeStyle=`hsla(${hue+j*3},${art?70:45}%,${art?72:82}%,${(.05+.15*mid)*k})`;g.lineWidth=j===0||j===n-1?1.4:.9;g.stroke()}
+      /* прозрачная заливка между крайними линиями — стеклянная лента */
+      g.beginPath();g.moveTo(top[0],top[1]);for(let i=2;i<top.length;i+=2)g.lineTo(top[i],top[i+1]);
+      for(let i=bot.length-2;i>=0;i-=2)g.lineTo(bot[i],bot[i+1]);g.closePath();
+      const gr=g.createLinearGradient(0,area*.1,W,area*.9);
+      gr.addColorStop(0,`hsla(${hue},70%,60%,0)`);gr.addColorStop(.5,`hsla(${hue},${art?80:50}%,${art?58:70}%,${(art?.1:.045)*k})`);gr.addColorStop(1,`hsla(${hue+20},70%,50%,0)`);
+      g.fillStyle=gr;g.fill()}
+    function draw(now,vel,force){
+      if(!size())return;
+      if(!force&&!vel&&now-lastDraw<32)return;lastDraw=now;
+      const dt=Math.min(.05,(now-last)/1000);last=now;
+      const play=document.body.classList.contains('mu-playing')?1:0;
+      inten=lerp(inten,play,Math.min(1,dt*2));modeK=lerp(modeK,art?1:0,Math.min(1,dt*3));
+      let dh=((hueT-hue+540)%360)-180;hue=(hue+dh*Math.min(1,dt*3)+360)%360;
+      ph+=REDUCE?0:dt*(.4+inten*.55+Math.min(3,Math.abs(vel||0)*.22)+modeK*.12);
+      g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+      const area=lerp(Math.min(H,640),H,modeK);
+      g.globalCompositeOperation='lighter';
+      glow(W*(.8+.08*Math.sin(ph*.7)),area*(.1+.04*Math.cos(ph*.5)),W*.85,`hsla(${hue},75%,52%,${.2+.1*inten+.12*modeK})`);
+      glow(W*(.1+.06*Math.cos(ph*.6)),area*(.55+.05*Math.sin(ph*.4)),W*.8,`hsla(${hue+25},60%,45%,${.1+.06*inten+.08*modeK})`);
+      if(modeK>.02)glow(W*(.5+.15*Math.sin(ph*.3)),area*.42,W*.7,`hsla(${hue},80%,40%,${.14*modeK})`);
+      const A=lerp(14,24,modeK)*(1+inten*.5),nb=art?4:3;
+      for(let b=0;b<nb;b++)ribbon(b,area,lerp(1,1.15,modeK),A,.9+b*.18);
+      for(const p of sp){
+        p.y-=p.s*dt*(1+inten*2);if(p.y<-.02){p.y=1.02;p.x=Math.random()}
+        const a=(.12+.4*(.5+.5*Math.sin(ph*2+p.p)))*(art?1.1:.8);
+        g.fillStyle=`hsla(${hue+10},80%,88%,${a})`;g.beginPath();g.arc(p.x*W,p.y*area,p.r,0,6.283);g.fill()}
+      g.globalCompositeOperation='source-over'}
+    return{draw,size,set(a,h){art=a?1:0;hueT=a?346:h},hue:h=>{if(!art)hueT=h}}})();
+
+  /* ---- рулетка: барабан. Карточки стоят по кругу, крутится пальцем с инерцией, останавливается ровно на карточке ---- */
+  let vis=[],visK=[],N=0,cw=0,R=250,stepA=45,pos=0,vel=0,pv=0,pPos=0,pLast=performance.now(),md='idle',drag=null,anim=null,lastK=-1,swallow=0,miss=0,vibT=0,curI=cardOf(st.tab),started=0;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const mod=(a,n)=>((a%n)+n)%n;
+  const wrapD=d=>N?mod(d+N/2,N)-N/2:0;
   const cds=()=>$$('.mu-cd',rl);
+  const eoc=p=>1-Math.pow(1-p,3),eoq=p=>1-Math.pow(1-p,4);
+  const tick=n=>{const t=Date.now();if(t-vibT<45)return;vibT=t;try{navigator.vibrate&&navigator.vibrate(n||4)}catch(e){}};
   function measure(){
     const cs=cds();if(!cs.length||!rl.clientWidth)return false;
-    const vis=cs.filter(c=>!c.classList.contains('offh'));if(!vis.length)return false;
-    cw=vis[0].offsetWidth;const pad=Math.max(0,(rl.clientWidth-cw)/2);
-    $$('.mu-rl-sp',rl).forEach(e=>e.style.width=pad+'px');
-    geo=cs.map(c=>c.classList.contains('offh')?null:c.offsetLeft+c.offsetWidth/2);return true}
-  const posOf=i=>geo[i]-rl.clientWidth/2;
-  function paintCards(){
-    raf2=0;if(!geo.length)return;
-    const mid=rl.scrollLeft+rl.clientWidth/2,step=cw+14,cs=cds();let best=0,bd=1e9;
+    vis=[];visK=cs.map(()=>-1);cs.forEach((c,i)=>{if(!c.classList.contains('offh')){visK[i]=vis.length;vis.push(i)}});
+    if(!vis.length)return false;N=vis.length;
+    cw=cs[vis[0]].offsetWidth;if(!cw)return false;
+    stepA=360/Math.max(N,8);R=cw*.98/(2*Math.sin(stepA*Math.PI/360));return true}
+  function paintCards(now){
+    if(!N)return;
+    const cs=cds(),tm=now/1000;let best=0,bd=1e9;
     cs.forEach((c,i)=>{
-      if(geo[i]==null)return;
-      const d=(geo[i]-mid)/step,ad=Math.abs(d);if(ad<bd){bd=ad;best=i}
-      const rot=clamp(-d*44,-64,64),sc=1-Math.min(ad,2)*.15,tx=-Math.sign(d)*Math.min(ad,2.2)*step*.25,ty=Math.min(ad,2.5)*Math.min(ad,2.5)*5;
-      c.style.transform=`translate3d(${tx.toFixed(1)}px,${ty.toFixed(1)}px,${(-Math.min(ad,2.5)*80).toFixed(0)}px) rotateY(${rot.toFixed(1)}deg) scale(${sc.toFixed(3)})`;
-      c.style.opacity=(1-Math.min(ad,2.2)*.21).toFixed(2);c.style.zIndex=100-Math.round(ad*10);
-      const on=ad<.5;if(on!==c.classList.contains('on'))c.classList.toggle('on',on)});
-    if(best!==lastI){if(lastI>=0){try{navigator.vibrate&&navigator.vibrate(5)}catch(e){}}lastI=best;
-      $$('button',dots).forEach((b,i)=>b.classList.toggle('on',i===best))}}
-  const schedule=()=>{if(!raf2)raf2=requestAnimationFrame(paintCards)};
+      const k=visK[i];if(k<0)return;
+      const rel=wrapD(k-pos),ad=Math.abs(rel);if(ad<bd){bd=ad;best=k}
+      const a=rel*stepA,aa=Math.abs(a),ar=a*Math.PI/180;
+      const x=R*Math.sin(ar),z=R*Math.cos(ar)-R,on=ad<.5;
+      const bob=on?Math.sin(tm*1.7)*3.5*(1-ad*2):0;
+      const op=aa<=45?1-aa/45*.2:Math.max(0,.8*(1-(aa-45)/36));
+      c.style.transform=`translate3d(${x.toFixed(1)}px,${bob.toFixed(1)}px,${z.toFixed(1)}px) rotateY(${a.toFixed(1)}deg)`;
+      c.style.opacity=op.toFixed(2);c.style.zIndex=String(100-Math.round(aa/1.5));c.style.visibility=op<.01?'hidden':'visible';
+      c.style.setProperty('--dk',(Math.min(aa,90)/90*.55).toFixed(2));
+      if(on!==c.classList.contains('on'))c.classList.toggle('on',on)});
+    if(best!==lastK){
+      if(lastK>=0)tick(4);lastK=best;
+      $$('button',dots).forEach((b,i)=>b.classList.toggle('on',i===vis[best]));
+      fx.hue(CARDS[vis[best]].h)}}
+  function landed(){
+    pos=mod(pos,N);if(pos>N-1e-6)pos=0;
+    const k=Math.round(pos)%N,c=cds()[vis[k]];
+    if(c){c.classList.remove('land');void c.offsetWidth;c.classList.add('land')}
+    settle()}
+  function stepPhys(now){
+    const dt=Math.min(.05,Math.max(.001,(now-pLast)/1000));pLast=now;
+    if(md==='fling'){pos+=vel*dt;vel*=Math.exp(-dt*2.3);if(Math.abs(vel)<1.1)md='snap'}
+    else if(md==='snap'){const tg=Math.round(pos);pos+=(tg-pos)*(1-Math.exp(-dt*11));if(Math.abs(tg-pos)<.003){pos=tg;md='idle';vel=0;landed()}}
+    else if(md==='spin'){const p=clamp((now-anim.t0)/anim.d,0,1);pos=anim.a+(anim.b-anim.a)*anim.e(p);if(p>=1){pos=anim.b;md='idle';anim=null;landed()}}
+    pv=pv*.8+((pos-pPos)/dt)*.2;pPos=pos;
+    paintCards(now)}
+  function loop(now){
+    if(!rl.isConnected){if(++miss>180)return;requestAnimationFrame(loop);return}
+    miss=0;
+    if(!document.hidden){
+      if(!rlw.hidden&&N)stepPhys(now);
+      fx.draw(now,rlw.hidden?0:(md==='drag'?vel:pv),0)}
+    requestAnimationFrame(loop)}
   function fit(){
     if(rlw.hidden||!measure())return;
-    rl.scrollTo({left:posOf(curI),behavior:'auto'});paintCards()}
-  function goCard(i){if(!geo.length)measure();rl.scrollTo({left:posOf(i),behavior:'smooth'})}
-  /* когда прокрутка остановилась — открываем раздел центральной карточки */
+    const k=vis.indexOf(curI);pos=pPos=k<0?0:k;md='idle';anim=null;paintCards(performance.now())}
+  function startAnim(b,d,e){anim={a:pos,b,t0:performance.now(),d,e};md='spin'}
+  function goCard(i){
+    if(!N&&!measure())return;
+    const k=vis.indexOf(i);if(k<0)return;
+    const d=wrapD(k-pos);if(Math.abs(d)<.001)return;
+    startAnim(pos+d,clamp(260+Math.abs(d)*120,300,700),eoc)}
+  /* случайный бросок: несколько оборотов и остановка на случайной карточке */
+  function spin(){
+    if(N<2||md==='spin')return;
+    const cur_=Math.round(pos),dir=Math.random()<.5?-1:1;let k;
+    do{k=Math.floor(Math.random()*N)}while(k===mod(cur_,N));
+    const loops=2+Math.floor(Math.random()*2),far=dir>0?mod(k-pos,N):mod(pos-k,N);
+    startAnim(pos+dir*(far+loops*N),2800+loops*450,eoq);tick(12)}
+  /* когда барабан остановился — открываем раздел центральной карточки */
   function settle(){
-    if(rlw.hidden||!geo.length)return;
-    const mid=rl.scrollLeft+rl.clientWidth/2;let i=0,bd=1e9;geo.forEach((g,k)=>{if(g==null)return;const d=Math.abs(g-mid);if(d<bd){bd=d;i=k}});
-    if(i===curI)return;
-    curI=i;const c=CARDS[i];
+    if(rlw.hidden||!N)return;
+    const ci=vis[Math.round(pos)%N];
+    if(ci===curI)return;
+    curI=ci;const c=CARDS[ci];
     if(st.q&&c.k!=='search'){st.q='';inp.value=''}
     st.tab=c.tab;st.artist=null;st.ahist=[];draw();
     if(c.k==='search')setTimeout(()=>{try{inp.focus({preventScroll:true})}catch(e){}},250)}
-  rl.addEventListener('scroll',()=>{schedule();clearTimeout(stTm);stTm=setTimeout(settle,140)},{passive:true});
-  rl.onclick=e=>{const c=e.target.closest('.mu-cd');if(!c)return;const i=+c.dataset.i;
-    if(i!==curI&&!c.classList.contains('on')){goCard(i);return}
+  const PX=()=>Math.max(120,cw*.78);
+  rl.addEventListener('pointerdown',e=>{
+    if(rlw.hidden||N<2||(e.pointerType==='mouse'&&e.button))return;
+    if(md==='fling'||md==='snap'||md==='spin'){md='hold';swallow=1;anim=null}
+    drag={x:e.clientX,y:e.clientY,p0:pos,s:[[e.clientX,e.timeStamp]],on:0}});
+  rl.addEventListener('pointermove',e=>{
+    if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+    if(!drag.on){if(Math.abs(dx)>7&&Math.abs(dx)>Math.abs(dy)*1.2){drag.on=1;md='drag';try{rl.setPointerCapture(e.pointerId)}catch(x){}}else return}
+    pos=drag.p0-dx/PX();vel=0;
+    drag.s.push([e.clientX,e.timeStamp]);while(drag.s.length>2&&e.timeStamp-drag.s[0][1]>110)drag.s.shift();
+    const a=drag.s[0],b=drag.s[drag.s.length-1],dtm=(b[1]-a[1])/1000;vel=dtm>0?-(b[0]-a[0])/dtm/PX():0});
+  const endDrag=e=>{
+    if(!drag)return;const d=drag;drag=null;
+    if(d.on){swallow=1;setTimeout(()=>{swallow=0},80);
+      const stale=e&&d.s.length&&e.timeStamp-d.s[d.s.length-1][1]>90;
+      vel=stale?0:clamp(vel,-16,16);md=Math.abs(vel)>1.5?'fling':'snap'}
+    else if(md==='hold'){md='snap';setTimeout(()=>{swallow=0},80)}};
+  rl.addEventListener('pointerup',endDrag);rl.addEventListener('pointercancel',endDrag);
+  rl.onclick=e=>{
+    if(swallow){swallow=0;return}
+    const c=e.target.closest('.mu-cd');if(!c)return;const i=+c.dataset.i,k=visK[i];if(k<0)return;
+    if(Math.abs(wrapD(k-pos))>.5){goCard(i);return}
     if(e.target.closest('[data-go]'))playCard(CARDS[i])};
   rl.onkeydown=e=>{const c=e.target.closest('.mu-cd');if(!c)return;
     if(e.key==='Enter'||e.key===' '){e.preventDefault();c.click()}
-    else if(e.key==='ArrowRight'&&curI<CARDS.length-1){e.preventDefault();goCard(curI+1)}
-    else if(e.key==='ArrowLeft'&&curI>0){e.preventDefault();goCard(curI-1)}};
+    else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();const k=mod(Math.round(pos)+(e.key==='ArrowRight'?1:-1),N);goCard(vis[k])}};
   dots.onclick=e=>{const b=e.target.closest('button[data-i]');if(b)goCard(+b.dataset.i)};
-  /* карточка может быть ещё не в документе (экран собирается заранее) — ждём, пока появится ширина */
-  let tries=0;const init=()=>{if(measure()){fit();if('ResizeObserver' in window)new ResizeObserver(()=>{if(measure())fit()}).observe(rl)}else if(++tries<90)requestAnimationFrame(init)};init();
+  const sb_=$('#muSpin',el);if(sb_)sb_.onclick=spin;
+  /* кнопка «назад» в шапке на экране артиста возвращает к предыдущему артисту/списку */
+  const hb=$('.mu-top .ib',el);
+  if(hb)hb.addEventListener('click',e=>{if(st.artist&&!offline()){e.stopImmediatePropagation();e.preventDefault();artistBack()}},true);
+  /* экран может быть ещё не в документе (собирается заранее) — ждём, пока появится ширина */
+  let tries=0;const init=()=>{if(measure()){fit();if('ResizeObserver' in window)new ResizeObserver(()=>{fx.size();if(measure())fit()}).observe(rl)}else if(++tries<90)requestAnimationFrame(init)};init();
+  requestAnimationFrame(loop);
   /* счётчики на карточках «Любимое»/«История» */
   const subs=()=>CARDS.forEach(c=>{const n=$('[data-sub="'+c.k+'"]',rl);if(n)n.textContent=subTxt(c)});
   inp.oninput=()=>{st.q=inp.value;x.hidden=!st.q;clearTimeout(timer);timer=setTimeout(draw,450)};
