@@ -1018,6 +1018,7 @@ mark.sm.cur{background:#ffd65a;color:#1b1630;box-shadow:0 0 0 2px rgba(255,214,9
 .kc-ck svg{width:15px;height:15px}
 #kcAud{position:fixed;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 .pbtn{flex:none;width:44px;padding:0!important}
+{{inc:desktop/desktop.css}}
 </style>
 </head>
 <body>
@@ -2626,7 +2627,7 @@ function alertUser(title,body,href){
 const NTXT={like_p:'оценил(а) ваш пост',like_c:'оценил(а) ваш комментарий',comment:'прокомментировал(а) ваш пост',reply:'ответил(а) на ваш комментарий',mention:'упомянул(а) вас',follow:'подписался(лась) на вас',gmention:'упомянул(а) вас в чате',greply:'ответил(а) вам в чате'};
 async function ping(){try{
   const key='nafter'+(S.me?S.me.id:''),a=ls.get(key),prev=S.counts.msgs||0,first=!S.pinged;
-  const r=await api('/ping'+(a!==null?'?after='+a:''));S.counts=r;S.pinged=true;chrome();
+  const r=await api('/ping'+(a!==null?'?after='+a:''));S.counts=r;S.pinged=true;chrome();if(r.msgs!==prev)lpaneRefresh();
   if(r.last!=null&&(a===null||r.last>+a))ls.set(key,r.last);
   if(a!==null&&r.new&&r.new.length&&location.hash!=='#/notif'){const n=r.new[0];
     if(r.new.length===1)alertUser(n.actor,NTXT[n.kind]||'новое уведомление',n.group_id?'#/g/'+n.group_id:n.post_id?'#/p/'+n.post_id:'#/u/'+n.actor_id);
@@ -2982,7 +2983,45 @@ async function viewNotifSettings(el){
       else ls.set(k,on?'1':'0');
       sw.classList.toggle('on',on);if(on&&k==='snd')beep()
     }catch(x){toast(x.message,1)}}}
-function shell(){const app=$('#app');if($('#nav'))return;app.innerHTML=`<div id="view"></div><nav class="bar" id="nav"><button data-n="feed" data-href="#/">${IC.home}Главная</button><button data-n="boards" data-href="#/boards">${IC.grid}Разделы</button><button class="plus" data-href="#/new" aria-label="Новый пост">${IC.plus}</button><button data-n="chats" data-href="#/chats">${IC.chat}Чаты<span class="badge msgB" hidden></span></button><button data-n="me" data-href="#/me">${IC.user}Профиль</button></nav>`}
+/* ---------- десктоп (от 1100px): меню слева, лента по центру, панель справа; чаты — в два окна ---------- */
+const DQ=window.matchMedia?matchMedia('(min-width:1100px)'):{matches:false,addEventListener(){}};
+const DESK=()=>DQ.matches;
+function shell(){const app=$('#app');if($('#nav'))return;
+  app.innerHTML=`<div id="lpane"></div><div id="view"></div><aside id="rail"></aside><nav class="bar" id="nav">
+  <a class="dk nb-brand" data-href="#/"><span class="nb-star">${IC.star}</span><span class="nb-w">KMBP<b>FORUM</b></span></a>
+  <button data-n="feed" data-href="#/">${IC.home}<span>Главная</span></button>
+  <button data-n="boards" data-href="#/boards">${IC.grid}<span>Разделы</span></button>
+  <button class="plus" data-href="#/new" aria-label="Новый пост">${IC.plus}</button>
+  <button data-n="chats" data-href="#/chats">${IC.chat}<span>Чаты</span><span class="badge msgB" hidden></span></button>
+  <button class="dk" data-n="notif" data-href="#/notif">${IC.bell}<span>Уведомления</span><span class="badge bellB" hidden></span></button>
+  <button class="dk" data-n="saved" data-href="#/saved">${IC.bookmark}<span>Закладки</span></button>
+  <button data-n="me" data-href="#/me">${IC.user}<span>Профиль</span></button>
+  <button class="dk" data-n="set" data-href="#/settings">${IC.gear}<span>Настройки</span></button>
+  <button class="dk nb-new" data-href="#/new">${IC.pencil}<span>Новый пост</span></button>
+  <div class="dk nb-me" data-href="#/me">${av(S.me,'m')}<span class="t"><b>${esc(S.me.name)}</b><small>${S.me.username?'exg/'+esc(S.me.username):''}</small></span></div></nav>`}
+/* правая панель: поиск, актуальное, разделы */
+let railT=0;
+function railFill(){const rl=$('#rail');if(!rl||!DESK()||!S.me)return;
+  if(!rl.dataset.ok){rl.dataset.ok=1;
+    rl.innerHTML=`<form class="rl-s glass" id="rlS">${IC.search}<input placeholder="Поиск людей и постов" autocomplete="off" aria-label="Поиск"></form>
+    <section class="rl-c glass" id="rlTc" hidden><h3>Актуальное</h3><ol id="rlT"></ol></section>
+    <section class="rl-c glass"><h3>Разделы</h3><div class="rl-bw" id="rlB"></div></section>
+    <div class="rl-m" data-href="#/music"><span>${IC.music}</span><div class="t"><b>EXG Music</b><small>Тренды, «Моя волна», караоке</small></div></div>
+    <p class="rl-f">KMBP FORUM · десктоп</p>`;
+    $('#rlS',rl).onsubmit=e=>{e.preventDefault();const q=$('input',e.target).value.trim();location.hash='#/search/'+encodeURIComponent(q)}}
+  $('#rlB',rl).innerHTML=S.boards.map(b=>`<a class="rl-b ${location.hash==='#/b/'+b.id?'on':''}" data-href="#/b/${b.id}"><span class="gi">${bIcon(b)}</span>${esc(b.name)}</a>`).join('');
+  if(Date.now()-railT>90000){railT=Date.now();
+    api('/feed?tab=top&offset=0').then(d=>{const ps=(d.posts||[]).slice(0,5);$('#rlTc',rl).hidden=!ps.length;
+      $('#rlT',rl).innerHTML=ps.map(p=>`<li data-href="#/p/${p.id}"><div class="t"><b>${esc(p.title||p.body.slice(0,70))}</b><small>${esc(p.user.name)}${p.board?' · '+esc(p.board.name):''}</small></div><span class="st">${sm('heart',14)}${num(p.likes)}</span></li>`).join('')}).catch(()=>{})}}
+/* левое окно чатов на десктопе */
+async function lpaneMount(r,a,force){const lp=$('#lpane');if(!lp)return;
+  if(force||!$('.lp-in',lp)){const x=document.createElement('div');x.className='lp-in';const sc=$('.lp-in',lp)?lp.scrollTop:0;
+    try{await viewChats(x)}catch(e){x.innerHTML=`<div class="empty">${esc(e.message)}</div>`}
+    lp.innerHTML='';lp.appendChild(x);lp.scrollTop=sc}
+  $$('.crow',lp).forEach(c=>{const on=(r==='c'&&c.dataset.id==a)||(r==='g'&&c.dataset.gid==a);c.classList.toggle('act',on);if(on){const d=$('.dot',c);if(d)d.remove()}})}
+function lpaneRefresh(){const lp=$('#lpane');if(!DESK()||!lp||!$('.lp-in',lp))return;const ae=document.activeElement;if(ae&&ae.id==='cq')return;
+  const h=(location.hash||'').replace(/^#\/?/,'').split('/');lpaneMount(h[0],h[1],true)}
+if(DQ.addEventListener)DQ.addEventListener('change',()=>{const rl=$('#rail');if(rl)rl.dataset.ok='';if(S.me)render()});
 let rid=0;
 /* тихо перерисовать экран свежими данными: без спиннера и анимации, с тем же скроллом; не трогаем чаты, формы и то, что человек набирает */
 function softRefresh(rv){clearTimeout(srT);srT=setTimeout(()=>{
@@ -2992,16 +3031,18 @@ function softRefresh(rv){clearTimeout(srT);srT=setTimeout(()=>{
   if([...document.querySelectorAll('#view textarea,#view input')].some(x=>x.value&&x.type!=='checkbox'&&x.type!=='radio'))return;
   SOFTR=true;render()},150)}
 async function render(){
-  const soft=SOFTR;SOFTR=false;const my=++rid;clearInterval(chatT);applyTheme();LOCAL_URLS.splice(0).forEach(u=>{try{URL.revokeObjectURL(u)}catch(e){}});
+  const app=$('#app');const soft=SOFTR;SOFTR=false;const my=++rid;clearInterval(chatT);applyTheme();LOCAL_URLS.splice(0).forEach(u=>{try{URL.revokeObjectURL(u)}catch(e){}});
   const h=(location.hash||'#/').replace(/^#\/?/,'');const [r,a,b]=h.split('/');
   if(!S.token&&r==='n'&&a)ls.set('pend_n',a);
   if(!S.token||r==='login'){MU.stop();if(S.token&&r==='login'){location.hash='#/';return}$('#app').innerHTML='<div id="view" style="padding:0"></div>';$('#app').dataset.page='login';await viewLogin($('#view'));return}
   if(!S.me){try{await boot()}catch(e){$('#app').innerHTML=`<div class="login"><div class="logo">KMBP <b>FORUM</b></div><p style="color:var(--bad)">${esc(e.message)}</p><button class="btn" onclick="location.reload()">Повторить</button></div>`;return}}
   shell();const v=$('#view');
   const noNav=['c','g','p','post','edit','edit-profile','new'].includes(r);
-  $('#nav').style.display=noNav?'none':'';$('#app').dataset.page=({'':'feed',feed:'feed',boards:'boards',chats:'chats',new:'new',edit:'new'})[r]||r;
+  const D=DESK(),split=D&&(r==='chats'||r==='c'||r==='g');
+  $('#nav').style.display=noNav&&!D?'none':'';app.classList.toggle('split',split);app.classList.toggle('chatopen',split&&r!=='chats');
+  if(D)railFill();$('#app').dataset.page=({'':'feed',feed:'feed',boards:'boards',chats:'chats',new:'new',edit:'new'})[r]||r;
   v.style.paddingBottom=noNav?'0':'';MU.mount(noNav);
-  const nav=({'':'feed',boards:'boards',b:'boards',music:'boards',chats:'chats',me:'me',u:(a==S.me.id?'me':'')})[r];
+  const nav=({'':'feed',boards:'boards',b:'boards',music:'boards',chats:'chats',c:'chats',g:'chats',me:'me',notif:'notif',saved:'saved',settings:'set',u:(a==S.me.id?'me':'')})[r];
   $$('#nav button[data-n]').forEach(x=>x.classList.toggle('on',x.dataset.n===nav));
   const st0=soft?v.scrollTop:0;if(!soft){v.scrollTop=0;v.innerHTML='<div class="spin"></div>'}
   try{
@@ -3020,9 +3061,9 @@ async function render(){
     else if(r==='edit-profile')fn=()=>viewEditProfile(t);
     else if(r==='notif')fn=()=>viewNotifs(t);
     else if(r==='notif-set')fn=()=>viewNotifSettings(t);
-    else if(r==='chats')fn=()=>viewChats(t);
-    else if(r==='c')fn=()=>viewChat(t,+a);
-    else if(r==='g')fn=()=>viewChat(t,+a,true);
+    else if(r==='chats')fn=split?async()=>{await lpaneMount(r,a,true);t.innerHTML=`<div class="nochat"><div class="nc-art"></div><h2>Выберите чат</h2><p>Слева — ваши диалоги и группы. Откройте любой, чтобы читать и писать.</p></div>`}:()=>viewChats(t);
+    else if(r==='c')fn=async()=>{if(split)lpaneMount(r,a);await viewChat(t,+a)};
+    else if(r==='g')fn=async()=>{if(split)lpaneMount(r,a);await viewChat(t,+a,true)};
     else if(r==='ginfo')fn=()=>viewGroupInfo(t,+a);
     else if(r==='gnew')fn=()=>viewGroupNew(t,a,b);
     else if(r==='gfind')fn=()=>viewGroupFind(t);
