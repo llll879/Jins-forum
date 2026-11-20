@@ -1719,16 +1719,12 @@ async def a_x_banner_delete(request):
 
 
 # ============================================================================ EXG Music
-# Музыка — из каталога Jamendo (api.jamendo.com/v3.0): независимые исполнители, лицензии Creative Commons. Нужен бесплатный client_id
-# (devportal.jamendo.com) в переменной JAMENDO_CLIENT_ID. Списки браузер получает только через сервер (ключ не светится в клиенте, ответ
-# кэшируется на 10 мин); сам звук играет напрямую с серверов Jamendo — трафик форума не расходуется. /music/stream — запасной путь до файла.
-MU_API = "https://api.jamendo.com/v3.0"
-MU_KEY = os.getenv("JAMENDO_CLIENT_ID", "").strip()
-# Яндекс Музыка (неофициально, библиотека yandex-music) — основной источник, если задан YANDEX_MUSIC_TOKEN; Jamendo — запасной.
+# Музыка — Яндекс Музыка (неофициально, библиотека yandex-music, токен YANDEX_MUSIC_TOKEN). Списки браузер получает только через сервер
+# (токен не светится в клиенте, ответ кэшируется на 10 мин); звук идёт через /music/stream (редирект на временный адрес файла).
+# Яндекс Музыка (неофициально, библиотека yandex-music) — единственный источник, нужен YANDEX_MUSIC_TOKEN.
 # id треков Яндекса в нашем плеере — "y" + число; адрес файла временный, поэтому звук всегда идёт через /music/stream (редирект).
 YM_TOKEN = os.getenv("YANDEX_MUSIC_TOKEN", "").strip()
 _ym_client = None
-MU_ORDERS = {"relevance", "buzzrate", "popularity_week", "popularity_month", "popularity_total", "releasedate_desc"}
 _mu_cache: dict = {}      # url без ключа -> (monotonic, текст ответа)
 _mu_loc: dict = {}        # id трека -> (monotonic, адрес потока)
 _mu_rate: dict = {}       # uid -> [ts...]
@@ -1737,28 +1733,6 @@ _mu_rate: dict = {}       # uid -> [ts...]
 def _mu_session():
     return aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=12), trust_env=False,
                                  headers={"User-Agent": "EXG-Music/1.0", "Accept": "application/json"})
-
-
-def _mu_norm(rows):
-    """Оставляем только играбельные треки и только нужные поля (u — прямой адрес потока)."""
-    out = []
-    for r in rows if isinstance(rows, list) else []:
-        if not isinstance(r, dict):
-            continue
-        tid = str(r.get("id") or "")
-        audio = str(r.get("audio") or "")
-        if not tid.isdigit() or not audio.startswith("https://"):
-            continue
-        img = str(r.get("image") or "")
-        try:
-            dur = max(0, int(r.get("duration") or 0))
-        except (TypeError, ValueError):
-            dur = 0
-        aid = str(r.get("artist_id") or "")
-        out.append({"id": tid, "t": str(r.get("name") or "")[:200], "a": str(r.get("artist_name") or "")[:200],
-                    "img": img if img.startswith("https://") else "", "d": dur, "u": audio,
-                    "ai": "j" + aid if aid.isdigit() else ""})
-    return out
 
 
 def _ym_norm(tracks):
@@ -1786,7 +1760,7 @@ async def _ym():
     if not YM_TOKEN:
         raise RuntimeError("no YANDEX_MUSIC_TOKEN")
     if _ym_client is None:
-        from yandex_music import ClientAsync          # импорт здесь: без библиотеки форум продолжает работать на Jamendo
+        from yandex_music import ClientAsync          # импорт здесь: без библиотеки форум продолжает работать
         _ym_client = await ClientAsync(YM_TOKEN).init()
     return _ym_client
 
@@ -1855,53 +1829,9 @@ async def _ym_artist(aid):
             "top": top[:10] or tracks[:10], "tracks": tracks, "similar": similar, "sim_artists": sim_artists}
 
 
-async def _jm_fetch(path, params):
-    url = f"{MU_API}/{path}/?{urlencode([('client_id', MU_KEY), ('format', 'json')] + params)}"
-    async with _mu_session() as ses:
-        async with ses.get(url) as resp:
-            if resp.status != 200:
-                raise RuntimeError(f"jamendo http {resp.status}")
-            d = json.loads(await resp.text())
-    if (d.get("headers") or {}).get("status") != "success":
-        raise RuntimeError("jamendo error")
-    return d.get("results") or []
-
-
-async def _jm_artist(num):
-    """Карточка исполнителя из Jamendo. «Похожее» — популярные треки того же жанра (у Jamendo нет связей между исполнителями)."""
-    info = (await _jm_fetch("artists", [("id", num)]) or [{}])[0]
-    base = [("audioformat", "mp32"), ("imagesize", "300")]
-    raw = await _jm_fetch("tracks", [("artist_id", num), ("order", "popularity_total"), ("limit", "50"), ("include", "musicinfo")] + base)
-    tracks = _mu_norm(raw)
-    genre = ""
-    for r in raw:
-        g = (((r.get("musicinfo") or {}).get("tags") or {}).get("genres") or [])
-        if g:
-            genre = str(g[0])
-            break
-    similar, sim_artists = [], []
-    if genre and re.fullmatch(r"[a-z0-9_+-]{1,40}", genre):
-        try:
-            sim = [t for t in _mu_norm(await _jm_fetch("tracks", [("tags", genre), ("order", "popularity_week"), ("limit", "30"), ("groupby", "artist_id")] + base))
-                   if t.get("ai") != "j" + num]
-            similar = sim[:20]
-            seen = set()
-            for t in sim:
-                if t["ai"] and t["ai"] not in seen:
-                    seen.add(t["ai"])
-                    sim_artists.append({"id": t["ai"], "name": t["a"], "img": t["img"]})
-        except Exception as e:
-            log.warning("jamendo similar failed: %s", e)
-    img = str(info.get("image") or "")
-    return {"artist": {"id": "j" + num, "name": str(info.get("name") or (tracks[0]["a"] if tracks else "Исполнитель"))[:200],
-                       "img": img if img.startswith("https://") else (tracks[0]["img"] if tracks else ""),
-                       "sub": f"{len(tracks)} треков на Jamendo" if tracks else "", "genres": [genre] if genre else []},
-            "top": tracks[:10], "tracks": tracks, "similar": similar, "sim_artists": sim_artists[:12]}
-
-
 @api
 async def a_music_artist(request):
-    """Карточка исполнителя: ?id=y123 (Яндекс) | j456 (Jamendo)."""
+    """Карточка исполнителя: ?id=y123 (Яндекс)."""
     me = request["fuid"]
     now = time.monotonic()
     hist = [t for t in _mu_rate.get(me, []) if now - t < 60]
@@ -1910,15 +1840,15 @@ async def a_music_artist(request):
     hist.append(now)
     _mu_rate[me] = hist
     aid = request.query.get("id", "")
-    m = re.fullmatch(r"([yj])([0-9]{1,12})", aid)
-    if not m or not (YM_TOKEN if m.group(1) == "y" else MU_KEY):
+    m = re.fullmatch(r"(y)([0-9]{1,12})", aid)
+    if not m or not YM_TOKEN:
         raise FErr(400, "bad_input", "Исполнитель недоступен")
     ck = "artist?" + aid
     hit = _mu_cache.get(ck)
     if hit and now - hit[0] < 600:
         return web.Response(text=hit[1], content_type="application/json", charset="utf-8")
     try:
-        data = await (_ym_artist(m.group(2)) if m.group(1) == "y" else _jm_artist(m.group(2)))
+        data = await _ym_artist(m.group(2))
         text = json.dumps(data, ensure_ascii=False)
     except Exception as e:
         log.warning("music artist failed: %s", e)
@@ -1931,7 +1861,7 @@ async def a_music_artist(request):
 
 @api
 async def a_music_get(request):
-    """Каталог треков: ?search=&tags=&lang=&order=&limit=&offset=&groupby=artist_id -> {"data":[{id,t,a,img,d,u}]}"""
+    """Каталог треков Яндекса: ?src=ym&k=chart|search&c=russia|world&q=&limit= -> {"data":[{id,t,a,img,d,ai}]}"""
     me = request["fuid"]
     now = time.monotonic()
     hist = [t for t in _mu_rate.get(me, []) if now - t < 60]
@@ -1960,60 +1890,11 @@ async def a_music_get(request):
             raise FErr(502, "music_unavailable", "Яндекс Музыка сейчас недоступна")
         _mu_cache[ck] = (time.monotonic(), text)
         return web.Response(text=text, content_type="application/json", charset="utf-8")
-    if not MU_KEY:
-        raise FErr(503, "music_unavailable", "Музыка не настроена: администратору нужно задать JAMENDO_CLIENT_ID")
-    params = [("format", "json"), ("audioformat", "mp32"), ("imagesize", "300")]
-    lim = q.get("limit", "30")
-    params.append(("limit", str(min(int(lim), 50)) if lim.isdigit() else "30"))
-    off = q.get("offset", "0")
-    if off.isdigit():
-        params.append(("offset", str(min(int(off), 500))))
-    order = q.get("order", "")
-    if order:
-        if order not in MU_ORDERS:
-            raise FErr(400, "bad_input", "Неверный запрос")
-        params.append(("order", order))
-    lang = q.get("lang", "")
-    if lang:
-        if not re.fullmatch(r"[a-z]{2}", lang):
-            raise FErr(400, "bad_input", "Неверный запрос")
-        params.append(("lang", lang))
-    tags = q.get("tags", "")
-    if tags:
-        if not re.fullmatch(r"[a-z0-9_,+-]{1,60}", tags):
-            raise FErr(400, "bad_input", "Неверный запрос")
-        params.append(("tags", tags))
-    if q.get("groupby") == "artist_id":
-        params.append(("groupby", "artist_id"))
-    search = q.get("search", "").strip()[:100]
-    if search:
-        params.append(("search", search))
-    ck = urlencode(params)
-    hit = _mu_cache.get(ck)
-    if hit and now - hit[0] < 600:
-        return web.Response(text=hit[1], content_type="application/json", charset="utf-8")
-    url = f"{MU_API}/tracks/?{urlencode([('client_id', MU_KEY)] + params)}"
-    try:
-        async with _mu_session() as ses:
-            async with ses.get(url) as resp:
-                if resp.status != 200:
-                    raise RuntimeError(f"jamendo http {resp.status}")
-                d = json.loads(await resp.text())
-        hd = d.get("headers") or {}
-        if hd.get("status") != "success":
-            raise RuntimeError(f"jamendo {hd.get('code')}: {hd.get('error_message')}")
-        text = json.dumps({"data": _mu_norm(d.get("results"))}, ensure_ascii=False)
-    except Exception as e:
-        log.warning("music get failed: %s", e)
-        raise FErr(502, "music_unavailable", "Музыкальный сервис сейчас недоступен")
-    _mu_cache[ck] = (time.monotonic(), text)
-    while len(_mu_cache) > 300:
-        _mu_cache.pop(next(iter(_mu_cache)))
-    return web.Response(text=text, content_type="application/json", charset="utf-8")
+    raise FErr(400, "bad_input", "Неверный запрос")
 
 
 # ---------------------------------------------------------------------------- умный поиск
-# /music/search?q=…           — быстрый: исправление раскладки/транслита, подсказки Яндекса («морген» → Моргенштерн), Jamendo.
+# /music/search?q=…           — быстрый: исправление раскладки/транслита, подсказки Яндекса («морген» → Моргенштерн) .
 # /music/search?q=…&ai=1      — дополнительно: Gemini понимает неполные названия, опечатки, куски текста песни; подсказки проверяются
 #                               поиском в каталоге (ИИ ничего не выдумывает в выдачу — показываем только то, что нашлось). ИИ устойчив к 503/429:
 #                               повторы с паузой, запасные модели (GEMINI_MODELS), общий бюджет времени, «автомат» после провала; без ИИ поиск работает как раньше.
@@ -2135,43 +2016,19 @@ async def _ym_search(q, variants):
     return {"artists": [_ym_art(a) for a in artists[:8]], "tracks": tracks_n[:40], "fixed": fixed}
 
 
-async def _jm_search(variants):
-    base = [("audioformat", "mp32"), ("imagesize", "300")]
-    jobs = [_jm_fetch("tracks", [("search", v), ("order", "relevance"), ("limit", "20")] + base) for v in variants[:2]]
-    jobs.append(_jm_fetch("artists", [("namesearch", variants[0]), ("limit", "4"), ("imagesize", "200")]))
-    res = await asyncio.gather(*jobs, return_exceptions=True)
-    tracks, seen = [], set()
-    for r in res[:-1]:
-        if isinstance(r, list):
-            for t in _mu_norm(r):
-                if t["id"] not in seen:
-                    seen.add(t["id"])
-                    tracks.append(t)
-    artists = []
-    if isinstance(res[-1], list):
-        for a in res[-1]:
-            if str(a.get("id", "")).isdigit() and a.get("name"):
-                img = str(a.get("image") or "")
-                artists.append({"id": "j" + str(a["id"]), "name": str(a["name"])[:200], "img": img if img.startswith("https://") else ""})
-    return {"artists": artists, "tracks": tracks, "fixed": ""}
-
-
 async def _search_core(q):
     variants = _variants(q)
     jobs, names = [], []
     if YM_TOKEN:
         jobs.append(_ym_search(q, variants))
         names.append("ym")
-    if MU_KEY:
-        jobs.append(_jm_search(variants))
-        names.append("jm")
     res = await asyncio.gather(*jobs, return_exceptions=True)
     ok = [r for r in res if isinstance(r, dict)]
     if not ok:
         raise RuntimeError("search sources failed: " + "; ".join(str(r) for r in res))
     out = {"artists": [], "tracks": [], "fixed": ""}
     seen_a, seen_t = set(), set()
-    for r in ok:                           # Яндекс первым, Jamendo — после него
+    for r in ok:                           
         out["fixed"] = out["fixed"] or r.get("fixed", "")
         out["artists"] += [a for a in r["artists"] if not (a["id"] in seen_a or seen_a.add(a["id"]))]
         out["tracks"] += [t for t in r["tracks"] if not (t["id"] in seen_t or seen_t.add(t["id"]))]
@@ -2325,7 +2182,7 @@ async def a_music_search(request):
     q = re.sub(r"\s+", " ", request.query.get("q", "")).strip()[:100]
     if len(q) < 2:
         raise FErr(400, "bad_input", "Слишком короткий запрос")
-    if not (YM_TOKEN or MU_KEY):
+    if not YM_TOKEN:
         raise FErr(503, "music_unavailable", "Музыка не настроена")
     use_ai = request.query.get("ai") == "1"
     ck = ("ai:" if use_ai else "s:") + q.lower()
@@ -2352,7 +2209,7 @@ async def a_music_search(request):
 # ---------------------------------------------------------------------------- тексты песен
 # /music/lyrics?id=&t=&a=&d= -> {"sync":[[сек,"строка"],…],"plain":"текст","src":"ym|lrclib"} (пусто, если текста нет).
 # Источники по порядку: Яндекс Музыка (для треков y…; LRC с таймкодами, иначе обычный текст) -> lrclib.net (открытая база, без ключа,
-# есть синхронные тексты для любых треков, в том числе Jamendo и загруженных файлов). Кэш: найдено — 1 день, не найдено — 20 минут.
+# есть синхронные тексты для любых треков, в том числе для загруженных файлов). Кэш: найдено — 1 день, не найдено — 20 минут.
 _LRC_TS = re.compile(r"\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]")
 
 
@@ -2490,7 +2347,7 @@ async def a_music_lyrics(request):
 async def a_music_stream(request):
     """Запасной путь: редирект на файл трека (если прямой адрес из списка не открылся). Нужны только цифры id."""
     tid = request.query.get("id") or ""
-    if not re.fullmatch(r"y?[0-9]{1,12}", tid) or not (YM_TOKEN if tid[0] == "y" else MU_KEY):
+    if not re.fullmatch(r"y[0-9]{1,12}", tid) or not YM_TOKEN:
         raise FErr(400, "bad_input", "Неверный трек")
     now = time.monotonic()
     ip = request.remote or "?"
@@ -2518,25 +2375,48 @@ async def a_music_stream(request):
         while len(_mu_loc) > 500:
             _mu_loc.pop(next(iter(_mu_loc)))
         raise web.HTTPFound(loc)
-    url = f"{MU_API}/tracks/file/?{urlencode({'client_id': MU_KEY, 'id': tid, 'action': 'stream', 'audioformat': 'mp32'})}"
-    loc = ""
-    try:
-        async with _mu_session() as ses:
-            async with ses.get(url, allow_redirects=False) as resp:
-                if resp.status in (301, 302, 303, 307, 308):
-                    loc = urljoin(url, resp.headers.get("Location") or "")
-    except Exception as e:
-        log.warning("music stream failed: %s", e)
-    if not loc.startswith("https://"):
-        raise FErr(502, "music_unavailable", "Трек сейчас недоступен")
-    _mu_loc[tid] = (now, loc)
-    while len(_mu_loc) > 500:
-        _mu_loc.pop(next(iter(_mu_loc)))
-    raise web.HTTPFound(loc)
+
+
+_IMG_HOSTS = re.compile(r"https://(avatars\.(mds\.)?yandex\.net|[a-z0-9-]+\.mds\.yandex\.net)/[A-Za-z0-9_\-./%]+")
+_mu_img = {}
+
+
+async def a_music_img(request):
+    """Прокси аватарки артиста (только хосты Яндекса): клиенту нужны пиксели, чтобы подобрать цвет страницы артиста.
+    Публичный, режется по IP, ответ до 1.5 МБ и кэшируется в памяти."""
+    u = request.query.get("u") or ""
+    if len(u) > 300 or not _IMG_HOSTS.fullmatch(u):
+        return J({"error": "bad_input", "message": "Неверный адрес"}, 400)
+    now = time.monotonic()
+    ip = request.remote or "?"
+    ih = [t for t in _mu_rate.get(("img", ip), []) if now - t < 60]
+    if len(ih) >= 90:
+        return J({"error": "too_fast", "message": "Не так быстро"}, 429)
+    ih.append(now)
+    _mu_rate[("img", ip)] = ih
+    hit = _mu_img.get(u)
+    if not hit or now - hit[0] > 3600:
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8), trust_env=False) as ses:
+                async with ses.get(u, allow_redirects=False) as r:
+                    ct = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+                    if r.status != 200 or not ct.startswith("image/"):
+                        return J({"error": "bad_image", "message": "Нет картинки"}, 404)
+                    data = await r.content.read(1_500_001)
+            if len(data) > 1_500_000:
+                return J({"error": "bad_image", "message": "Слишком большая"}, 413)
+        except Exception as e:
+            log.warning("music img failed: %s", e)
+            return J({"error": "music_unavailable", "message": "Не удалось загрузить"}, 502)
+        hit = (now, ct, data)
+        _mu_img[u] = hit
+        while len(_mu_img) > 120:
+            _mu_img.pop(next(iter(_mu_img)))
+    return web.Response(body=hit[2], content_type=hit[1], headers={"Cache-Control": "public, max-age=86400"})
 
 
 # ============================================================================ музыка в профиле
-# Трек в профиле — либо загруженный файл (хранится в БД, как баннеры), либо ссылка на трек из EXG Music (Jamendo).
+# Трек в профиле — либо загруженный файл (хранится в БД, как баннеры), либо ссылка на трек из EXG Music (Яндекс).
 PM_MAX = int(os.getenv("PROFILE_MUSIC_MAX", "10"))                           # треков на профиль
 PM_FILE_MAX = int(os.getenv("PROFILE_MUSIC_FILE_MB", "10")) * 1024 * 1024    # размер одного файла
 PM_COVER_MAX = 700 * 1024
@@ -2758,6 +2638,7 @@ def install(app, bot_module):
     r.add_get(A + "/music/artist", a_music_artist)
     r.add_get(A + "/music/search", a_music_search)
     r.add_get(A + "/music/stream", a_music_stream)
+    r.add_get(A + "/music/img", a_music_img)
     r.add_get(A + "/music/lyrics", a_music_lyrics)
     r.add_get(A + "/pmusic", a_pmusic_list)
     r.add_post(A + "/pmusic/add", a_pmusic_add)

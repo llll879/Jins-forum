@@ -923,38 +923,26 @@ body.mu-loading .mu-spin{display:block}
 .mf-top .sleep.on{color:var(--acc);opacity:1}
 .mf-top .sleep.on i{display:block}
 
-/* ---------- волны ---------- */
-.wv-top{margin-bottom:2px}
-.wv-top .ar-cnt{font-size:13px;color:var(--dim)}
-.mu-wt-w{display:flex;gap:8px;padding:6px 14px 2px;overflow-x:auto;scrollbar-width:none}
+/* ---------- чипы групп под барабаном (Разделы / Настроение / Занятия / ...) ---------- */
+.mu-wt-w{display:flex;gap:8px;padding:10px 14px 2px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
+.mu-wt-w[hidden]{display:none}
 .mu-wt-w::-webkit-scrollbar{display:none}
-.mu-wt{flex:none;height:38px;padding:0 18px;border-radius:19px;font-size:14.5px;font-weight:600;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#e6e2f5;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.mu-wt{flex:none;height:38px;padding:0 18px;border-radius:19px;font-size:14.5px;font-weight:600;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#e6e2f5;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);-webkit-tap-highlight-color:transparent}
 .mu-wt.on{background:rgba(255,255,255,.1);border:1.5px solid #fff;color:#fff;box-shadow:0 0 18px -4px rgba(255,255,255,.55),inset 0 0 14px rgba(255,255,255,.1)}
 [data-theme=light] .mu-wt{color:var(--txt)}
 [data-theme=light] .mu-wt.on{border-color:var(--txt);box-shadow:none}
-.mu-wvs{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,86px);grid-auto-columns:132px;gap:10px;padding:10px 14px 6px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
-.mu-wvs::-webkit-scrollbar{display:none}
-.mu-wv{position:relative;overflow:hidden;scroll-snap-align:start;display:flex;align-items:flex-end;text-align:left;padding:10px 12px;border-radius:22px;color:#fff;border:1px solid rgba(255,255,255,.2);
-  background:radial-gradient(90% 70% at 15% 0,rgba(255,255,255,.28),transparent 60%),linear-gradient(150deg,hsl(var(--h) 58% 40%),hsl(var(--h2) 55% 17%));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 14px 22px -16px rgba(0,0,0,.9);-webkit-tap-highlight-color:transparent;transition:transform .15s,box-shadow .25s}
-.mu-wv:active{transform:scale(.95)}
-.mu-wv b{position:relative;z-index:1;font-family:var(--serif);font-weight:600;font-size:17px;line-height:1.08;text-shadow:0 2px 10px rgba(0,0,0,.5);word-break:break-word}
-.mu-wv .wv-eq{position:absolute;top:11px;right:12px;display:flex;align-items:flex-end;gap:3px;height:20px;opacity:.75}
-.mu-wv .wv-eq i{width:3.5px;border-radius:2px;background:#fff;height:35%}
-.mu-wv .wv-eq i:nth-child(2){height:75%}.mu-wv .wv-eq i:nth-child(3){height:50%}.mu-wv .wv-eq i:nth-child(4){height:95%}.mu-wv .wv-eq i:nth-child(5){height:40%}
-.mu-wv.on{border-color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 0 26px -4px hsl(var(--h) 80% 60%),0 14px 22px -16px rgba(0,0,0,.9)}
-.mu-wv.on .wv-eq{opacity:1}
-body.mu-playing .mu-wv.on .wv-eq i{animation:muBar .9s ease-in-out infinite}
-body.mu-playing .mu-wv.on .wv-eq i:nth-child(2){animation-delay:-.2s}
-body.mu-playing .mu-wv.on .wv-eq i:nth-child(3){animation-delay:-.45s}
-body.mu-playing .mu-wv.on .wv-eq i:nth-child(4){animation-delay:-.65s}
-body.mu-playing .mu-wv.on .wv-eq i:nth-child(5){animation-delay:-.8s}
-@media (prefers-reduced-motion:reduce){.mu-wv{transition:none}body.mu-playing .mu-wv.on .wv-eq i{animation:none}}
 
 
 /* ===== Рулетка-барабан и живые волны ===== */
+@property --gh{syntax:'<number>';inherits:false;initial-value:250}
+@property --gh2{syntax:'<number>';inherits:false;initial-value:275}
+/* свечение — статичный CSS-слой: перерисовывается только когда меняется оттенок (плавно, 0.7 с), а не каждый кадр */
+.mu-glow{position:absolute;left:0;top:0;width:100%;height:760px;z-index:-1;pointer-events:none;transition:--gh .7s,--gh2 .7s,opacity .5s;
+  background:radial-gradient(78% 52% at 82% 9%,hsla(var(--gh),75%,52%,.3),transparent 72%),radial-gradient(74% 44% at 8% 56%,hsla(var(--gh2),60%,45%,.15),transparent 72%)}
+.mu-art .mu-glow{height:1000px;background:radial-gradient(78% 36% at 82% 7%,hsla(var(--gh),var(--as,80%),52%,.36),transparent 72%),radial-gradient(74% 30% at 8% 40%,hsla(var(--gh2),var(--as,70%),45%,.2),transparent 72%),radial-gradient(70% 28% at 50% 30%,hsla(var(--gh),var(--as,80%),40%,.2),transparent 72%)}
+[data-theme=light] .mu-glow{opacity:.5}
 .mu-fx{position:absolute;left:0;top:0;width:100%;height:900px;z-index:-1;pointer-events:none}
-[data-theme=light] .mu-fx{opacity:.4;filter:invert(1)}
+[data-theme=light] .mu-fx{opacity:.85}
 .mu-top{overflow:visible}
 .mu::before{transition:opacity .5s}
 .mu.mu-art::before{opacity:0}
@@ -987,65 +975,76 @@ body.mu-playing .mu-wv.on .wv-eq i:nth-child(5){animation-delay:-.8s}
 .mu-pod i{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(255,255,255,.3);animation:podRip 4.5s ease-out infinite;opacity:0}
 .mu-pod i:nth-child(2){animation-delay:1.5s}.mu-pod i:nth-child(3){animation-delay:3s}
 @keyframes podRip{0%{transform:scale(.55);opacity:.7}100%{transform:scale(1.45);opacity:0}}
-.mu-pod{animation:podGlow 3.2s ease-in-out infinite}
-@keyframes podGlow{0%,100%{box-shadow:0 0 30px -8px color-mix(in srgb,var(--acc) 50%,transparent),inset 0 0 20px rgba(255,255,255,.08)}50%{box-shadow:0 0 54px -4px color-mix(in srgb,var(--acc) 75%,transparent),inset 0 0 30px rgba(255,255,255,.16)}}
 /* указатель рулетки */
 .mu-mark{position:absolute;left:50%;top:22px;width:16px;height:12px;margin-left:-8px;z-index:5;pointer-events:none;background:linear-gradient(180deg,#fff,rgba(255,255,255,.4));clip-path:polygon(0 0,100% 0,50% 100%);filter:drop-shadow(0 0 6px rgba(255,255,255,.8));animation:markPulse 2s ease-in-out infinite}
 @keyframes markPulse{0%,100%{opacity:.75;transform:translateY(0)}50%{opacity:1;transform:translateY(2px)}}
+/* центральная карточка чуть «дышит» — через свойство translate (на compositor, без пересчёта JS каждый кадр) */
+.mu-cd.on{animation:cdBob 3.6s ease-in-out infinite}
+.mu-cd.on.land{animation:cdLand .75s cubic-bezier(.2,.8,.2,1),cdBob 3.6s ease-in-out infinite}
+@keyframes cdBob{0%,100%{translate:0 0}50%{translate:0 -4px}}
+/* карточки-волны в барабане */
+.mu-cd.wv{background:linear-gradient(158deg,rgba(255,255,255,.2),rgba(255,255,255,.04) 42%,rgba(255,255,255,.08)),linear-gradient(170deg,hsl(var(--ch) 62% 38%),hsl(calc(var(--ch) + 40) 58% 15%));border-color:hsla(var(--ch),70%,80%,.35)}
+.mu-cd.wv b{font-size:23px}
+.mu-cd.wv.wvon{border-color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -22px 40px -22px rgba(255,255,255,.3),0 0 52px -4px hsla(var(--ch),90%,62%,.9),0 28px 36px -22px rgba(0,0,0,.95)}
+.mu-cd.wvon .cd-go{background:rgba(255,255,255,.22);border-color:#fff}
+.mu-cd[data-k=wave].wvon{border-color:#fff}
+@media (max-width:360px){.mu-cd.wv b{font-size:20px}}
 /* кнопка «крутануть» */
 .mu-spinb{position:absolute;right:14px;bottom:2px;z-index:6;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;color:#fff;border:1px solid rgba(255,255,255,.28);
-  background:linear-gradient(160deg,rgba(255,255,255,.2),rgba(255,255,255,.05));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 10px 20px -10px rgba(0,0,0,.9);transition:transform .2s}
+  background:linear-gradient(160deg,rgba(255,255,255,.2),rgba(255,255,255,.05));box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 10px 20px -10px rgba(0,0,0,.9);transition:transform .2s}
 .mu-spinb svg{width:24px;height:24px}
 .mu-spinb:active{transform:rotate(180deg) scale(.9)}
 .mu-off .mu-spinb{display:none}
-@media (prefers-reduced-motion:reduce){.mu-cd.on::before,.mu-cd.on .cd-go::before,.mu-cd.on .cd-go::after,.mu-pod,.mu-pod i,.mu-mark,.cd-eqb i,.mu-cd.on .cd-ic>svg{animation:none}}
+@media (prefers-reduced-motion:reduce){.mu-cd.on::before,.mu-cd.on .cd-go::before,.mu-cd.on .cd-go::after,.mu-pod i,.mu-mark,.cd-eqb i,.mu-cd.on .cd-ic>svg,.mu-cd.on,.mu-cd.on.land{animation:none}}
 
-/* ===== Карточка исполнителя (стекло и бордовый шёлк) ===== */
-.ar-pg{--acc:#ff5f87;--acc-soft:rgba(255,95,135,.16);position:relative}
+/* ===== Карточка исполнителя (стекло; цвет — из аватарки: --ah / --as задаёт JS на .mu) =====
+   Лёгкость: без backdrop-filter на плитках, без анимации border-radius / conic / text-shadow — только transform и opacity. */
+.mu.ar-col{--acc:hsl(var(--ah,346),var(--as,80%),66%);--acc-soft:hsla(var(--ah,346),var(--as,80%),60%,.18)}
+.ar-pg{--acc:hsl(var(--ah,346),var(--as,80%),66%);--acc-soft:hsla(var(--ah,346),var(--as,80%),60%,.18);position:relative}
 .ar-hero{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 16px 14px;min-height:64px}
 .ar-back{display:none}
 .ar-skph{width:min(76vw,300px);aspect-ratio:1;margin:14px auto;border-radius:36%;background:linear-gradient(90deg,var(--card),var(--card2),var(--card));background-size:200% 100%;animation:muSk 1.2s linear infinite}
-@property --arA{syntax:'<angle>';initial-value:0deg;inherits:false}
 .ar-ph{position:relative;width:min(76vw,300px);aspect-ratio:1;margin-top:10px;--rx:0deg;--ry:0deg;transform:perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));transition:transform .35s cubic-bezier(.2,.8,.2,1);animation:arIn .8s cubic-bezier(.2,.9,.3,1.15) both}
 .ar-fl{position:absolute;inset:0;animation:arFloat 7s ease-in-out infinite}
 @keyframes arFloat{0%,100%{transform:translateY(0) rotate(-.8deg)}50%{transform:translateY(-9px) rotate(.9deg)}}
 @keyframes arIn{from{opacity:0;transform:perspective(900px) scale(.82) translateY(24px) rotateX(18deg)}to{opacity:1}}
-.ar-fr{position:absolute;inset:0;padding:13px;border-radius:36% 40% 38% 42%/40% 36% 42% 38%;animation:arMorph 11s ease-in-out infinite;
-  background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.03) 50%,rgba(255,80,120,.1));border:1px solid rgba(255,110,145,.4);
-  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 0 70px -14px rgba(255,70,115,.6),0 30px 50px -26px #000,inset 0 1px 0 rgba(255,255,255,.35)}
-@keyframes arMorph{0%,100%{border-radius:36% 40% 38% 42%/40% 36% 42% 38%}33%{border-radius:42% 36% 41% 35%/36% 42% 36% 42%}66%{border-radius:38% 42% 34% 40%/42% 38% 40% 36%}}
+.ar-fr{position:absolute;inset:0;padding:13px;border-radius:38% 40% 38% 40%/40% 38% 40% 38%;
+  background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.04) 50%,hsla(var(--ah,346),var(--as,80%),60%,0.14));border:1px solid hsla(var(--ah,346),var(--as,80%),70%,0.42);
+  box-shadow:0 0 70px -14px hsla(var(--ah,346),var(--as,80%),58%,0.62),0 30px 50px -26px #000,inset 0 1px 0 rgba(255,255,255,.35)}
+/* световая кромка: статичная дуга, «дышит» через opacity */
 .ar-fr::before{content:"";position:absolute;inset:-2px;border-radius:inherit;padding:2.5px;pointer-events:none;
-  background:conic-gradient(from var(--arA),transparent 0 52%,#ff3d78 70%,#fff 80%,#ff7aa3 88%,transparent 96%);
-  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;animation:arSpin 5s linear infinite}
-@keyframes arSpin{to{--arA:360deg}}
+  background:conic-gradient(from 20deg,transparent 0 40%,hsla(var(--ah,346),var(--as,80%),58%,1) 62%,#fff 74%,hsla(var(--ah,346),var(--as,80%),72%,1) 84%,transparent 96%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude;animation:arRim 3.6s ease-in-out infinite}
+@keyframes arRim{0%,100%{opacity:.55}50%{opacity:1}}
 .ar-pi{position:relative;display:grid;place-items:center;width:100%;height:100%;border-radius:inherit;overflow:hidden;border:3px solid #000;background:linear-gradient(135deg,hsl(var(--h,340) 50% 30%),hsl(calc(var(--h,340) + 50) 55% 12%))}
 .ar-pi em{font:italic 600 72px/1 var(--serif);color:rgba(255,255,255,.5);text-shadow:0 6px 24px rgba(0,0,0,.35)}
 .ar-pi img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .6s;animation:arKen 14s ease-in-out infinite alternate}
 .ar-pi img.ok{opacity:1}
 @keyframes arKen{from{transform:scale(1.02)}to{transform:scale(1.12) translate(-1.5%,1%)}}
-.ar-pi::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.22) 50%,transparent 62%) -150% 0/260% 100% no-repeat;animation:cdSheen 6s ease-in-out infinite}
-.ar-rg{position:absolute;inset:6%;border-radius:50%;border:1.5px solid rgba(255,90,135,.5);pointer-events:none;animation:arRg 4s ease-out infinite;opacity:0}
+/* блик: широкая полоса едет через transform (раньше двигался background-position — перерисовка каждый кадр) */
+.ar-pi::after,.ar-act .ar-play::after{content:"";position:absolute;top:0;bottom:0;left:-100%;width:300%;pointer-events:none;background:linear-gradient(115deg,transparent 43%,rgba(255,255,255,.24) 50%,transparent 57%);transform:translateX(-34%);animation:arSheenT 6s ease-in-out infinite}
+.ar-act .ar-play::after{animation-duration:3.6s;animation-delay:1.5s}
+@keyframes arSheenT{0%,55%{transform:translateX(-34%)}100%{transform:translateX(34%)}}
+.ar-rg{position:absolute;inset:6%;border-radius:50%;border:1.5px solid hsla(var(--ah,346),var(--as,80%),64%,0.5);pointer-events:none;animation:arRg 4s ease-out infinite;opacity:0}
 .ar-rg.r2{animation-delay:2s}
 body.mu-playing .ar-rg{animation-duration:2.2s}
 @keyframes arRg{0%{transform:scale(.8);opacity:.7}100%{transform:scale(1.5);opacity:0}}
-.ar-kick{margin-top:24px;display:inline-flex;height:34px;align-items:center;padding:0 22px;border-radius:17px;font-size:12.5px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:#e8e3f3;
-  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.15);animation:arUp .6s .25s cubic-bezier(.2,.9,.3,1.1) both}
-.ar-name{margin:12px 0 0;font-family:var(--serif);font-size:clamp(38px,12.5vw,58px);font-weight:700;line-height:1.05;letter-spacing:.01em;color:#f3eef8;text-shadow:0 0 34px rgba(255,80,125,.35),0 6px 26px rgba(0,0,0,.6);animation:arGlow 4s ease-in-out infinite}
-@keyframes arGlow{0%,100%{text-shadow:0 0 24px rgba(255,80,125,.25),0 6px 26px rgba(0,0,0,.6)}50%{text-shadow:0 0 44px rgba(255,80,125,.6),0 6px 26px rgba(0,0,0,.6)}}
+.ar-kick{margin-top:24px;display:inline-flex;height:34px;align-items:center;padding:0 22px;border-radius:17px;font-size:12.5px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:hsl(var(--ah,346),40%,92%);
+  background:hsla(var(--ah,346),var(--as,80%),60%,0.12);border:1px solid hsla(var(--ah,346),var(--as,80%),70%,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.15);animation:arUp .6s .25s cubic-bezier(.2,.9,.3,1.1) both}
+.ar-name{margin:12px 0 0;font-family:var(--serif);font-size:clamp(38px,12.5vw,58px);font-weight:700;line-height:1.05;letter-spacing:.01em;color:hsl(var(--ah,346),35%,95%);text-shadow:0 0 36px hsla(var(--ah,346),var(--as,80%),60%,0.5),0 6px 26px rgba(0,0,0,.6)}
 .ar-name .w{display:inline-block;white-space:nowrap}
 .ar-name .l{display:inline-block;animation:arLet .75s calc(var(--i)*55ms + 350ms) cubic-bezier(.2,.9,.3,1.35) both}
 @keyframes arLet{from{opacity:0;transform:translateY(.55em) scale(.7);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
 @keyframes arUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .ar-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:16px;animation:arUp .6s .7s cubic-bezier(.2,.9,.3,1.1) both}
-.ar-chip{display:inline-flex;align-items:center;gap:9px;height:38px;padding:0 18px;border-radius:19px;font-size:15px;font-weight:500;color:#e6e2f2;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,.1)}
+.ar-chip{display:inline-flex;align-items:center;gap:9px;height:38px;padding:0 18px;border-radius:19px;font-size:15px;font-weight:500;color:hsl(var(--ah,346),30%,92%);background:hsla(var(--ah,346),var(--as,80%),60%,0.13);border:1px solid hsla(var(--ah,346),var(--as,80%),70%,0.26);box-shadow:inset 0 1px 0 rgba(255,255,255,.1)}
 .ar-chip svg{width:19px;height:19px;color:#fff}
 .ar-chip.g{color:#fff}
 .ar-num{font-variant-numeric:tabular-nums}
 .ar-act{display:flex;gap:12px;margin-top:22px;width:100%;max-width:440px;animation:arUp .6s .85s cubic-bezier(.2,.9,.3,1.1) both}
-.ar-act .btn{gap:9px;flex:1;height:58px;border-radius:29px;font-size:17px;font-weight:600;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
+.ar-act .btn{gap:9px;flex:1;height:58px;border-radius:29px;font-size:17px;font-weight:600;color:#fff;background:rgba(255,255,255,.09);border:1px solid hsla(var(--ah,346),var(--as,80%),75%,0.25);box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
 .ar-act .btn svg{width:22px;height:22px}
-.ar-act .ar-play{flex:1.5;position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(255,70,115,.62),rgba(150,20,60,.38));border-color:rgba(255,120,155,.5);box-shadow:0 0 36px -8px rgba(255,60,110,.7),inset 0 1px 0 rgba(255,255,255,.3)}
-.ar-act .ar-play::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.3) 50%,transparent 65%) -160% 0/250% 100% no-repeat;animation:cdSheen 3.6s 1.5s ease-in-out infinite}
+.ar-act .ar-play{flex:1.5;position:relative;overflow:hidden;background:linear-gradient(135deg,hsla(var(--ah,346),var(--as,80%),58%,0.7),hsla(var(--ah,346),var(--as,80%),28%,0.5));border-color:hsla(var(--ah,346),var(--as,80%),70%,0.55);box-shadow:0 0 36px -8px hsla(var(--ah,346),var(--as,80%),58%,0.75),inset 0 1px 0 rgba(255,255,255,.3)}
 .ar-act .btn.ar-sh{flex:none;width:58px;padding:0}
 .ar-act .btn:active{transform:scale(.96)}
 .ar-cnt{color:var(--dim);font-size:13px}
@@ -1054,12 +1053,12 @@ body.mu-playing .ar-rg{animation-duration:2.2s}
 /* блоки появляются при прокрутке */
 .ar-pg .rv{opacity:0;transform:translateY(22px);transition:opacity .55s cubic-bezier(.2,.8,.2,1),transform .55s cubic-bezier(.2,.8,.2,1);transition-delay:calc(var(--r,0)*70ms)}
 .ar-pg .rv.in{opacity:1;transform:none}
-/* «Популярное»: стеклянные плитки; играющая — розовое стекло с кнопками прямо в ней */
+/* «Популярное»: стеклянные плитки (без размытия фона — оно сильно тормозило длинные списки); играющая — стекло цвета артиста с кнопками прямо в ней */
 .ar-pg .mu-list{padding:0 14px}
-.ar-pg .mu-row{margin-bottom:10px;padding:8px 12px 8px 14px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);transition:background .35s,border-color .35s,box-shadow .35s,opacity .55s calc(var(--r,0)*70ms),transform .55s calc(var(--r,0)*70ms)}
+.ar-pg .mu-row{margin-bottom:10px;padding:8px 12px 8px 14px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.085),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);transition:background .35s,border-color .35s,box-shadow .35s,opacity .55s calc(var(--r,0)*70ms),transform .55s calc(var(--r,0)*70ms)}
 .ar-pg .mu-row .ar-n{width:18px;flex:none;text-align:center;font:italic 600 19px var(--serif);color:var(--dim)}
-.ar-pg .mu-row.cur{background:linear-gradient(90deg,rgba(255,70,115,.34),rgba(255,70,115,.08) 75%);border-color:rgba(255,110,145,.55);box-shadow:0 0 34px -10px rgba(255,70,115,.7),inset 0 1px 0 rgba(255,255,255,.18)}
-.ar-pg .mu-row.cur .ar-n{color:#ff8fae}
+.ar-pg .mu-row.cur{background:linear-gradient(90deg,hsla(var(--ah,346),var(--as,80%),58%,0.36),hsla(var(--ah,346),var(--as,80%),58%,0.08) 75%);border-color:hsla(var(--ah,346),var(--as,80%),70%,0.55);box-shadow:0 0 34px -10px hsla(var(--ah,346),var(--as,80%),58%,0.75),inset 0 1px 0 rgba(255,255,255,.18)}
+.ar-pg .mu-row.cur .ar-n{color:hsl(var(--ah,346),var(--as,80%),76%)}
 .ar-pg .mu-ti small{color:var(--dim)}
 .ar-pg .mu-row.cur .mu-ti b{color:#fff}
 .ar-rc{display:none;align-items:center;gap:6px;flex:none;margin:-2px -4px -2px 0}
@@ -1071,7 +1070,25 @@ body.mu-playing .ar-rg{animation-duration:2.2s}
 .ar-pg .mu-row.cur .mu-cv .eq{display:flex}
 .ar-pg .mu-row:not(.rv) {opacity:1}
 @media (hover:hover){.ar-pg .mu-row:hover{border-color:rgba(255,255,255,.2)}}
-@media (prefers-reduced-motion:reduce){.ar-ph,.ar-fl,.ar-fr,.ar-fr::before,.ar-pi img,.ar-pi::after,.ar-rg,.ar-name,.ar-name .l,.ar-act .ar-play::after{animation:none}.ar-pg .rv{opacity:1;transform:none;transition:none}}
+@media (prefers-reduced-motion:reduce){.ar-ph,.ar-fl,.ar-pi img,.ar-pi::after,.ar-rg,.ar-fr::before,.ar-name .l,.ar-act .ar-play::after{animation:none}.ar-pg .rv{opacity:1;transform:none;transition:none}}
+
+/* ===== Автозагрузка ===== */
+.mu-au{margin:14px 14px 4px;padding:14px 16px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.au-h{display:flex;align-items:center;gap:12px}
+.au-h span{flex:1;min-width:0}
+.au-h b{display:block;font-family:var(--serif);font-size:19px;font-weight:600}
+.au-h small{display:block;color:var(--dim);font-size:12.5px;line-height:1.35;margin-top:2px}
+.au-r{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;font-size:14.5px}
+.au-n{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.au-n button{height:32px;min-width:44px;padding:0 10px;border-radius:16px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:#e6e2f5;font-size:13px;font-weight:600}
+.au-n button.on{background:rgba(255,255,255,.14);border-color:#fff;color:#fff}
+.au-sw{position:relative;flex:none;width:50px;height:30px;border-radius:15px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);transition:background .25s,border-color .25s;padding:0}
+.au-sw::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5);transition:transform .25s cubic-bezier(.3,1.3,.5,1)}
+.au-sw.on{background:var(--acc);border-color:var(--acc)}
+.au-sw.on::after{transform:translateX(20px)}
+.au-f{display:flex;gap:8px;margin-top:14px}
+.au-f .btn{flex:1}
+.au-s{display:block;margin-top:10px;color:var(--dim);font-size:12.5px;text-align:center}
 .supbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:13px;color:var(--dim)}
 
 /* ---------- новый пост ---------- */
@@ -3990,13 +4007,11 @@ const CS=(()=>{
   return{attach,open,icon:ICON}
 })();
 /* ===== EXG Music — раздел «как Яндекс Музыка» =====
-   Основной источник — Яндекс Музыка (токен YANDEX_MUSIC_TOKEN на сервере, id треков вида «y123», звук идёт редиректом через /music/stream);
-   запасной — Jamendo (JAMENDO_CLIENT_ID, независимые исполнители, CC; звук играет напрямую, поле u). Если Яндекс не настроен/недоступен — всё на Jamendo.
-   Списки приходят через сервер форума (/forum/api/music/get, для Яндекса src=ym).
-   Основной упор — русскоязычные треки (lang=ru); зарубежное вынесено в отдельную подборку.
+   Единственный источник — Яндекс Музыка (токен YANDEX_MUSIC_TOKEN на сервере, id треков вида «y123», звук идёт редиректом через /music/stream).
+   Списки приходят через сервер форума (/forum/api/music/get, src=ym).
    Любимое и история хранятся на устройстве (kf_mu_likes, kf_mu_hist). */
 const MU=(()=>{
-/* жанры = теги Jamendo */
+/* жанры */
 const GENRES=[['','Всё'],['hiphop','Хип-хоп'],['pop','Поп'],['rock','Рок'],['electronic','Электроника'],['indie','Инди'],['rnb','R&B'],['lounge','Лаунж'],['jazz','Джаз'],['folk','Фолк'],['metal','Метал'],['ambient','Эмбиент']];
 const MI={
  note:I('<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>'),
@@ -4027,7 +4042,7 @@ let redraw=null,subsFn=null,netFn=null;
 const cache=new Map();
 const jget=(k,d)=>{try{const v=ls.get(k);return v?JSON.parse(v):d}catch(e){return d}};
 /* треки старой библиотеки (нецифровые id без файла) больше не играют — не тащим их из сохранённого */
-const okT=x=>x&&(x.src||/^y?\d+$/.test(String(x.id)));
+const okT=x=>x&&(x.src||/^y\d+$/.test(String(x.id)));
 let likes=jget('mu_likes',[]).filter(okT),hist=jget('mu_hist',[]).filter(okT);
 const isLiked=id=>likes.some(x=>x.id===id);
 const cur=()=>Q[qi]||null;
@@ -4055,7 +4070,7 @@ async function dlUrl(id){
   try{const c=await dlC(),r=await c.match(dlK('audio',id));if(!r)return '';
     const b=await r.blob();if(dlCur){URL.revokeObjectURL(dlCur)}dlCur=URL.createObjectURL(b);return dlCur}
   catch(e){return ''}}
-async function dlAdd(t,quiet){
+async function dlAdd(t,quiet,auto){
   if(t.src){if(!quiet)toast('Загруженные файлы уже хранятся в профиле',1);return false}
   if(dlHas(t.id)||dlBusy.has(t.id))return true;
   if(offline()){if(!quiet)toast('Нет интернета — скачать нельзя',1);return false}
@@ -4068,7 +4083,7 @@ async function dlAdd(t,quiet){
     await c.put(dlK('audio',t.id),new Response(b,{headers:{'Content-Type':b.type||'audio/mpeg'}}));
     let imgL='';
     if(t.img){try{const cr=await fetch(t.img,{referrerPolicy:'no-referrer'});if(cr.ok){const cb=await cr.blob();if(cb.size<600000){await c.put(dlK('cover',t.id),new Response(cb,{headers:{'Content-Type':cb.type||'image/jpeg'}}));imgL=URL.createObjectURL(cb)}}}catch(e){}}
-    const m={id:String(t.id),t:t.t,a:t.a,img:t.img||'',d:t.d|0,ai:t.ai||'',size:b.size,ts:Date.now()};
+    const m={id:String(t.id),t:t.t,a:t.a,img:t.img||'',d:t.d|0,ai:t.ai||'',size:b.size,ts:Date.now(),auto:auto?1:0};
     await c.put(dlK('meta',t.id),new Response(JSON.stringify(m),{headers:{'Content-Type':'application/json'}}));
     m.imgL=imgL;dlMeta.set(m.id,m);dlBusy.delete(t.id);paint();if(subsFn)subsFn();
     if(!quiet)toast('Скачано — доступно без интернета');return true}
@@ -4098,15 +4113,12 @@ async function aj(p){
   cache.set(qs,{t:Date.now(),d:arr});if(cache.size>80)cache.delete(cache.keys().next().value);return arr}
 function norm(t){return{id:String(t.id),t:t.t||'Без названия',a:t.a||'Неизвестный исполнитель',img:t.img||'',d:t.d|0,u:t.u||'',ai:t.ai||''}}
 const tracks=async p=>(await aj(p)).filter(t=>t&&t.id).map(norm);
-/* русскоязычное (основное) и зарубежное (отдельная подборка); genre — тег Jamendo */
 const RU='ru',WORLD='en';
-const catalog=(lang,order,genre,limit,offset)=>tracks(Object.assign({lang,order,limit:limit||30,groupby:'artist_id'},genre?{tags:genre}:{},offset?{offset}:{}));
-const trending=(genre,limit,lang)=>catalog(lang||RU,'popularity_week',genre,limit);
-/* Яндекс Музыка — основной источник; при любой ошибке/пустом ответе на 5 минут отключаем и берём Jamendo */
-let ymDown=0;
+/* Яндекс Музыка. Ошибка сети/сервера не прячется за запасным источником — экраны показывают «Повторить» */
 const GQ={hiphop:'русский рэп',pop:'русский поп',rock:'русский рок',electronic:'русская электроника',indie:'русский инди',rnb:'русский r&b',lounge:'русский лаунж',jazz:'русский джаз',folk:'русский фолк',metal:'русский метал',ambient:'русский эмбиент'};
+const GQW={hiphop:'hip hop hits',pop:'pop hits',rock:'rock hits',electronic:'electronic dance hits',indie:'indie hits',rnb:'r&b hits',lounge:'lounge chill',jazz:'jazz classics',folk:'folk music',metal:'metal hits',ambient:'ambient music'};
 /* ---------- волны: бесконечные радио по настроению, занятию, жанру, эпохе ----------
-   Строка: [id, название, группа, оттенок, поисковые запросы Яндекса (крутятся по очереди), тег Jamendo для запасного источника].
+   Строка: [id, название, группа, оттенок, поисковые запросы Яндекса (крутятся по очереди)].
    Группа w — зарубежное (запасной источник берёт en-каталог). */
 const WG=[['m','Настроение'],['a','Занятия'],['g','Жанры'],['e','Эпохи'],['w','Со всего мира']];
 const WAVES=[
@@ -4192,10 +4204,13 @@ const WAVES=[
 ].map(([id,t,g,h,q,j])=>({id,t,g,h,q,j,w:g==='w'}));
 const WQ=new Map();   /* очередь запросов волны: каждый запрос по разу, потом перемешиваем заново — чтобы треки не повторялись */
 const wavePick=w=>{let a=WQ.get(w.id);if(!a||!a.length){a=shuffled(w.q.map((_,i)=>i));WQ.set(w.id,a)}return w.q[a.pop()]};
-const markWave=()=>{const id=wave&&waveSel?waveSel.id:'';$$('.mu-wv').forEach(b=>b.classList.toggle('on',!!id&&b.dataset.w===id))};
-async function ymOr(p,fb){
-  if(Date.now()>ymDown){try{const l=await tracks(Object.assign({src:'ym',limit:30},p));if(l.length)return l;ymDown=Date.now()+300000}catch(e){ymDown=Date.now()+300000}}
-  return fb()}
+/* карточки-волны в барабане: играющая подсвечивается, на ней кнопка пуск/пауза (и на «Моей волне» — тоже) */
+const markWave=()=>{const id=wave&&waveSel?waveSel.id:'',my=!!(wave&&!waveSel);
+  $$('.mu-cd[data-w],.mu-cd[data-k=wave]').forEach(b=>{
+    const on=b.dataset.w?(!!id&&b.dataset.w===id):my;
+    if(b.classList.contains('wvon')!==on)b.classList.toggle('wvon',on);
+    const g=$('.cd-go',b);if(g){const h=on&&!A.paused?MI.pause:MI.play;if(g._h!==h){g._h=h;g.innerHTML=h}}})};
+const ymOr=p=>tracks(Object.assign({src:'ym',limit:30},p));
 /* умный поиск: сервер сам чинит раскладку/транслит, берёт подсказки Яндекса; ai=1 — ещё и Gemini (при его сбое просто пусто) */
 const searchApi=(q,ai)=>api('/music/search?q='+encodeURIComponent(q)+(ai?'&ai=1':'')).then(d=>({artists:d.artists||[],tracks:(d.tracks||[]).map(norm),fixed:d.fixed||''}));
 const searchAll=async(q,n)=>(await searchApi(q)).tracks.slice(0,n);
@@ -4204,6 +4219,38 @@ const ini=n=>(String(n||'').trim().match(/[\p{L}\p{N}]/u)||['♪'])[0].toUpperCa
 const arImg=(u,cls)=>u?`<img${cls?` class="${cls}"`:''} src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onload="this.classList.add('ok')" onerror="this.remove()">`:'';
 const cards=sa=>`<div class="ar-sim">${sa.map(x=>`<button class="ar-card" style="--h:${hue(x.id)}" data-ar="${esc(x.id)}"><em>${esc(ini(x.name))}</em>${arImg(x.img)}<span class="ar-ov"><b>${esc(x.name)}</b><small>Исполнитель</small></span></button>`).join('')}</div>`;
 const fbUrl=id=>BASE+'/forum/api/music/stream?id='+encodeURIComponent(id);
+/* ---------- цвет артиста из аватарки ----------
+   Картинку рисуем в крошечный canvas (24×24), берём самый «цветной» оттенок (насыщенность × средняя яркость), чёрно-белое фото даёт серебристую гамму.
+   Сначала пробуем прямую загрузку с CORS, если CDN не разрешил — через прокси сервера форума (/music/img). Результат кэшируется. */
+const colCache=new Map();
+const loadCors=u=>new Promise((res,rej)=>{const im=new Image();im.crossOrigin='anonymous';im.referrerPolicy='no-referrer';im.onload=()=>res(im);im.onerror=()=>rej(new Error('img'));im.src=u});
+function domColor(im){
+  const S=24,c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d',{willReadFrequently:true});
+  g.drawImage(im,0,0,S,S);const d=g.getImageData(0,0,S,S).data;
+  const bins=new Array(24).fill(0),bx=new Array(24).fill(0),by=new Array(24).fill(0),bs=new Array(24).fill(0);let sumL=0,n=0,sumS=0;
+  for(let i=0;i<d.length;i+=4){
+    if(d[i+3]<200)continue;
+    const r=d[i]/255,g_=d[i+1]/255,b=d[i+2]/255,mx=Math.max(r,g_,b),mn=Math.min(r,g_,b),l=(mx+mn)/2,df=mx-mn;
+    n++;sumL+=l;if(df<.001)continue;
+    const s=df/(1-Math.abs(2*l-1)+1e-6);let h=mx===r?((g_-b)/df)%6:mx===g_?(b-r)/df+2:(r-g_)/df+4;h=(h*60+360)%360;
+    sumS+=s;
+    const w=s*(1-Math.abs(2*l-1))*(1-Math.abs(2*l-1)),k=Math.floor(h/15)%24;   /* ни почти-чёрное, ни почти-белое цвета не выигрывают */
+    bins[k]+=w;bx[k]+=Math.cos(h*Math.PI/180)*w;by[k]+=Math.sin(h*Math.PI/180)*w;bs[k]+=s*w}
+  if(!n)return null;
+  let bi=0,best=0;for(let k=0;k<24;k++){const v=bins[k]+(bins[(k+1)%24]+bins[(k+23)%24])*.5;if(v>best){best=v;bi=k}}
+  const tot=bins.reduce((a,b)=>a+b,0);
+  if(best<n*.012||tot<n*.02)return{h:240,s:10,gray:1,l:sumL/n};   /* серое фото */
+  const w=bins[bi]||1e-6,h=(Math.atan2(by[bi],bx[bi])*180/Math.PI+360)%360,s=Math.round(Math.max(38,Math.min(88,(bs[bi]/w)*100)));
+  return{h:Math.round(h),s,gray:0,l:sumL/n}}
+async function artistColor(u){
+  if(!u)return null;
+  if(colCache.has(u))return colCache.get(u);
+  let col=null;
+  const tryLoad=async src=>{try{return domColor(await loadCors(src))}catch(e){return null}};
+  col=await tryLoad(u);
+  if(!col)col=await tryLoad(BASE+'/forum/api/music/img?u='+encodeURIComponent(u));
+  colCache.set(u,col);if(colCache.size>60)colCache.delete(colCache.keys().next().value);
+  return col}
 const shuffled=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 
 /* ---------- разметка ---------- */
@@ -4242,27 +4289,21 @@ function next(auto){
 function prev(){if(A.currentTime>3){A.currentTime=0;return}playAt(qi>0?qi-1:(Q.length?Q.length-1:0))}
 async function loadWave(append,w){
   if(w===undefined)w=append?waveSel:null;          /* без аргумента — продолжаем текущую волну */
-  if(offline()){                                   /* без интернета «волна» крутит скачанное */
-    const l=shuffled(dlList());if(!l.length){toast('Нет скачанных треков. Скачайте музыку, пока есть интернет',1);return}
-    if(append&&wave){Q=Q.concat(l);playAt(qi+1)}else{wave=1;waveSel=null;Q=l;playAt(0)}return}
   document.body.classList.add('mu-loading');
   try{
     let l;
-    if(w){                                         /* тематическая волна: запрос Яндекса, запасной — каталог Jamendo по тегу */
-      const q=wavePick(w),lang=w.w?WORLD:RU,tag=w.j||'',off=Math.floor(Math.random()*3)*15;
-      l=await ymOr({k:'search',q,limit:50},()=>catalog(lang,'popularity_month',tag,40,off));
-      if(l.length<5)l=await catalog(lang,'popularity_total',tag,40,off)}
-    else{
-      const pool=GENRES,g=pool[Math.floor(Math.random()*pool.length)][0];
-      l=await ymOr({k:'search',q:GQ[g]||'русские хиты',limit:50},()=>catalog(RU,'popularity_month',g,40,Math.floor(Math.random()*3)*15));
-      if(l.length<5)l=await catalog(RU,'popularity_total','',40)}
+    if(w)l=await ymOr({k:'search',q:wavePick(w),limit:50});      /* тематическая волна: запрос Яндекса */
+    else{const g=GENRES[Math.floor(Math.random()*GENRES.length)][0];l=await ymOr({k:'search',q:GQ[g]||'русские хиты',limit:50})}
     l=shuffled(l);if(!l.length)throw new Error('empty');
     if(append&&wave){
       const have=new Set(Q.map(x=>x.id)),f=l.filter(x=>!have.has(x.id));if(f.length>=3)l=f;
       if(qi>60){Q=Q.slice(qi-10);qi=10}
       Q=Q.concat(l);playAt(qi+1)}
     else{wave=1;waveSel=w||null;Q=l;playAt(0);if(w)toast('Волна «'+w.t+'»')}}
-  catch(e){document.body.classList.remove('mu-loading');toast('Не удалось загрузить '+(w?'волну «'+w.t+'»':'«Мою волну»'),1)}}
+  catch(e){document.body.classList.remove('mu-loading');
+    const dl=shuffled(dlList());                   /* сервер не отвечает — молча крутим скачанное */
+    if(dl.length){wave=1;waveSel=null;Q=dl;playAt(0);toast('Сервер недоступен — играет скачанное');return}
+    toast('Не удалось загрузить '+(w?'волну «'+w.t+'»':'«Мою волну»'),1)}}
 function toggleLike(t){const i=likes.findIndex(x=>x.id===t.id);if(i>=0)likes.splice(i,1);else likes.unshift(t);likes=likes.slice(0,500);ls.set('mu_likes',JSON.stringify(likes));if(subsFn)subsFn();
   $$('.mu-row').forEach(r=>{if(r.dataset.id===t.id){const b=$('.mu-lk',r);if(b)b.classList.toggle('on',isLiked(t.id))}});paint();
   toast(i>=0?'Убрано из любимого':'Добавлено в любимое')}
@@ -4482,7 +4523,7 @@ function bindUi(app){
   rg.oninput=()=>{const d=isFinite(A.duration)&&A.duration>0?A.duration:(cur()?cur().d:0);if(d){A.currentTime=rg.value/1000*d}};
   window.addEventListener('hashchange',()=>full.classList.remove('open'))}
 function syncPP(){
-  pmSync();
+  pmSync();markWave();
   const html=A.paused?MI.play:MI.pause;
   $$('#muMini [data-a=pp],#muFull [data-a=pp],.ar-rc [data-rpp]').forEach(b=>{if(b._h!==html){b._h=html;b.innerHTML=html}})}
 function progress(){
@@ -4524,9 +4565,9 @@ function stop(){lyReset();slpClear();try{A.pause()}catch(e){}A.removeAttribute('
 
 /* карточки-«рулетка» вместо поиска и вкладок: тап по боковой — докрутить, по кнопке на центральной — включить */
 const CARDS=[
- {h:300,k:'karaoke',tab:'karaoke',t:'Караоке 2007',ic:'mic',pl:1,q:'караоке хиты 2007 русские',fb:'popularity_total'},
+ {h:300,k:'karaoke',tab:'karaoke',t:'Караоке 2007',ic:'mic',pl:1,q:'караоке хиты 2007 русские'},
  {h:250,k:'wave',tab:'home',t:'Моя волна',ic:'eq',pl:1,big:1},
- {h:28,k:'nostalg',tab:'nostalg',t:'Ностальгия 2010-х',ic:'eq',pl:1,q:'русские хиты 2010-х ностальгия',fb:'popularity_month'},
+ {h:28,k:'nostalg',tab:'nostalg',t:'Ностальгия 2010-х',ic:'eq',pl:1,q:'русские хиты 2010-х ностальгия'},
  {h:190,k:'world',tab:'world',t:'Зарубежное',ic:'globe',sub:'Хиты со всего мира'},
  {h:345,k:'likes',tab:'likes',t:'Любимое',ic:'heart'},
  {h:150,k:'dl',tab:'dl',t:'Скачанное',ic:'dl'},
@@ -4541,16 +4582,22 @@ const plMemo=new Map();
 function view(el){
   if(!st.go){st.artist=null;st.ahist=[]}st.go=0;
   const icHtml=c=>c.ic==='eq'?'<span class="cd-eqb"><i></i><i></i><i></i><i></i><i></i></span>':c.ic==='mic'?`<span class="cd-mic">${MI.mic}</span>`:(MI[c.ic]||IC[c.ic]);
-  const cardHtml=(c,i)=>`<div class="mu-cd${c.big?' big':''}" style="--ch:${c.h}" data-i="${i}" data-k="${c.k}" role="button" tabindex="0" aria-label="${esc(c.t)}"><span class="cd-ic">${icHtml(c)}</span><b>${esc(c.t)}</b><span class="cd-bt">${c.pl?`<span class="cd-go" data-go="1" role="button" aria-label="Включить">${MI.play}</span>`:`<small data-sub="${c.k}">${esc(subTxt(c))}</small>`}</span></div>`;
+  /* колода барабана: «Разделы» (CARDS) или волны выбранной группы (Настроение / Занятия / Жанры / Эпохи / Со всего мира) */
+  const wcard=w=>({h:w.h,k:'w:'+w.id,w:w,t:w.t,ic:'eq',pl:1});
+  const deckOf=m=>m==='s'?CARDS:WAVES.filter(w=>w.g===m).map(wcard);
+  const DG=[['s','Разделы']].concat(WG);
+  let mode=DG.some(x=>x[0]===st.deck)?st.deck:'s',DECK=deckOf(mode);
+  const cardHtml=(c,i)=>`<div class="mu-cd${c.big?' big':''}${c.w?' wv':''}" style="--ch:${c.h}" data-i="${i}" data-k="${c.k}"${c.w?` data-w="${c.w.id}"`:''} role="button" tabindex="0" aria-label="${esc(c.t)}"><span class="cd-ic">${icHtml(c)}</span><b>${esc(c.t)}</b><span class="cd-bt">${c.pl?`<span class="cd-go" data-go="1" role="button" aria-label="Включить">${MI.play}</span>`:`<small data-sub="${c.k}">${esc(subTxt(c))}</small>`}</span></div>`;
   el.innerHTML=`<div class="mu">
-  <canvas class="mu-fx" id="muFx"></canvas>
+  <div class="mu-glow" id="muGlow"></div><canvas class="mu-fx" id="muFx"></canvas>
   <div class="mu-top"><button class="ib round" data-href="#/boards" aria-label="Назад">${IC.back}</button><span class="mu-logo">${MI.note}</span><div><h2>EXG <b>Music</b></h2><small>Русская музыка без рекламы</small></div></div>
   <div class="mu-search" ${st.q||st.tab==='search'?'':'hidden'}>${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, текст песни" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
-  <div class="mu-rl-w" id="muRlw"><div class="mu-pod"><i></i><i></i><i></i></div><span class="mu-mark"></span><div class="mu-rl" id="muRl">${CARDS.map(cardHtml).join('')}</div><button class="mu-spinb" id="muSpin" aria-label="Крутануть рулетку">${MI.dice}</button></div>
-  <div class="mu-dots" id="muDots">${CARDS.map((c,i)=>`<button data-i="${i}" aria-label="${esc(c.t)}"></button>`).join('')}</div>
+  <div class="mu-rl-w" id="muRlw"><div class="mu-pod"><i></i><i></i><i></i></div><span class="mu-mark"></span><div class="mu-rl" id="muRl">${DECK.map(cardHtml).join('')}</div><button class="mu-spinb" id="muSpin" aria-label="Крутануть рулетку">${MI.dice}</button></div>
+  <div class="mu-dots" id="muDots"${mode==='s'?'':' hidden'}>${DECK.map((c,i)=>`<button data-i="${i}" aria-label="${esc(c.t)}"></button>`).join('')}</div>
+  <div class="mu-wt-w" id="muWg">${DG.map(([k,n])=>`<button class="mu-wt${mode===k?' on':''}" data-wg="${k}">${esc(n)}</button>`).join('')}</div>
   <div id="muBody"></div>
-  <p class="mu-note">Каталог — Яндекс Музыка, запасной — Jamendo (независимые исполнители). Полные треки зависят от подписки аккаунта сервера. Любимое и история хранятся на этом устройстве.</p></div>`;
-  const body=$('#muBody',el),inp=$('#muQ',el),x=$('.mu-x',el),sb=$('.mu-search',el),rlw=$('#muRlw',el),rl=$('#muRl',el),dots=$('#muDots',el);
+  <p class="mu-note">Каталог — Яндекс Музыка. Полные треки зависят от подписки аккаунта сервера. Любимое и история хранятся на этом устройстве.</p></div>`;
+  const body=$('#muBody',el),inp=$('#muQ',el),x=$('.mu-x',el),sb=$('.mu-search',el),rlw=$('#muRlw',el),rl=$('#muRl',el),dots=$('#muDots',el),wgb=$('#muWg',el);
   let seq=0,timer=0;
   const fail=(msg,retry)=>{body.innerHTML=`<div class="empty">${msg}<br><br><button class="btn ghost" id="muRetry">Повторить</button></div>`;$('#muRetry',body).onclick=retry};
   const chips=(cur_)=>`<div class="mu-chips">${GENRES.map(([k,n])=>`<button class="mu-chip ${cur_===k?'on':''}" data-g="${esc(k)}">${esc(n)}</button>`).join('')}</div>`;
@@ -4561,46 +4608,34 @@ function view(el){
     const el=$('#'+id,body);if(!el)return;
     const drop=()=>{if(el.previousElementSibling&&el.previousElementSibling.classList.contains('mu-h'))el.previousElementSibling.remove();el.remove()};
     try{const l=await fn();if(my!==seq)return;if(l.length){el.innerHTML=listHtml(l);wire(el,l)}else drop()}catch(e){if(my===seq)drop()}}
-  /* блок «Волны»: вкладки-группы и сетка плиток; тап по плитке запускает бесконечную волну */
-  const waveTile=w=>`<button class="mu-wv${wave&&waveSel&&waveSel.id===w.id?' on':''}" data-w="${w.id}" style="--h:${w.h};--h2:${(w.h+45)%360}"><span class="wv-eq"><i></i><i></i><i></i><i></i><i></i></span><b>${esc(w.t)}</b></button>`;
-  function wvDraw(){
-    const box=$('#muWv',body);if(!box)return;
-    box.innerHTML=`<div class="mu-h wv-top"><h3>Волны</h3><small class="ar-cnt">${WAVES.length} · играют без конца</small></div>
-      <div class="mu-wt-w">${WG.map(([k,n])=>`<button class="mu-wt${st.wg===k?' on':''}" data-wg="${k}">${esc(n)}</button>`).join('')}</div>
-      <div class="mu-wvs">${WAVES.filter(w=>w.g===st.wg).map(waveTile).join('')}</div>`;
-    $$('.mu-wt',box).forEach(b=>b.onclick=()=>{st.wg=b.dataset.wg;wvDraw()});
-    $$('.mu-wv',box).forEach(b=>b.onclick=()=>{const w=WAVES.find(x=>x.id===b.dataset.w);if(w)loadWave(false,w)})}
   async function home(){
     const my=++seq,g=st.genre;
-    body.innerHTML=`<div id="muWv"></div>${chips(g)}
+    body.innerHTML=`${chips(g)}
     <div class="mu-h"><h3>${g?'Русское в тренде: '+esc(gname(g)):'Русское — сейчас в тренде'}</h3></div><div id="muTr">${skel(6)}</div>
     ${g?'':`<div class="mu-h"><h3>Новинки на русском</h3></div><div id="muNew"></div>
     <div class="mu-h"><h3>Русское — лучшее за всё время</h3></div><div id="muTop"></div>
     <div class="mu-h"><h3>Зарубежная подборка</h3><button class="btn sm ghost" id="muWorld">Все</button></div><div id="muWd"></div>`}`;
-    wvDraw();
     $$('.mu-chip',body).forEach(b=>b.onclick=()=>{st.genre=b.dataset.g;home()});
     const w=$('#muWorld',body);if(w)w.onclick=()=>goCard(cardOf('world'));
     const tr=$('#muTr',body);
-    try{let l=await ymOr(g?{k:'search',q:GQ[g]||g}:{k:'chart',c:'russia'},()=>trending(g,30));if(my!==seq)return;
-      if(l.length<5){const m=await catalog(RU,'popularity_total',g,30);if(my!==seq)return;if(m.length>l.length)l=m}
+    try{const l=await ymOr(g?{k:'search',q:GQ[g]||g}:{k:'chart',c:'russia'});if(my!==seq)return;
       if(!l.length){tr.innerHTML='<div class="empty" style="padding:24px">Здесь пока пусто</div>'}else{tr.innerHTML=listHtml(l);wire(tr,l)}}
     catch(e){if(my===seq)bad(tr,home);return}
     if(g)return;
-    fill(my,'muNew',()=>ymOr({k:'search',q:'новинки русской музыки',limit:15},()=>catalog(RU,'releasedate_desc','',15)));
-    fill(my,'muTop',()=>ymOr({k:'search',q:'русские хиты',limit:15},()=>catalog(RU,'popularity_total','',15)));
-    fill(my,'muWd',()=>ymOr({k:'chart',c:'world',limit:10},()=>trending('',10,WORLD)))}
+    fill(my,'muNew',()=>ymOr({k:'search',q:'новинки русской музыки',limit:15}));
+    fill(my,'muTop',()=>ymOr({k:'search',q:'русские хиты',limit:15}));
+    fill(my,'muWd',()=>ymOr({k:'chart',c:'world',limit:10}))}
   async function world(){
     const my=++seq,g=st.wgenre||'';
     body.innerHTML=`<div class="mu-h"><h3>Зарубежная подборка</h3></div>${chips(g)}<div id="muTr">${skel(6)}</div>`;
     $$('.mu-chip',body).forEach(b=>b.onclick=()=>{st.wgenre=b.dataset.g;world()});
     const tr=$('#muTr',body);
-    try{let l=await (g?trending(g,30,WORLD):ymOr({k:'chart',c:'world'},()=>trending('',30,WORLD)));if(my!==seq)return;
-      if(l.length<5){const m=await catalog(WORLD,'popularity_total',g,30);if(my!==seq)return;if(m.length>l.length)l=m}
+    try{const l=await ymOr(g?{k:'search',q:GQW[g]||g}:{k:'chart',c:'world'});if(my!==seq)return;
       if(!l.length){tr.innerHTML='<div class="empty" style="padding:24px">Здесь пока пусто</div>'}else{tr.innerHTML=listHtml(l);wire(tr,l)}}
     catch(e){if(my===seq)bad(tr,world)}}
-  /* подборки-карточки «Караоке 2007», «Ностальгия 2010-х»: поиск по Яндексу, запасной — каталог Jamendo */
+  /* подборки-карточки «Караоке 2007», «Ностальгия 2010-х»: поиск по Яндексу */
   const plData=c=>{let p=plMemo.get(c.k);if(p&&Date.now()-p.t<600000)return p.p;
-    p={t:Date.now(),p:ymOr({k:'search',q:c.q,limit:40},()=>catalog(RU,c.fb,'',40))};plMemo.set(c.k,p);p.p.catch(()=>plMemo.delete(c.k));return p.p};
+    p={t:Date.now(),p:ymOr({k:'search',q:c.q,limit:40})};plMemo.set(c.k,p);p.p.catch(()=>plMemo.delete(c.k));return p.p};
   async function plist(c){
     const my=++seq;
     body.innerHTML=`<div class="mu-h"><h3>${esc(c.t)}</h3><button class="btn sm" id="muAll" hidden>${MI.play}Слушать</button><button class="btn sm ghost" id="muSh" hidden>${MI.shuf}</button></div><div id="muLs">${skel(7)}</div>`;
@@ -4611,7 +4646,8 @@ function view(el){
       const a=$('#muAll',body),h=$('#muSh',body);a.hidden=h.hidden=false;a.onclick=()=>start(l,0);h.onclick=()=>start(shuffled(l),0)}
     catch(e){if(my===seq)bad(ls_,()=>plist(c))}}
   async function playCard(c){
-    if(c.k==='wave'){loadWave(false);return}
+    if(c.w){if(wave&&waveSel&&waveSel.id===c.w.id&&qi>=0){toggle();return}loadWave(false,c.w);return}
+    if(c.k==='wave'){if(wave&&!waveSel&&qi>=0){toggle();return}loadWave(false);return}
     if(!c.q)return;
     document.body.classList.add('mu-loading');
     try{const l=await plData(c);document.body.classList.remove('mu-loading');
@@ -4681,7 +4717,13 @@ function view(el){
     try{d=await artistData(id);if(my!==seq)return}
     catch(e){if(my===seq){body.innerHTML=`<div class="ar-pg"><div class="ar-hero">${back}</div><div class="empty">Не удалось загрузить исполнителя<br><br><button class="btn ghost" id="muRetry">Повторить</button></div></div>`;$('[data-ab]',body).onclick=artistBack;$('#muRetry',body).onclick=()=>artistPage(id)}return}
     const a=d.artist||{},all=(d.tracks||[]).map(norm),top=(d.top||[]).map(norm),sim=(d.similar||[]).map(norm),sa=d.sim_artists||[];
-    const main=uniq(top.concat(all)),five=(top.length?top:all).slice(0,5),h=hue(a.id||'x');
+    /* цвет страницы — из аватарки артиста (ждём не дольше 1.4 с — пока висит скелетон); нет фото — оттенок по id */
+    let col=null;
+    try{col=await Promise.race([artistColor(a.img),new Promise(r=>setTimeout(()=>r(null),1400))])}catch(e){}
+    if(my!==seq)return;
+    if(!col)col={h:hue(a.id||'x'),s:62,gray:0};
+    artTheme(col);
+    const main=uniq(top.concat(all)),five=(top.length?top:all).slice(0,5),h=col.h;
     const chips=(a.sub?`<span class="ar-chip ar-lis">${MI.users}<span class="ar-num"></span></span>`:'')+(a.genres||[]).filter(Boolean).map(x=>`<span class="ar-chip g">${esc(x)}</span>`).join('');
     nameHtml.i=0;
     body.innerHTML=`<div class="ar-pg" style="--h:${h}"><div class="ar-hero">${back}
@@ -4715,11 +4757,10 @@ function view(el){
     const vw=$('#view');if(vw)vw.scrollTop=0}
   function artistBack(){st.artist=st.ahist.pop()||null;draw()}
   function draw(){
-    const q=st.q.trim(),off=offline(),art=!!st.artist&&!off,srch=(st.tab==='search'||!!st.q)&&!off;
-    rlw.hidden=art;dots.hidden=art||off;sb.hidden=!srch||art;x.hidden=!st.q;
-    $('.mu',el).classList.toggle('mu-art',art);fx.set(art,art?346:(CARDS[curI]||CARDS[0]).h);
+    const q=st.q.trim(),art=!!st.artist,srch=(st.tab==='search'||!!st.q);
+    rlw.hidden=art;dots.hidden=art||mode!=='s';wgb.hidden=art;sb.hidden=!srch||art;x.hidden=!st.q;
+    $('.mu',el).classList.toggle('mu-art',art);if(!art)artTheme(null);fx.set(art,(DECK[curI]||DECK[0]||CARDS[0]).h);
     if(!art)requestAnimationFrame(()=>fit());
-    if(off)return offBody();
     if(q.length>=2)return search(q);
     if(q){body.innerHTML='';return}
     if(art)return artistPage(st.artist);
@@ -4729,69 +4770,79 @@ function view(el){
     else if(st.tab==='likes'){collection(likes,'Отмечайте треки сердечком — они появятся здесь',true);
       const h=$('.mu-h',body);if(h&&likes.length){h.insertAdjacentHTML('beforeend',`<button class="btn sm ghost" id="muDlAll">${MI.dl}Скачать</button>`);$('#muDlAll',body).onclick=()=>dlMany(likes)}}
     else if(st.tab==='dl'){const l=dlList();collection(l,'Здесь будут скачанные треки. Нажмите ↓ в плеере или «Скачать» в «Любимом» — и они заиграют без интернета',true);
-      const h=$('.mu-h',body);if(h&&l.length){h.insertAdjacentHTML('beforeend',`<button class="btn sm ghost" id="muDlClr">Очистить</button>`);$('#muDlClr',body).onclick=async()=>{if(await confirmBox('Удалить все скачанные треки?')){await dlClear();draw()}}}}
+      const h=$('.mu-h',body);if(h&&l.length){h.insertAdjacentHTML('beforeend',`<button class="btn sm ghost" id="muDlClr">Очистить</button>`);$('#muDlClr',body).onclick=async()=>{if(await confirmBox('Удалить все скачанные треки?')){await dlClear();draw()}}};
+      body.insertAdjacentHTML('afterbegin','<div id="muAu"></div>');const au=$('#muAu',body),pa=()=>{au.innerHTML=auHtml()};pa();auWire(au,pa)}
     else if(st.tab==='hist')collection(hist,'Вы пока ничего не слушали',false);
     else if(st.tab==='world')world();
     else home()}
-  /* ---- живой фон: шёлковые волны, свечение и искры (canvas). На экране артиста — бордовый «шёлк» ---- */
+  /* ---- живой фон: шёлковые волны и искры (canvas), свечение — обычный CSS-слой (#muGlow, не перерисовывается каждый кадр).
+     Для лёгкости: ~24 кадра/с, canvas в 1× (без ретины), 5 нитей в ленте, 3 ленты, 16 искр, рисуем только пока фон виден на экране.
+     На экране артиста цвет берётся из аватарки (artTheme). ---- */
   const REDUCE=(()=>{try{return matchMedia('(prefers-reduced-motion:reduce)').matches}catch(e){return false}})();
+  const muEl=$('.mu',el),glowEl=$('#muGlow',el),viewEl=document.getElementById('view');
   const fx=(()=>{
     const cv=$('#muFx',el),g=cv.getContext('2d');
-    let W=0,H=0,dpr=1,hue=250,hueT=250,inten=0,modeK=0,art=0,last=performance.now(),ph=0,lastDraw=0;
-    const sp=Array.from({length:34},()=>({x:Math.random(),y:Math.random(),r:.5+Math.random()*1.5,s:.01+Math.random()*.03,p:Math.random()*6.28}));
+    let W=0,H=0,dpr=1,hue=250,hueT=250,sat=45,satT=45,inten=0,modeK=0,art=0,artCol=null,last=performance.now(),ph=0,lastDraw=0,light=0,lightAt=0;
+    const sp=Array.from({length:16},()=>({x:Math.random(),y:Math.random(),r:.6+Math.random()*1.4,s:.01+Math.random()*.03,p:Math.random()*6.28}));
     const lerp=(a,b,k)=>a+(b-a)*k;
     function size(){
       const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return false;
       if(w===W&&h===H)return true;
-      dpr=Math.min(window.devicePixelRatio||1,1.5);W=w;H=h;cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);return true}
-    function glow(x,y,r,col){const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,col);gr.addColorStop(1,'hsla(0,0%,0%,0)');g.fillStyle=gr;g.fillRect(x-r,y-r,r*2,r*2)}
+      dpr=1;W=w;H=h;cv.width=w;cv.height=h;return true}
+    function glowVars(h){glowEl.style.setProperty('--gh',String(Math.round(h)));glowEl.style.setProperty('--gh2',String(Math.round((h+25)%360)))}
     /* пучок лент: n линий, фаза каждой чуть сдвинута — получается шёлковая лента */
-    function ribbon(b,area,k,A,sx){
-      const n=7,top=[],bot=[],pts=Math.max(14,Math.round(W/12));
+    function ribbon(b,area,k,A,sx,sA,L){
+      const n=5,top=[],bot=[],pts=Math.max(12,Math.round(W/16)),ls=L?36:(art?72:82);
       for(let j=0;j<n;j++){
         const line=[];
         for(let i=0;i<=pts;i++){
           const xn=i/pts,x=xn*W;
           const base=area*(.16+.26*b)+Math.sin(xn*2.4+ph*.35+b*2.1)*area*.05;
-          const y=base+j*(7+5*Math.sin(xn*3+ph*.5+b))
-            +A*Math.sin(xn*(3.1+b*.7)+ph*sx+b*1.7+j*.24)
-            +A*.45*Math.sin(xn*(7+b)-ph*sx*1.3+j*.17);
+          const y=base+j*(9+6*Math.sin(xn*3+ph*.5+b))
+            +A*Math.sin(xn*(3.1+b*.7)+ph*sx+b*1.7+j*.3)
+            +A*.45*Math.sin(xn*(7+b)-ph*sx*1.3+j*.2);
           line.push(x,y)}
         if(j===0)top.push(...line);if(j===n-1)bot.push(...line);
         g.beginPath();g.moveTo(line[0],line[1]);for(let i=2;i<line.length;i+=2)g.lineTo(line[i],line[i+1]);
         const mid=1-Math.abs(j-(n-1)/2)/((n-1)/2);
-        g.strokeStyle=`hsla(${hue+j*3},${art?70:45}%,${art?72:82}%,${(.05+.15*mid)*k})`;g.lineWidth=j===0||j===n-1?1.4:.9;g.stroke()}
+        g.strokeStyle=`hsla(${hue+j*3},${sA}%,${ls}%,${(.06+.17*mid)*k})`;g.lineWidth=j===0||j===n-1?1.4:.9;g.stroke()}
       /* прозрачная заливка между крайними линиями — стеклянная лента */
       g.beginPath();g.moveTo(top[0],top[1]);for(let i=2;i<top.length;i+=2)g.lineTo(top[i],top[i+1]);
       for(let i=bot.length-2;i>=0;i-=2)g.lineTo(bot[i],bot[i+1]);g.closePath();
-      const gr=g.createLinearGradient(0,area*.1,W,area*.9);
-      gr.addColorStop(0,`hsla(${hue},70%,60%,0)`);gr.addColorStop(.5,`hsla(${hue},${art?80:50}%,${art?58:70}%,${(art?.1:.045)*k})`);gr.addColorStop(1,`hsla(${hue+20},70%,50%,0)`);
-      g.fillStyle=gr;g.fill()}
+      g.fillStyle=`hsla(${hue},${Math.min(90,sA+10)}%,${L?40:(art?58:70)}%,${(art?.085:.045)*k})`;g.fill()}
     function draw(now,vel,force){
       if(!size())return;
-      if(!force&&!vel&&now-lastDraw<32)return;lastDraw=now;
-      const dt=Math.min(.05,(now-last)/1000);last=now;
+      const mv=Math.abs(vel||0)>.5;
+      if(!force&&now-lastDraw<(mv?34:46))return;
+      if(!force&&viewEl&&viewEl.scrollTop>(art?1100:640))return;       /* фон уехал за экран — не рисуем */
+      lastDraw=now;
+      const dt=Math.min(.08,(now-last)/1000);last=now;
+      if(now-lightAt>1500){lightAt=now;light=document.documentElement.dataset.theme==='light'?1:0}
       const play=document.body.classList.contains('mu-playing')?1:0;
       inten=lerp(inten,play,Math.min(1,dt*2));modeK=lerp(modeK,art?1:0,Math.min(1,dt*3));
-      let dh=((hueT-hue+540)%360)-180;hue=(hue+dh*Math.min(1,dt*3)+360)%360;
+      let dh=((hueT-hue+540)%360)-180;hue=(hue+dh*Math.min(1,dt*3)+360)%360;sat=lerp(sat,satT,Math.min(1,dt*3));
       ph+=REDUCE?0:dt*(.4+inten*.55+Math.min(3,Math.abs(vel||0)*.22)+modeK*.12);
-      g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+      g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,W,H);
       const area=lerp(Math.min(H,640),H,modeK);
-      g.globalCompositeOperation='lighter';
-      glow(W*(.8+.08*Math.sin(ph*.7)),area*(.1+.04*Math.cos(ph*.5)),W*.85,`hsla(${hue},75%,52%,${.2+.1*inten+.12*modeK})`);
-      glow(W*(.1+.06*Math.cos(ph*.6)),area*(.55+.05*Math.sin(ph*.4)),W*.8,`hsla(${hue+25},60%,45%,${.1+.06*inten+.08*modeK})`);
-      if(modeK>.02)glow(W*(.5+.15*Math.sin(ph*.3)),area*.42,W*.7,`hsla(${hue},80%,40%,${.14*modeK})`);
-      const A=lerp(14,24,modeK)*(1+inten*.5),nb=art?4:3;
-      for(let b=0;b<nb;b++)ribbon(b,area,lerp(1,1.15,modeK),A,.9+b*.18);
+      const A=lerp(14,24,modeK)*(1+inten*.5),nb=3,sA=art?Math.max(8,sat):45;
+      for(let b=0;b<nb;b++)ribbon(b,area,lerp(1,1.15,modeK),A,.9+b*.18,sA,light);
       for(const p of sp){
         p.y-=p.s*dt*(1+inten*2);if(p.y<-.02){p.y=1.02;p.x=Math.random()}
         const a=(.12+.4*(.5+.5*Math.sin(ph*2+p.p)))*(art?1.1:.8);
-        g.fillStyle=`hsla(${hue+10},80%,88%,${a})`;g.beginPath();g.arc(p.x*W,p.y*area,p.r,0,6.283);g.fill()}
-      g.globalCompositeOperation='source-over'}
-    return{draw,size,set(a,h){art=a?1:0;hueT=a?346:h},hue:h=>{if(!art)hueT=h}}})();
+        g.fillStyle=light?`hsla(${hue+10},${sA}%,35%,${a*.8})`:`hsla(${hue+10},${Math.min(90,sA+25)}%,88%,${a})`;
+        const x=p.x*W,y=p.y*area;g.fillRect(x-p.r,y-p.r,p.r*2,p.r*2)}}
+    /* art — экран артиста; col — цвет аватарки {h,s}; hue — оттенок текущей карточки барабана */
+    return{draw,size,
+      set(a,h){art=a?1:0;if(a){if(!artCol){hueT=346;satT=70;glowVars(346)}}else{artCol=null;hueT=h;satT=45;glowVars(h)}},
+      art(col){artCol=col;if(col){hueT=col.h;satT=col.s;glowVars(col.h)}},
+      hue:h=>{if(!art){hueT=h;glowVars(h)}}}})();
+  /* тема экрана артиста: переменные на .mu (--ah, --as) красят и страницу, и шапку, и волны; null — вернуть обычный вид */
+  function artTheme(col){
+    if(!col){if(muEl.classList.contains('ar-col')){muEl.classList.remove('ar-col');muEl.style.removeProperty('--ah');muEl.style.removeProperty('--as')}fx.art(null);return}
+    muEl.style.setProperty('--ah',String(col.h));muEl.style.setProperty('--as',col.s+'%');muEl.classList.add('ar-col');fx.art(col)}
 
   /* ---- рулетка: барабан. Карточки стоят по кругу, крутится пальцем с инерцией, останавливается ровно на карточке ---- */
-  let vis=[],visK=[],N=0,cw=0,R=250,stepA=45,pos=0,vel=0,pv=0,pPos=0,pLast=performance.now(),md='idle',drag=null,anim=null,lastK=-1,swallow=0,miss=0,vibT=0,curI=cardOf(st.tab),started=0;
+  let vis=[],visK=[],N=0,cw=0,R=250,stepA=45,pos=0,vel=0,pv=0,pPos=0,pLast=performance.now(),md='idle',drag=null,anim=null,lastK=-1,swallow=0,miss=0,vibT=0,curI=mode==='s'?cardOf(st.tab):0,started=0;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const mod=(a,n)=>((a%n)+n)%n;
   const wrapD=d=>N?mod(d+N/2,N)-N/2:0;
@@ -4804,24 +4855,25 @@ function view(el){
     if(!vis.length)return false;N=vis.length;
     cw=cs[vis[0]].offsetWidth;if(!cw)return false;
     stepA=360/Math.max(N,8);R=cw*.98/(2*Math.sin(stepA*Math.PI/360));return true}
-  function paintCards(now){
+  function paintCards(){
     if(!N)return;
-    const cs=cds(),tm=now/1000;let best=0,bd=1e9;
+    const cs=cds();let best=0,bd=1e9;
     cs.forEach((c,i)=>{
       const k=visK[i];if(k<0)return;
       const rel=wrapD(k-pos),ad=Math.abs(rel);if(ad<bd){bd=ad;best=k}
       const a=rel*stepA,aa=Math.abs(a),ar=a*Math.PI/180;
-      const x=R*Math.sin(ar),z=R*Math.cos(ar)-R,on=ad<.5;
-      const bob=on?Math.sin(tm*1.7)*3.5*(1-ad*2):0;
       const op=aa<=45?1-aa/45*.2:Math.max(0,.8*(1-(aa-45)/36));
-      c.style.transform=`translate3d(${x.toFixed(1)}px,${bob.toFixed(1)}px,${z.toFixed(1)}px) rotateY(${a.toFixed(1)}deg)`;
-      c.style.opacity=op.toFixed(2);c.style.zIndex=String(100-Math.round(aa/1.5));c.style.visibility=op<.01?'hidden':'visible';
+      if(op<.01){if(!c._hd){c._hd=1;c.style.visibility='hidden';c.style.opacity='0'}return}     /* за краем барабана — ничего не пересчитываем */
+      if(c._hd){c._hd=0;c.style.visibility='visible'}
+      const on=ad<.5,x=R*Math.sin(ar),z=R*Math.cos(ar)-R;
+      c.style.transform=`translate3d(${x.toFixed(1)}px,0,${z.toFixed(1)}px) rotateY(${a.toFixed(1)}deg)`;
+      c.style.opacity=op.toFixed(2);c.style.zIndex=String(100-Math.round(aa/1.5));
       c.style.setProperty('--dk',(Math.min(aa,90)/90*.55).toFixed(2));
       if(on!==c.classList.contains('on'))c.classList.toggle('on',on)});
     if(best!==lastK){
       if(lastK>=0)tick(4);lastK=best;
       $$('button',dots).forEach((b,i)=>b.classList.toggle('on',i===vis[best]));
-      fx.hue(CARDS[vis[best]].h)}}
+      fx.hue((DECK[vis[best]]||DECK[0]).h)}}
   function landed(){
     pos=mod(pos,N);if(pos>N-1e-6)pos=0;
     const k=Math.round(pos)%N,c=cds()[vis[k]];
@@ -4833,17 +4885,18 @@ function view(el){
     else if(md==='snap'){const tg=Math.round(pos);pos+=(tg-pos)*(1-Math.exp(-dt*11));if(Math.abs(tg-pos)<.003){pos=tg;md='idle';vel=0;landed()}}
     else if(md==='spin'){const p=clamp((now-anim.t0)/anim.d,0,1);pos=anim.a+(anim.b-anim.a)*anim.e(p);if(p>=1){pos=anim.b;md='idle';anim=null;landed()}}
     pv=pv*.8+((pos-pPos)/dt)*.2;pPos=pos;
-    paintCards(now)}
+    paintCards()}
   function loop(now){
     if(!rl.isConnected){if(++miss>180)return;requestAnimationFrame(loop);return}
     miss=0;
     if(!document.hidden){
-      if(!rlw.hidden&&N)stepPhys(now);
+      if(md==='idle'){pLast=now;pv=0}                         /* барабан стоит — кадры физики не считаем */
+      else if(!rlw.hidden&&N)stepPhys(now);
       fx.draw(now,rlw.hidden?0:(md==='drag'?vel:pv),0)}
     requestAnimationFrame(loop)}
   function fit(){
     if(rlw.hidden||!measure())return;
-    const k=vis.indexOf(curI);pos=pPos=k<0?0:k;md='idle';anim=null;paintCards(performance.now())}
+    const k=vis.indexOf(curI);pos=pPos=k<0?0:k;md='idle';anim=null;paintCards()}
   function startAnim(b,d,e){anim={a:pos,b,t0:performance.now(),d,e};md='spin'}
   function goCard(i){
     if(!N&&!measure())return;
@@ -4862,7 +4915,8 @@ function view(el){
     if(rlw.hidden||!N)return;
     const ci=vis[Math.round(pos)%N];
     if(ci===curI)return;
-    curI=ci;const c=CARDS[ci];
+    curI=ci;if(mode!=='s')return;                    /* на волнах барабан просто стоит на карточке — раздел не меняется */
+    const c=CARDS[ci];
     if(st.q&&c.k!=='search'){st.q='';inp.value=''}
     st.tab=c.tab;st.artist=null;st.ahist=[];draw();
     if(c.k==='search')setTimeout(()=>{try{inp.focus({preventScroll:true})}catch(e){}},250)}
@@ -4888,12 +4942,26 @@ function view(el){
     if(swallow){swallow=0;return}
     const c=e.target.closest('.mu-cd');if(!c)return;const i=+c.dataset.i,k=visK[i];if(k<0)return;
     if(Math.abs(wrapD(k-pos))>.5){goCard(i);return}
-    if(e.target.closest('[data-go]'))playCard(CARDS[i])};
+    if(e.target.closest('[data-go]'))playCard(DECK[i])};
   rl.onkeydown=e=>{const c=e.target.closest('.mu-cd');if(!c)return;
     if(e.key==='Enter'||e.key===' '){e.preventDefault();c.click()}
     else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();const k=mod(Math.round(pos)+(e.key==='ArrowRight'?1:-1),N);goCard(vis[k])}};
   dots.onclick=e=>{const b=e.target.closest('button[data-i]');if(b)goCard(+b.dataset.i)};
   const sb_=$('#muSpin',el);if(sb_)sb_.onclick=spin;
+  /* чипы под барабаном: «Разделы» или группа волн — колода пересобирается, барабан встаёт на первую карточку */
+  function setDeck(m){
+    if(m===mode)return;
+    mode=m;st.deck=m;DECK=deckOf(m);
+    md='idle';anim=null;drag=null;vel=0;lastK=-1;swallow=0;
+    rl.innerHTML=DECK.map(cardHtml).join('');
+    dots.innerHTML=DECK.map((c,i)=>`<button data-i="${i}" aria-label="${esc(c.t)}"></button>`).join('');
+    dots.hidden=m!=='s'||rlw.hidden;
+    $$('.mu-wt',wgb).forEach(b=>b.classList.toggle('on',b.dataset.wg===m));
+    curI=m==='s'?cardOf(st.tab):0;
+    N=0;vis=[];visK=[];
+    if(measure()){fit();markWave();if(m!=='s'){const c=cds()[0];if(c){c.classList.remove('land');void c.offsetWidth;c.classList.add('land')}}}
+    else requestAnimationFrame(()=>{if(measure()){fit();markWave()}})}
+  wgb.onclick=e=>{const b=e.target.closest('[data-wg]');if(b)setDeck(b.dataset.wg)};
   /* кнопка «назад» в шапке на экране артиста возвращает к предыдущему артисту/списку */
   const hb=$('.mu-top .ib',el);
   if(hb)hb.addEventListener('click',e=>{if(st.artist&&!offline()){e.stopImmediatePropagation();e.preventDefault();artistBack()}},true);
@@ -4905,19 +4973,9 @@ function view(el){
   inp.oninput=()=>{st.q=inp.value;x.hidden=!st.q;clearTimeout(timer);timer=setTimeout(draw,450)};
   inp.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(timer);inp.blur();draw()}};
   x.onclick=()=>{st.q='';inp.value='';clearTimeout(timer);draw()};
-  /* без интернета: остаётся одна карточка «Моя волна» (она играет скачанное), остальное скрыто */
-  const offBody=()=>{seq++;const n=dlMeta.size;
-    body.innerHTML=`<div class="mu-offn">${MI.dl}<b>Нет интернета</b><span>${n?'«Моя волна» включит скачанные треки вперемешку — их '+n:'Скачанных треков пока нет. Пока есть интернет, нажимайте ↓ в плеере или «Скачать» в «Любимом»'}</span></div>`};
-  let wasOff=null;
-  function applyNet(init){
-    if(!init&&!rl.isConnected)return;
-    const off=offline();if(off===wasOff)return;const first=wasOff===null;wasOff=off;if(first&&!off)return;
-    $('.mu',el).classList.toggle('mu-off',off);
-    $$('.mu-cd',rl).forEach(c=>c.classList.toggle('offh',off&&c.dataset.k!=='wave'));
-    if(off){curI=cardOf('home');st.tab='home';st.q='';inp.value='';st.artist=null;st.ahist=[]}
-    measure();fit();draw()}
-  netFn=applyNet;
-  subsFn=subs;applyNet(true);
+  /* связь вернулась — сами повторяем то, что не загрузилось (экран при этом не меняется) */
+  netFn=()=>{if(!rl.isConnected||offline())return;const r=$('#muRetry',el);if(r)r.click()};
+  subsFn=subs;
   redraw=draw;draw()}
 
 /* ---------- исполнитель: открыть карточку откуда угодно (список, полный плеер) ---------- */
@@ -4931,7 +4989,7 @@ function openArtist(id){
   if($('#muBody')&&redraw)redraw();else{st.go=1;location.hash='#/music'}}
 
 /* ---------- музыка в профиле ---------- */
-/* Трек профиля — файл, загруженный пользователем (src), либо трек из EXG Music (id Jamendo). Хранится на сервере: /forum/api/pmusic* */
+/* Трек профиля — файл, загруженный пользователем (src), либо трек из EXG Music (id Яндекса). Хранится на сервере: /forum/api/pmusic* */
 const pmT=x=>x.kind==='exg'?{id:x.ext,t:x.t,a:x.a,img:x.img||'',d:x.d|0,pid:x.id}:{id:'pf_'+x.id,t:x.t,a:x.a,img:x.img?BASE+x.img:'',d:x.d|0,src:BASE+x.src,pid:x.id};
 const pmAdd=t=>post_('/pmusic/add',{ext:t.id,title:t.t,artist:t.a,duration:t.d,img:t.img});
 async function addToProfile(t){
@@ -5014,7 +5072,7 @@ function pickExg(have,onAdd){
     if(q){box.innerHTML=skel(6);try{const l=await searchAll(q,25);if(my===seq)show(l,'Ничего не нашлось по запросу «'+esc(q)+'»')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Поиск не удался. Проверьте интернет</div>'}return}
     $$('.tab',tabs).forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
     if(tab==='likes'){show(likes.filter(x=>!x.src),'Отмечайте треки сердечком в EXG Music — они появятся здесь. Или найдите трек через поиск');return}
-    box.innerHTML=skel(6);try{const l=await trending('',30,tab==='world'?WORLD:RU);if(my===seq)show(l,'Здесь пока пусто')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Не удалось загрузить музыку</div>'}}
+    box.innerHTML=skel(6);try{const l=await ymOr({k:'chart',c:tab==='world'?'world':'russia'});if(my===seq)show(l,'Здесь пока пусто')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Не удалось загрузить музыку</div>'}}
   $$('.tab',tabs).forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw()});
   inp.oninput=()=>{clearTimeout(timer);timer=setTimeout(draw,450)};
   inp.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(timer);inp.blur();draw()}};
@@ -5107,7 +5165,56 @@ function pmSync(){
     const pp=$('.pm-pp',sec),html=playing?MI.pause:MI.play;if(pp&&pp._h!==html){pp._h=html;pp.innerHTML=html}
     const al=$('[data-pm=all]',sec);if(al){const h=(playing?MI.pause+'Пауза':MI.play+(on?'Продолжить':'Слушать'));if(al._h!==h){al._h=h;al.innerHTML=h}}})}
 
-dlLoad();
+
+/* ---------- автозагрузка случайных треков ----------
+   Пока приложение открыто, телефон сам докачивает случайные популярные треки (чарты, жанры, новинки), пока скачанного не станет N штук.
+   Сеть нестабильна — ничего страшного: ошибки молча пропускаются, следующая попытка через 5 минут или когда появится связь. */
+let AU=Object.assign({on:1,n:100,wifi:1},jget('mu_auto',{}));
+const auSave=()=>ls.set('mu_auto',JSON.stringify(AU));
+let auBusy=0,auTm=0;
+const auNetOk=()=>{try{const c=navigator.connection;return !(AU.wifi&&c&&c.type==='cellular')}catch(e){return true}};
+const auPick=()=>{const g=Object.keys(GQ),r=Math.random();
+  if(r<.22)return{k:'chart',c:'russia',limit:50};if(r<.34)return{k:'chart',c:'world',limit:50};
+  if(r<.44)return{k:'search',q:'новинки русской музыки',limit:50};
+  return{k:'search',q:GQ[g[Math.floor(Math.random()*g.length)]],limit:50}};
+async function auFill(force){
+  if(auBusy||(!AU.on&&!force)||!(typeof S!=='undefined'&&S.token))return;
+  if(offline()||!auNetOk())return;
+  let need=AU.n-dlMeta.size;if(need<=0)return;
+  auBusy=1;let done=0,fails=0,rounds=0;const cap=25;
+  try{
+    while(need>0&&done<cap&&fails<4&&rounds<5&&!offline()){
+      rounds++;let l=[];
+      try{l=shuffled(await ymOr(auPick()))}catch(e){fails++;continue}
+      for(const t of l){
+        if(need<=0||done>=cap||fails>=4||offline())break;
+        if(t.src||dlHas(t.id)||dlBusy.has(t.id)||(cur()&&cur().id===t.id))continue;
+        if(await dlAdd(t,true,true)){need--;done++;fails=0}else fails++}}}
+  finally{auBusy=0}
+  clearTimeout(auTm);
+  if(AU.on&&need>0&&fails<4&&done>0)auTm=setTimeout(()=>auFill(),20000)}      /* ещё не набрали — продолжаем небольшими порциями */
+async function auRenew(){
+  const keep=new Set(likes.map(x=>String(x.id)));if(cur())keep.add(String(cur().id));
+  for(const m of [...dlMeta.values()])if(m.auto&&!keep.has(m.id))await dlRemove(m.id,true);
+  toast('Докачиваю новые треки…');auFill(true)}
+const auHtml=()=>{const n=dlMeta.size,au=[...dlMeta.values()].filter(m=>m.auto).length;
+  return `<div class="mu-au"><div class="au-h"><span><b>Автозагрузка</b><small>Случайные треки сами скачиваются на телефон и играют без интернета</small></span><button class="au-sw${AU.on?' on':''}" data-au="on" aria-label="Автозагрузка"></button></div>
+  <div class="au-r"><span>Держать на устройстве</span><div class="au-n">${[50,100,200,300,500].map(v=>`<button class="${AU.n===v?'on':''}" data-aun="${v}">${v}</button>`).join('')}</div></div>
+  <div class="au-r"><span>Только по Wi-Fi</span><button class="au-sw${AU.wifi?' on':''}" data-au="wifi" aria-label="Только по Wi-Fi"></button></div>
+  <div class="au-f"><button class="btn sm" data-au="now">Докачать сейчас</button><button class="btn sm ghost" data-au="renew">Заменить новыми</button></div>
+  <small class="au-s">Скачано ${n} из ${AU.n}${au?' · автоматически '+au:''} · ≈ ${dlMB()*1} МБ</small></div>`};
+function auWire(box,redraw){
+  box.onclick=async e=>{
+    const b=e.target.closest('[data-au],[data-aun]');if(!b)return;
+    if(b.dataset.aun){AU.n=+b.dataset.aun;auSave();redraw();auFill();return}
+    const k=b.dataset.au;
+    if(k==='on'){AU.on=AU.on?0:1;auSave();redraw();if(AU.on)auFill();else toast('Автозагрузка выключена')}
+    else if(k==='wifi'){AU.wifi=AU.wifi?0:1;auSave();redraw();if(!AU.wifi)auFill()}
+    else if(k==='now'){if(offline()){toast('Нет связи с сервером',1);return}toast('Докачиваю…');await auFill(true);redraw()}
+    else if(k==='renew'){if(offline()){toast('Нет связи с сервером',1);return}await auRenew();redraw()}}}
+dlLoad().then(()=>setTimeout(()=>auFill(),6000));
+setInterval(()=>auFill(),300000);
+addEventListener('online',()=>setTimeout(()=>auFill(),1500));
 return{view,mount,stop,paint,profile,openArtist,net:()=>{if(netFn)netFn()}}})();
 function viewMusic(el){MU.view(el)}
 
