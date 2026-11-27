@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-KMBP FORUM — системные push-уведомления и звонки при ЗАКРЫТОМ приложении (Android, Firebase Cloud Messaging).
+BAZAR — системные push-уведомления и звонки при ЗАКРЫТОМ приложении (Android, Firebase Cloud Messaging).
 
 Как это работает (так же, как в Telegram / WhatsApp):
   • Приложение при входе получает у Google «FCM-токен» устройства и присылает его сюда (POST /push/register).
@@ -216,7 +216,7 @@ def text(uid, kind, title, body, href, tag, ttl=86400):
     """Обычное уведомление (сообщение, комментарий, упоминание, подписка…)."""
     if not enabled():
         return
-    spawn(send(uid, {"type": "msg", "kind": kind, "title": (title or "KMBP FORUM")[:80], "body": (body or "")[:300],
+    spawn(send(uid, {"type": "msg", "kind": kind, "title": (title or "BAZAR")[:80], "body": (body or "")[:300],
                      "href": href or "", "tag": tag or ""}, ttl=ttl))
 
 

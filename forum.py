@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-KMBP FORUM — вторая часть проекта: форум / соцсеть, синхронизированная с ботом и мини-аппом.
+BAZAR — вторая часть проекта: форум / соцсеть, синхронизированная с ботом и мини-аппом.
 
   • Работает в том же процессе и в той же базе, поэтому общие: аккаунты (users), аватар, баннер, описание, значки у ника,
     личные сообщения (direct_messages — это те же чаты, что в мини-аппе, включая «Поддержку»), блокировки.
@@ -527,7 +527,7 @@ async def a_session_end(request):
 # ============================================================================ вход через бота
 async def a_boot(request):
     boards = [dict(r) for r in await P().fetch("SELECT id,name,emoji,admin_only FROM forum_boards ORDER BY sort,id")]
-    return J({"boards": boards, "bot": bm.BOT_USERNAME, "name": "KMBP FORUM"})
+    return J({"boards": boards, "bot": bm.BOT_USERNAME, "name": "BAZAR"})
 
 
 async def a_auth_start(request):
@@ -578,7 +578,7 @@ if router is not None:
         ok = await P().fetchval(
             "UPDATE forum_login SET user_id=$2 WHERE code=$1 AND user_id IS NULL AND created_at > now() - interval '15 minutes' RETURNING code", code, m.from_user.id)
         if ok:
-            await m.answer("✅ <b>Вход в KMBP FORUM подтверждён.</b>\nВозвращайтесь в приложение — оно откроется само.")
+            await m.answer("✅ <b>Вход в BAZAR подтверждён.</b>\nВозвращайтесь в приложение — оно откроется само.")
         else:
             await m.answer("Код входа устарел или уже использован. Вернитесь в приложение и нажмите «Войти через Telegram» ещё раз.")
 
@@ -810,7 +810,7 @@ async def notify(to, kind, actor, post_id=None, comment_id=None, group_id=None, 
             # адрес сервера не пишем в тексте — только кнопка «Открыть»
             from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
             kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Открыть", web_app=WebAppInfo(url=link))]]) if link.startswith("https://") else None
-            await bm._BOT.send_message(to, f"💬 <b>KMBP FORUM</b>\n{bm.esc(who)} {what}.", reply_markup=kb)
+            await bm._BOT.send_message(to, f"💬 <b>BAZAR</b>\n{bm.esc(who)} {what}.", reply_markup=kb)
         except Exception:
             pass
 
@@ -1245,7 +1245,7 @@ async def a_report(request):
         try:
             who = await bm.user_name(me)
             link = f"{_base()}/forum#/post/{tid}" if kind == "p" else ""
-            await bm._BOT.send_message(int(mod), f"🚩 <b>Жалоба на {'пост' if kind == 'p' else 'комментарий'} #{tid}</b> (KMBP FORUM)\nОт: {bm.esc(who)} (<code>{me}</code>)\n"
+            await bm._BOT.send_message(int(mod), f"🚩 <b>Жалоба на {'пост' if kind == 'p' else 'комментарий'} #{tid}</b> (BAZAR)\nОт: {bm.esc(who)} (<code>{me}</code>)\n"
                                                  f"Причина: {bm.esc(reason) or '—'}\n{link}")
         except Exception:
             log.warning("forum report notify failed")
@@ -1677,7 +1677,7 @@ async def a_message_send(request):
 # Сервер сам скачивает страницу (адрес пользователя сайту не виден), достаёт Open Graph и отдаёт карточку.
 # Защита от SSRF: только http/https на 80/443/8080/8443, адрес проверяется при КАЖДОМ подключении (в т.ч. редиректы),
 # внутренние/локальные/служебные IP запрещены. Лимиты: 6 с, 512 КБ HTML, 800 КБ картинка, 4 загрузки одновременно.
-LP_UA = "Mozilla/5.0 (compatible; KMBPForumLinkPreview/1.0; +preview)"
+LP_UA = "Mozilla/5.0 (compatible; BazarLinkPreview/1.0; +preview)"
 LP_PORTS = (None, 80, 443, 8080, 8443)
 LP_HTML_MAX, LP_IMG_MAX = 512 * 1024, 800 * 1024
 LP_TTL, LP_TTL_BAD = 6 * 3600, 600
@@ -1973,7 +1973,7 @@ async def page(request):
     raw, gz, etag = ent
     hdr = {"Cache-Control": "no-cache", "ETag": etag, "Vary": "Accept-Encoding"}
     if dl:
-        hdr["Content-Disposition"] = 'attachment; filename="kmbp-forum.html"'
+        hdr["Content-Disposition"] = 'attachment; filename="bazar.html"'
         return web.Response(body=raw, content_type="text/html", charset="utf-8", headers=hdr)
     if request.headers.get("If-None-Match") == etag:
         return web.Response(status=304, headers=hdr)
@@ -2046,7 +2046,7 @@ async def a_x_banner_delete(request):
 
 
 
-# ============================================================================ EXG Music
+# ============================================================================ BAZAR WAVE
 # Музыка — Яндекс Музыка (неофициально, библиотека yandex-music, токен YANDEX_MUSIC_TOKEN). Списки браузер получает только через сервер
 # (токен не светится в клиенте, ответ кэшируется на 10 мин); звук идёт через /music/stream (редирект на временный адрес файла).
 # Яндекс Музыка (неофициально, библиотека yandex-music) — единственный источник, нужен YANDEX_MUSIC_TOKEN.
@@ -2744,7 +2744,7 @@ async def a_music_img(request):
 
 
 # ============================================================================ музыка в профиле
-# Трек в профиле — либо загруженный файл (хранится в БД, как баннеры), либо ссылка на трек из EXG Music (Яндекс).
+# Трек в профиле — либо загруженный файл (хранится в БД, как баннеры), либо ссылка на трек из BAZAR WAVE (Яндекс).
 PM_MAX = int(os.getenv("PROFILE_MUSIC_MAX", "10"))                           # треков на профиль
 PM_FILE_MAX = int(os.getenv("PROFILE_MUSIC_FILE_MB", "10")) * 1024 * 1024    # размер одного файла
 PM_COVER_MAX = 700 * 1024
@@ -2814,7 +2814,7 @@ async def a_pmusic_list(request):
 
 @api
 async def a_pmusic_add(request):
-    """Добавить трек в свой профиль: multipart (file, title, artist, duration, cover) — из файлов; JSON {ext,title,artist,duration,img} — из EXG Music."""
+    """Добавить трек в свой профиль: multipart (file, title, artist, duration, cover) — из файлов; JSON {ext,title,artist,duration,img} — из BAZAR WAVE."""
     uid = request["fuid"]
     if not bm.rate_ok(("pmadd", uid), 2):
         raise FErr(429, "too_fast", "Не так быстро")

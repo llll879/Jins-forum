@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-KMBP FORUM — звонки: личные и групповые (аудио/видео, WebRTC).
+BAZAR — звонки: личные и групповые (аудио/видео, WebRTC).
 
 Сервер здесь только «сигнальный»: звук и видео идут напрямую между участниками (mesh), через STUN/TURN.
   • Один постоянный long-poll  GET /forum/api/calls/poll  на пользователя: входящие вызовы + сообщения сигнализации.
@@ -213,7 +213,7 @@ async def tg_push(to, who_id, c):
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
         link = f"{bm.WEBAPP_URL}/forum"
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Открыть", web_app=WebAppInfo(url=link))]]) if link.startswith("https://") else None
-        await bm._BOT.send_message(to, f"{'📹' if c['video'] else '📞'} <b>KMBP FORUM</b>\n{bm.esc(who)} {what}.", reply_markup=kb)
+        await bm._BOT.send_message(to, f"{'📹' if c['video'] else '📞'} <b>BAZAR</b>\n{bm.esc(who)} {what}.", reply_markup=kb)
     except Exception:
         pass
 
@@ -229,7 +229,7 @@ async def tg_missed(to, who_id, video):
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
         link = f"{bm.WEBAPP_URL}/forum#/c/{who_id}"
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Открыть чат", web_app=WebAppInfo(url=link))]]) if link.startswith("https://") else None
-        await bm._BOT.send_message(to, f"📵 <b>KMBP FORUM</b>\nПропущенный {'видеозвонок' if video else 'звонок'} от {bm.esc(who)}.", reply_markup=kb)
+        await bm._BOT.send_message(to, f"📵 <b>BAZAR</b>\nПропущенный {'видеозвонок' if video else 'звонок'} от {bm.esc(who)}.", reply_markup=kb)
     except Exception:
         pass
 

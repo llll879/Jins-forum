@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-KMBP FORUM — отдельный сервис (точка входа). Запуск: python main.py
+BAZAR — отдельный сервис (точка входа). Запуск: python main.py
 
 Форум работает в той же БД, что и бот (DATABASE_URL общий), но как самостоятельный процесс:
   • НЕ запускает polling бота (этим занят основной сервис jins-bot) — только отправляет сообщения тем же токеном
@@ -86,7 +86,7 @@ async def main():
     runner = web.AppRunner(app)
     await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", PORT).start()
-    log.info("KMBP FORUM слушает порт %s", PORT)
+    log.info("BAZAR слушает порт %s", PORT)
     asyncio.create_task(keepalive())
     await asyncio.Event().wait()
 
