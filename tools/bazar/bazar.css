@@ -1,0 +1,133 @@
+/* ===== BAZAR · чёрный минимализм (финальный слой поверх базовых стилей) =====
+   Чистый чёрный фон, тонкие рамки, скруглённые карточки, белый акцент, без картинок-декораций. */
+:root{--acc:#fff;--acc-soft:rgba(255,255,255,.12);--on-acc:#000;--bg:#000;--card:#070707;--card2:#141414;--solid:#0a0a0a;
+  --glass:#000;--line:rgba(255,255,255,.13);--line2:rgba(255,255,255,.22);--txt:#fff;--dim:#8a8a8e;--gold:#e8e8e8;
+  --serif:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;--pill:#1a1a1a;--bar:#000;--tile:linear-gradient(160deg,#1b1b1b,#0d0d0d)}
+[data-theme=light]{--bg:#fff;--card:#f6f6f6;--card2:#ececec;--solid:#fff;--glass:#fff;--line:rgba(0,0,0,.12);--line2:rgba(0,0,0,.22);--txt:#000;--dim:#6e6e73;--acc:#000;--acc-soft:rgba(0,0,0,.08);--on-acc:#fff;--bar:#fff;--pill:#e8e8e8;--tile:linear-gradient(160deg,#f2f2f2,#e6e6e6)}
+[data-theme=amoled]{--bg:#000;--solid:#000}
+html,body{background:var(--bg)}
+#app{background:var(--bg)}
+#app::after,.login::before,.login::after{display:none!important}
+h1,h2,h3{letter-spacing:-.01em}
+.serif{font-family:var(--serif)}
+.glass{background:var(--bg);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;border:1px solid var(--line)}
+.ib.round{background:rgba(0,0,0,.6)}
+
+/* кнопки: белая заливка + чёрный текст (цвет текста берётся из выбранного акцента) */
+.btn:not(.ghost):not(.bad),.tab.on{background:var(--acc)!important;color:var(--on-acc)!important;border:1px solid var(--acc);box-shadow:none}
+.btn:not(.ghost):not(.bad):not(:disabled)::after{display:none}
+.btn{border-radius:26px;font-weight:700}
+.btn.ghost{background:transparent;border:1px solid var(--line2)}
+.tab{background:transparent;border:1px solid var(--line);color:var(--dim);font-weight:600}
+.unr{color:var(--on-acc)}
+.swr.hit{color:var(--on-acc)}
+.dot{box-shadow:none}
+.inp{background:transparent;border-radius:26px;border:1px solid var(--line2)}
+.inp::placeholder,.cform textarea::placeholder{color:var(--dim)}
+.inp:focus,.cform textarea:focus{box-shadow:none;border-color:var(--txt)}
+.badge{background:#fff;color:#000;box-shadow:0 0 0 2px var(--bg)}
+.badge:not([hidden]){animation:none}
+.tag,.mine-tag{background:var(--card2);color:var(--txt)}
+
+/* ----- шапка: BAZAR + иконки ----- */
+.top{display:flex;align-items:center;gap:6px;padding:calc(30px + var(--safe-t)) 22px 6px 22px}
+.wm{margin:0;font-size:36px;font-weight:800;letter-spacing:-.5px;line-height:1;color:var(--txt);cursor:pointer}
+.top .ib{width:44px;height:44px;border-radius:50%}
+.top .ib svg{width:30px;height:30px;stroke-width:1.7}
+.top .badge{top:5px;right:4px}
+.top .av{width:48px;height:48px;border:1.5px solid var(--line2);background:transparent;color:var(--txt);font-family:inherit;font-size:20px;font-weight:500;margin-left:6px}
+.stitle{font-family:inherit;font-size:26px;font-weight:800;color:var(--dim);margin:26px 22px 14px;letter-spacing:-.3px}
+
+/* ----- поиск-пилюля на главной ----- */
+.searchpill{display:flex;align-items:center;margin:18px 16px 0;height:60px;padding:0 10px 0 22px;border-radius:30px;border:1px solid var(--line2);background:transparent;color:var(--dim)}
+.searchpill .sp-l{flex:1;display:flex;align-items:center;gap:16px;height:100%;font-size:19px;cursor:pointer}
+.searchpill svg{width:28px;height:28px;color:var(--txt)}
+.searchpill .ib{width:46px;height:46px}.searchpill .ib svg{width:26px;height:26px}
+
+/* ----- вкладки под поиском (иконка над подписью, подчёркнутая активная) ----- */
+.pills{gap:0;margin:16px 10px 0;border-bottom:0}
+.pill{flex-direction:column;height:auto;gap:5px;padding:8px 4px 11px;border:0;border-radius:0;background:none;box-shadow:none;color:var(--dim);font-size:17px;font-weight:500}
+.pill svg{width:30px;height:30px;color:var(--dim)}
+.pill.on{background:none;border:0;box-shadow:none;color:var(--txt)}
+.pill.on svg{color:var(--txt)}
+.pill.on::after{content:"";position:absolute;left:6%;right:6%;bottom:0;height:3px;border-radius:2px;background:var(--txt)}
+.pill .badge{top:2px;right:calc(50% - 26px)}
+
+/* ----- лента, карточки ----- */
+.post{background:var(--bg);border:1px solid var(--line);border-radius:26px;box-shadow:none}
+.post.full{background:none;border:0}
+.tcard{background:#0a0a0a;border-color:var(--line)}
+.tcard .bg,.tcard .bg.f0,.tcard .bg.f1,.tcard .bg.f2,.tcard .bg.f3{background-image:none;background:var(--tile);filter:none}
+.tcard::after{background:none}
+.tcard .cat{background:rgba(255,255,255,.12)}
+.rform{background:var(--bg)}
+.card-l{border:1px solid var(--line);background:var(--bg);border-radius:26px}
+
+/* ----- разделы форума: карточки с плиткой-иконкой и шевроном ----- */
+.grow{margin:12px 16px;padding:0 20px 0 14px;min-height:92px;gap:18px;border-radius:30px;background:var(--bg)}
+.grow:active{filter:none;background:var(--card2)}
+.grow .gi,.grow .gi.gold{width:62px;height:62px;border-radius:20px;color:var(--txt);background:var(--tile);border:1px solid var(--line)}
+.grow .gi svg,.grow .gi.gold svg{width:30px;height:30px}
+.grow .gi.role{background:var(--tile);border:1px solid var(--line);width:62px}
+.grow .t b{font-size:22px;font-weight:700;letter-spacing:-.2px}
+.grow .t small{font-size:19px;color:var(--dim);line-height:1.2;margin-top:2px}
+.grow>svg{width:26px;height:26px;color:var(--dim)}
+.grow .gi.role .bi{width:32px;height:32px}
+
+/* ----- значки: </> и щит с искрой ----- */
+.bi,.bi.dev,.bi.adm{color:#e6e6e6;filter:none;animation:none;transform:none}
+.bi{width:17px;height:17px;vertical-align:-3px;margin-left:5px}
+
+/* ----- чаты ----- */
+.msg{background:var(--card2);border:1px solid var(--line)}
+.msg.me{background:#f2f2f2;color:#000;border-color:#f2f2f2}
+.msg.me small{opacity:.55}
+.msg.me .rq,.msg.me .pq,.msg.me .lkc{border-left-color:#000;background:rgba(0,0,0,.08)}
+.msg.me .rq b,.msg.me .pqa,.msg.me .lks,.msg.me .fw,.msg.me a.mn,.msg.me a.exl,.msg.me a{color:#000}
+.msg.me .mf .mf-i{background:#000;color:#fff}
+.cform textarea{background:transparent;border:1px solid var(--line2)}
+.cform{background:linear-gradient(0deg,var(--bg) 70%,transparent)}
+.chat-h{border-bottom:1px solid var(--line)}
+.av{background:#111;color:#fff;font-family:inherit;font-weight:600;border:1px solid var(--line2)}
+.av.xl{border:2px solid var(--line2);box-shadow:none}
+.av.sup{background:#000;border-color:var(--line2)}
+.sheet,.sheet-bg .sheet,.cs-panel{background:#0a0a0a}
+[data-theme=light] .sheet,[data-theme=light] .cs-panel{background:#fff}
+.sheet .sh-t,.cs-top h3,.sx-h{font-family:inherit}
+
+/* ----- вход ----- */
+.login{justify-content:center;gap:14px}
+.login .logo{display:flex;flex-direction:column;align-items:center;gap:20px;font-family:inherit;font-size:44px;font-weight:800;letter-spacing:-.5px;text-transform:none;animation:fadeUp .8s var(--ease) both}
+.lg-mark{display:block;width:120px;height:120px;border-radius:30px;background:url('{{img:logo}}') center/cover no-repeat;border:1px solid var(--line)}
+.lg-sub{color:var(--dim)}
+
+/* ----- нижняя панель и мини-плеер (телефон) ----- */
+@media (max-width:1099px){
+nav.bar{left:14px;right:14px;height:70px;padding:0 8px;border-radius:36px;background:var(--bar);border:1px solid var(--line2);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+nav.bar button{height:62px;gap:3px;font-size:15px;font-weight:500;color:var(--dim);border-radius:0;background:none!important;box-shadow:none!important}
+nav.bar button svg{width:30px;height:30px;stroke-width:1.5}
+nav.bar button.on{color:var(--txt)}
+nav.bar button.on svg{transform:none}
+nav.bar button.on::after{content:"";position:absolute;left:14%;right:14%;bottom:3px;height:3px;border-radius:2px;background:var(--txt)}
+nav.bar .plus{width:64px;height:64px;margin:0 6px;background:var(--bar)!important;border:1px solid var(--line2);box-shadow:none;color:var(--txt)}
+nav.bar .plus svg{width:34px;height:34px;stroke-width:1.4}
+nav.bar .plus.on::after{display:none}
+nav.bar .badge{top:4px;right:calc(50% - 22px)}
+#muMini{bottom:calc(92px + var(--safe-b));height:72px;border-radius:36px;padding:0 12px 0 11px;background:var(--bar)!important;border:1px solid var(--line2);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;gap:14px}
+#muMini .mu-cv{width:52px;height:52px;border-radius:14px}
+#muMini .mu-ti b{font-size:20px;font-weight:700;letter-spacing:-.2px}
+#muMini .mu-ti small{font-size:16px}
+#muMini .mb{width:46px;height:46px}
+#muMini .mb.pp{width:60px;height:60px;background:#fff;color:#000}
+#muMini .mb svg{width:28px;height:28px}
+#muMini .mb.pp svg{width:26px;height:26px}
+#muMini .prog{display:none}
+}
+.mu-cv{background:var(--tile)!important}
+.empty .big svg,.empty .big{color:var(--dim)}
+.empty{color:var(--dim)}
+/* логотип BAZAR WAVE: картинка-маска, цвет берётся из текущего (белый на чёрном) */
+i.wave{display:block;flex:none;width:44px;height:33px;background:currentColor;-webkit-mask:url('{{img:wave}}') center/contain no-repeat;mask:url('{{img:wave}}') center/contain no-repeat}
+.grow .gi i.wave{width:42px;height:32px}
+.mu-top small{color:var(--dim)}
+.rl-m i.wave{width:30px;height:23px}
