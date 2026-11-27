@@ -1,4 +1,4 @@
-/* ===== EXG Music — раздел «как Яндекс Музыка» =====
+/* ===== BAZAR WAVE — раздел «как Яндекс Музыка» =====
    Единственный источник — Яндекс Музыка (токен YANDEX_MUSIC_TOKEN на сервере, id треков вида «y123», звук идёт редиректом через /music/stream).
    Списки приходят через сервер форума (/forum/api/music/get, src=ym).
    Любимое и история хранятся на устройстве (kf_mu_likes, kf_mu_hist). */
@@ -26,8 +26,9 @@ const MI={
  dice:I('<rect x="4" y="4" width="16" height="16" rx="4.5"/><path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" stroke-width="3"/>'),
  users:I('<circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14c2.4 0 4 1.6 4 4"/>')
 };
-IC.music=MI.note;IC.moon=MI.moon;
+MI.wave='<i class="wave" aria-hidden="true"></i>';IC.music=MI.wave;IC.moon=MI.moon;
 const A=new Audio();A.preload='auto';
+let npFn=null,npPr=null;
 let Q=[],qi=-1,shuf=0,rep=0,wave=0,waveSel=null,tryFb=0,fails=0,sessionSet=0;
 const st={tab:'home',genre:'',q:'',artist:null,ahist:[],wg:'m'};
 let redraw=null,subsFn=null,netFn=null;
@@ -247,7 +248,7 @@ const shuffled=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(
 
 /* ---------- разметка ---------- */
 function cover(t,cls){const h=hue(t.id);
-  return `<span class="mu-cv ${cls||''}" style="background:linear-gradient(135deg,hsl(${h} 45% 34%),hsl(${(h+50)%360} 50% 16%))">${MI.note}${t.img?`<img src="${esc(t.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<span class="eq"><i></i><i></i><i></i></span></span>`}
+  return `<span class="mu-cv ${cls||''}" style="background:linear-gradient(135deg,hsl(0 0% 20%),hsl(0 0% 8%))">${MI.note}${t.img?`<img src="${esc(t.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<span class="eq"><i></i><i></i><i></i></span></span>`}
 const arName=t=>t.ai?`<span class="mu-ar" data-ar="${esc(t.ai)}">${esc(t.a)}</span>`:esc(t.a);
 function row(t,i){return `<div class="mu-row${cur()&&cur().id===t.id?' cur':''}" data-i="${i}" data-id="${esc(t.id)}">${cover(t)}<span class="mu-ti"><b>${esc(t.t)}</b><small>${arName(t)}</small></span><span class="mu-dur">${t.d?fmt(t.d):''}</span><button class="mu-lk${isLiked(t.id)?' on':''}" data-lk="1" aria-label="Нравится">${IC.heart}</button></div>`}
 const listHtml=a=>`<div class="mu-list">${a.map(row).join('')}</div>`;
@@ -333,7 +334,7 @@ window.__exgMedia=function(a){
 function session(){
   const t=cur();if(!t||qi<0)return;
   if(MS){
-    try{MS.metadata=new MediaMetadata({title:t.t,artist:t.a,album:'EXG Music',artwork:artwork(t)})}catch(e){}
+    try{MS.metadata=new MediaMetadata({title:t.t,artist:t.a,album:'BAZAR WAVE',artwork:artwork(t)})}catch(e){}
     if(!sessionSet){sessionSet=1;
       const h=(n,f)=>{try{MS.setActionHandler(n,f)}catch(e){}};
       h('play',()=>{if(qi>=0&&A.paused){const p=A.play();if(p&&p.catch)p.catch(()=>{})}});
@@ -471,7 +472,7 @@ async function sleepMenu(){
 const MINI=`<div id="muMini"><span class="mu-cv"></span><span class="mu-ti"><b></b><small></small></span><button class="mb pp" data-a="pp" aria-label="Пуск/пауза"></button><button class="mb" data-a="next" aria-label="Дальше">${MI.next}</button><div class="prog"><i></i></div></div>`;
 const FULL=`<div id="muFull"><div class="bgc"></div><div class="mf-sc">
 <section class="mf-p1">
-<div class="mf-top"><button class="ib" data-a="close" aria-label="Свернуть">${IC.chevd}</button><small>EXG Music</small><button class="ib sleep" data-a="sleep" aria-label="Таймер сна">${MI.moon}<i></i></button></div>
+<div class="mf-top"><button class="ib" data-a="close" aria-label="Свернуть">${IC.chevd}</button><small>BAZAR WAVE</small><button class="ib sleep" data-a="sleep" aria-label="Таймер сна">${MI.moon}<i></i></button></div>
 <div class="mf-art"><div class="flip" data-a="flip" role="button" aria-label="Показать текст песни"><div class="face fr"><span class="cvh"></span><span class="fl-hint">${MI.lyr}Текст</span></div><div class="face bk"><div class="ly" data-ly="1"></div><button class="fl-back" data-a="flipb" aria-label="Вернуть обложку">${IC.close}</button></div></div></div>
 <div class="mf-info"><div class="mu-ti"><b></b><small></small></div><button class="mu-lk" data-a="dl" aria-label="Скачать для офлайна">${MI.dl}</button><button class="mu-lk" data-a="topf" aria-label="В профиль">${IC.plus}</button><button class="mu-lk" data-a="like" aria-label="Нравится">${IC.heart}</button></div>
 <div class="mf-seek"><input type="range" min="0" max="1000" value="0" aria-label="Перемотка"><div><span class="tc">0:00</span><span class="td">0:00</span></div></div>
@@ -522,13 +523,14 @@ function progress(){
   const t=cur();if(!t)return;
   if(!raf)lyTick();
   const d=isFinite(A.duration)&&A.duration>0?A.duration:t.d||0,p=d?Math.min(1,A.currentTime/d):0;
+  if(npPr)npPr(p,d);
   const bar=$('#muMini .prog i');if(bar)bar.style.width=(p*100).toFixed(1)+'%';
   $$('.pm-live.on .pm-prog i').forEach(i=>i.style.width=(p*100).toFixed(1)+'%');
   const f=$('#muFull');if(!f||!f.classList.contains('open'))return;
   const rg=$('input[type=range]',f);if(rg&&document.activeElement!==rg){rg.value=Math.round(p*1000);rg.style.setProperty('--p',(p*100).toFixed(1)+'%')}
   $('.tc',f).textContent=fmt(A.currentTime);$('.td',f).textContent=fmt(d)}
 function paint(){
-  const t=cur();markWave();
+  const t=cur();markWave();if(npFn)npFn();
   document.body.classList.toggle('mu-playing',!!t&&!A.paused&&!A.ended);
   $$('.mu-row').forEach(r=>r.classList.toggle('cur',!!t&&r.dataset.id===t.id));
   const mini=$('#muMini'),full=$('#muFull');if(!mini||!full)return;
@@ -542,7 +544,7 @@ function paint(){
     $('.mf-p2h .mu-ti b',full).textContent=t.t;$('.mf-p2h .mu-ti small',full).textContent=t.a;
     lyReset();if(full.classList.contains('open'))ensureLy();
     const bg=$('.bgc',full);bg.style.backgroundImage=t.img?`url("${t.img.replace(/"/g,'%22')}")`:'';
-    const h=hue(t.id);if(!t.img)bg.style.backgroundImage=`linear-gradient(135deg,hsl(${h} 50% 30%),hsl(${(h+60)%360} 50% 12%))`;
+    const h=hue(t.id);if(!t.img)bg.style.backgroundImage=`linear-gradient(135deg,hsl(0 0% 20%),hsl(0 0% 8%))`;
     const n=Q[qi+1];$('.mf-nx',full).textContent=n?'Дальше: '+n.t+' — '+n.a:'';
     progress()}
   $('[data-a=like]',full).classList.toggle('on',isLiked(t.id));
@@ -551,7 +553,7 @@ function paint(){
   $('[data-a=topf]',full).style.display=t.src?'none':'';
   $('[data-a=shuf]',full).classList.toggle('on',!!shuf);
   const rb=$('[data-a=rep]',full);rb.classList.toggle('on',rep>0);rb.innerHTML=rep===2?MI.rep1:MI.rep}
-function stop(){lyReset();slpClear();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;waveSel=null;
+function stop(){lyReset();slpClear();try{A.pause()}catch(e){}A.removeAttribute('src');try{A.load()}catch(e){}Q=[];qi=-1;wave=0;waveSel=null;if(npFn)npFn();
   const a=$('#app');if(a)a.classList.remove('mu-on');document.body.classList.remove('mu-playing','mu-loading');
   if(MS){try{MS.metadata=null;MS.playbackState='none'}catch(e){}}nat(true)}
 
@@ -570,7 +572,7 @@ const plural=n=>n%10===1&&n%100!==11?'трек':(n%10>=2&&n%10<=4&&(n%100<10||n%
 const subTxt=c=>c.k==='dl'?(dlMeta.size?dlMeta.size+' '+plural(dlMeta.size)+' · '+dlMB()+' МБ':'Для офлайна'):c.k==='likes'?(likes.length?likes.length+' '+plural(likes.length):'Отмечайте сердечком'):c.k==='hist'?(hist.length?hist.length+' '+plural(hist.length):'Пока пусто'):(c.sub||'');
 const plMemo=new Map();
 
-/* ---------- экран «EXG Music» ---------- */
+/* ---------- экран «BAZAR WAVE» ---------- */
 function view(el){
   if(!st.go){st.artist=null;st.ahist=[]}st.go=0;
   const icHtml=c=>c.ic==='eq'?'<span class="cd-eqb"><i></i><i></i><i></i><i></i><i></i></span>':c.ic==='mic'?`<span class="cd-mic">${MI.mic}</span>`:(MI[c.ic]||IC[c.ic]);
@@ -582,8 +584,12 @@ function view(el){
   const cardHtml=(c,i)=>`<div class="mu-cd${c.big?' big':''}${c.w?' wv':''}" style="--ch:${c.h}" data-i="${i}" data-k="${c.k}"${c.w?` data-w="${c.w.id}"`:''} role="button" tabindex="0" aria-label="${esc(c.t)}"><span class="cd-ic">${icHtml(c)}</span><b>${esc(c.t)}</b><span class="cd-bt">${c.pl?`<span class="cd-go" data-go="1" role="button" aria-label="Включить">${MI.play}</span>`:`<small data-sub="${c.k}">${esc(subTxt(c))}</small>`}</span></div>`;
   el.innerHTML=`<div class="mu">
   <div class="mu-glow" id="muGlow"></div><canvas class="mu-fx" id="muFx"></canvas>
-  <div class="mu-top"><button class="ib round" data-href="#/boards" aria-label="Назад">${IC.back}</button><span class="mu-logo">${MI.note}</span><div><h2>EXG <b>Music</b></h2><small>Русская музыка без рекламы</small></div></div>
+  <div class="mu-top"><button class="ib round" data-href="#/boards" aria-label="Назад">${IC.back}</button><div class="mu-wm" aria-label="BAZAR WAVE"><b>BAZAR</b><b>WAVE</b></div><span class="sp"></span><button class="ib" id="muSb" aria-label="Поиск">${IC.search}</button><span class="mu-logo">${MI.wave}</span></div>
   <div class="mu-search" ${st.q||st.tab==='search'?'':'hidden'}>${IC.search}<input class="inp" id="muQ" type="search" placeholder="Трек, исполнитель, текст песни" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(st.q)}"><button class="mu-x" aria-label="Очистить" ${st.q?'':'hidden'}>${IC.close}</button></div>
+  <div class="mu-np" id="muNp" hidden><canvas class="np-wv" id="npWv"></canvas>
+    <div class="np-card"><span class="np-cv"></span><span class="np-ti"><b></b><small></small></span><span class="np-eq"><i></i><i></i><i></i><i></i><i></i></span><button class="np-i" data-n="drum" aria-label="Барабан">${MI.dice}</button></div>
+    <div class="np-bar"><input type="range" min="0" max="1000" value="0" aria-label="Перемотка"><div class="np-t"><span class="tc">0:00</span><span class="td">0:00</span></div></div>
+    <div class="np-ctl"><button class="sm" data-n="shuf" aria-label="Вперемешку">${MI.shuf}</button><button data-n="prev" aria-label="Назад">${MI.prev}</button><button class="pp" data-n="pp" aria-label="Пуск/пауза"></button><button data-n="next" aria-label="Дальше">${MI.next}</button><button class="sm" data-n="rep" aria-label="Повтор">${MI.rep}</button></div></div>
   <div class="mu-rl-w" id="muRlw"><div class="mu-pod"><i></i><i></i><i></i></div><span class="mu-mark"></span><div class="mu-rl" id="muRl">${DECK.map(cardHtml).join('')}</div><button class="mu-spinb" id="muSpin" aria-label="Крутануть рулетку">${MI.dice}</button></div>
   <div class="mu-dots" id="muDots"${mode==='s'?'':' hidden'}>${DECK.map((c,i)=>`<button data-i="${i}" aria-label="${esc(c.t)}"></button>`).join('')}</div>
   <div class="mu-wt-w" id="muWg">${DG.map(([k,n])=>`<button class="mu-wt${mode===k?' on':''}" data-wg="${k}">${esc(n)}</button>`).join('')}</div>
@@ -750,7 +756,7 @@ function view(el){
   function artistBack(){st.artist=st.ahist.pop()||null;draw()}
   function draw(){
     const q=st.q.trim(),art=!!st.artist,srch=(st.tab==='search'||!!st.q);
-    rlw.hidden=art;dots.hidden=art||mode!=='s';wgb.hidden=art;sb.hidden=!srch||art;x.hidden=!st.q;
+    wgb.hidden=art;sb.hidden=!srch||art;x.hidden=!st.q;npApply();
     $('.mu',el).classList.toggle('mu-art',art);if(!art)artTheme(null);fx.set(art,(DECK[curI]||DECK[0]||CARDS[0]).h);
     if(!art)requestAnimationFrame(()=>fit());
     if(q.length>=2)return search(q);
@@ -797,11 +803,11 @@ function view(el){
         if(j===0)top.push(...line);if(j===n-1)bot.push(...line);
         g.beginPath();g.moveTo(line[0],line[1]);for(let i=2;i<line.length;i+=2)g.lineTo(line[i],line[i+1]);
         const mid=1-Math.abs(j-(n-1)/2)/((n-1)/2);
-        g.strokeStyle=`hsla(${hue+j*3},${sA}%,${ls}%,${(.06+.17*mid)*k})`;g.lineWidth=j===0||j===n-1?1.4:.9;g.stroke()}
+        g.strokeStyle=`hsla(0,0%,${ls}%,${(.06+.17*mid)*k})`;g.lineWidth=j===0||j===n-1?1.4:.9;g.stroke()}
       /* прозрачная заливка между крайними линиями — стеклянная лента */
       g.beginPath();g.moveTo(top[0],top[1]);for(let i=2;i<top.length;i+=2)g.lineTo(top[i],top[i+1]);
       for(let i=bot.length-2;i>=0;i-=2)g.lineTo(bot[i],bot[i+1]);g.closePath();
-      g.fillStyle=`hsla(${hue},${Math.min(90,sA+10)}%,${L?40:(art?58:70)}%,${(art?.085:.045)*k})`;g.fill()}
+      g.fillStyle=`hsla(0,0%,${L?40:(art?58:70)}%,${(art?.085:.045)*k})`;g.fill()}
     function draw(now,vel,force){
       if(!size())return;
       const mv=Math.abs(vel||0)>.5;
@@ -821,7 +827,7 @@ function view(el){
       for(const p of sp){
         p.y-=p.s*dt*(1+inten*2);if(p.y<-.02){p.y=1.02;p.x=Math.random()}
         const a=(.12+.4*(.5+.5*Math.sin(ph*2+p.p)))*(art?1.1:.8);
-        g.fillStyle=light?`hsla(${hue+10},${sA}%,35%,${a*.8})`:`hsla(${hue+10},${Math.min(90,sA+25)}%,88%,${a})`;
+        g.fillStyle=light?`hsla(0,0%,35%,${a*.8})`:`hsla(0,0%,88%,${a})`;
         const x=p.x*W,y=p.y*area;g.fillRect(x-p.r,y-p.r,p.r*2,p.r*2)}}
     /* art — экран артиста; col — цвет аватарки {h,s}; hue — оттенок текущей карточки барабана */
     return{draw,size,
@@ -965,10 +971,79 @@ function view(el){
   inp.oninput=()=>{st.q=inp.value;x.hidden=!st.q;clearTimeout(timer);timer=setTimeout(draw,450)};
   inp.onkeydown=e=>{if(e.key==='Enter'){clearTimeout(timer);inp.blur();draw()}};
   x.onclick=()=>{st.q='';inp.value='';clearTimeout(timer);draw()};
+  /* ---- «Сейчас играет»: вместо барабана — волны в ритм и управление. Спектр звука недоступен (файл идёт с чужого адреса без CORS),
+     поэтому ритм считается от времени воспроизведения: у каждого трека свой темп, удар привязан к позиции A.currentTime ---- */
+  const npEl=$('#muNp',el),npWv=$('#npWv',el),npg=npWv.getContext('2d'),npRg=$('input[type=range]',npEl),muEl2=$('.mu',el);
+  const npOn=()=>!!cur()&&!st.npOff;
+  let npW=0,npH=0,npDpr=1,npE=0,npPh=0,npT=performance.now(),npId=null,npWas=null,npRaf=0,npSeen=false;
+  function npApply(){
+    const art=!!st.artist,on=npOn()&&!art;
+    npEl.hidden=!on;rlw.hidden=art||on;dots.hidden=art||mode!=='s'||on;
+    muEl2.classList.toggle('np-on',on);const ap=$('#app');if(ap)ap.classList.toggle('mu-npv',on);
+    if(npWas===true&&!on&&!art)requestAnimationFrame(()=>{if(measure())fit()});
+    npWas=on}
+  function npSync(){
+    if(!npEl.isConnected){if(npSeen){npFn=null;npPr=null;const ap=$('#app');if(ap)ap.classList.remove('mu-npv')}return}
+    npSeen=true;
+    const t=cur();
+    if(t&&t.id!==npId){npId=t.id;st.npOff=0;
+      $('.np-cv',npEl).innerHTML=cover(t);$('.np-ti b',npEl).textContent=t.t;$('.np-ti small',npEl).innerHTML=arName(t);
+      $('.tc',npEl).textContent='0:00';$('.td',npEl).textContent=fmt(durOf(t));npRg.value=0;npRg.style.setProperty('--p','0%')}
+    if(!t)npId=null;
+    npApply();
+    const h=A.paused?MI.play:MI.pause,pp=$('[data-n=pp]',npEl);if(pp&&pp._h!==h){pp._h=h;pp.innerHTML=h}
+    $('[data-n=shuf]',npEl).classList.toggle('on',!!shuf);
+    const rb=$('[data-n=rep]',npEl);rb.classList.toggle('on',rep>0);rb.innerHTML=rep===2?MI.rep1:MI.rep;
+    npEl.classList.toggle('np-pl',!!t&&!A.paused&&!A.ended)}
+  npFn=npSync;
+  npPr=(p,d)=>{if(npEl.hidden||document.activeElement===npRg)return;npRg.value=Math.round(p*1000);npRg.style.setProperty('--p',(p*100).toFixed(1)+'%');
+    $('.tc',npEl).textContent=fmt(A.currentTime);$('.td',npEl).textContent=fmt(d)};
+  npRg.oninput=()=>{const d=isFinite(A.duration)&&A.duration>0?A.duration:(cur()?cur().d:0);if(d){A.currentTime=npRg.value/1000*d;npRg.style.setProperty('--p',(npRg.value/10)+'%')}};
+  npEl.onclick=e=>{const b=e.target.closest('[data-n]');if(!b)return;const a=b.dataset.n;
+    if(a==='pp')toggle();else if(a==='next')next(false);else if(a==='prev')prev();
+    else if(a==='shuf'){shuf=shuf?0:1;paint()}else if(a==='rep'){rep=(rep+1)%3;paint()}
+    else if(a==='drum'){st.npOff=1;npApply();requestAnimationFrame(()=>{if(measure())fit()})}};
+  const sbBtn=$('#muSb',el);
+  if(sbBtn)sbBtn.onclick=()=>{if(st.tab==='search'){st.tab='home';st.q='';inp.value=''}else{st.tab='search';st.artist=null;st.ahist=[]}draw();if(st.tab==='search')setTimeout(()=>inp.focus(),50)};
+  const npBpm=t=>{let h=0;const s=String(t&&t.id||'');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return 80+h%48};
+  /* шёлковые ленты: каждая — пучок тонких линий, которые то сходятся в узел, то расходятся; размах растёт на ударе */
+  function npRibbon(r,A_,k){
+    const g=npg,N=19,pts=Math.max(14,Math.round(npW/11));
+    for(let j=0;j<N;j++){
+      const jn=(j-(N-1)/2)/((N-1)/2);
+      g.beginPath();
+      for(let i=0;i<=pts;i++){
+        const xn=i/pts,x=xn*npW,P=Math.PI;
+        const c=npH*.5+A_*Math.sin(xn*P*(1.7+r*.55)+npPh*(1+.25*r)+r*2.1)+A_*.34*Math.sin(xn*P*(3.9+r*.8)-npPh*1.35+r*1.7);
+        const sp=npH*.13*(.12+Math.abs(Math.sin(xn*P*(1.3+r*.4)+npPh*.7+r*1.3)))*(.6+npE*.85);
+        const y=c+jn*sp;
+        if(i)g.lineTo(x,y);else g.moveTo(x,y)}
+      const mid=1-Math.abs(jn);
+      g.strokeStyle='rgba(255,255,255,'+((.05+.3*Math.pow(mid,1.6))*k).toFixed(3)+')';g.lineWidth=npDpr>1.4?1.1:1;g.stroke()}}
+  function npLoop(now){
+    npRaf=requestAnimationFrame(npLoop);
+    if(!npEl.isConnected){if(npSeen)cancelAnimationFrame(npRaf);return}
+    if(!npSeen)npSync();
+    if(npEl.hidden||document.hidden)return;
+    if(now-npT<32)return;
+    const dt=Math.min(.1,(now-npT)/1000);npT=now;
+    const w=npWv.clientWidth,h=npWv.clientHeight;if(!w||!h)return;
+    if(w!==npW||h!==npH){npDpr=Math.min(2,window.devicePixelRatio||1);npW=w;npH=h;npWv.width=Math.round(w*npDpr);npWv.height=Math.round(h*npDpr)}
+    const play=!A.paused&&!A.ended;
+    let tgt=.12;
+    if(play){const bpm=npBpm(cur()),bt=(A.currentTime||0)*bpm/60,f=bt%1,f2=(bt*2)%1;
+      tgt=.22+.6*Math.exp(-f*4.2)+.22*Math.exp(-f2*8)+.16*(.5+.5*Math.sin(bt*.37)*Math.sin(bt*.11+1))}
+    npE+=(tgt-npE)*Math.min(1,dt*(tgt>npE?18:5));
+    if(!REDUCE)npPh+=dt*(.35+npE*1.5);
+    const g=npg;g.setTransform(npDpr,0,0,npDpr,0,0);g.clearRect(0,0,npW,npH);g.globalCompositeOperation='lighter';
+    const base=npH*.2;
+    for(let r=0;r<3;r++)npRibbon(r,base*(.62+.22*r)*(.5+npE*1.1),(.6+npE*.8)*(r===1?1:.8));
+    g.globalCompositeOperation='source-over'}
+  npRaf=requestAnimationFrame(npLoop);
   /* связь вернулась — сами повторяем то, что не загрузилось (экран при этом не меняется) */
   netFn=()=>{if(!rl.isConnected||offline())return;const r=$('#muRetry',el);if(r)r.click()};
   subsFn=subs;
-  redraw=draw;draw()}
+  redraw=draw;draw();npSync()}
 
 /* ---------- исполнитель: открыть карточку откуда угодно (список, полный плеер) ---------- */
 function openArtist(id){
@@ -981,11 +1056,11 @@ function openArtist(id){
   if($('#muBody')&&redraw)redraw();else{st.go=1;location.hash='#/music'}}
 
 /* ---------- музыка в профиле ---------- */
-/* Трек профиля — файл, загруженный пользователем (src), либо трек из EXG Music (id Яндекса). Хранится на сервере: /forum/api/pmusic* */
+/* Трек профиля — файл, загруженный пользователем (src), либо трек из BAZAR WAVE (id Яндекса). Хранится на сервере: /forum/api/pmusic* */
 const pmT=x=>x.kind==='exg'?{id:x.ext,t:x.t,a:x.a,img:x.img||'',d:x.d|0,pid:x.id}:{id:'pf_'+x.id,t:x.t,a:x.a,img:x.img?BASE+x.img:'',d:x.d|0,src:BASE+x.src,pid:x.id};
 const pmAdd=t=>post_('/pmusic/add',{ext:t.id,title:t.t,artist:t.a,duration:t.d,img:t.img});
 async function addToProfile(t){
-  if(t.src){toast('Это загруженный файл — добавить можно только свои треки или треки из EXG Music',1);return}
+  if(t.src){toast('Это загруженный файл — добавить можно только свои треки или треки из BAZAR WAVE',1);return}
   try{await pmAdd(t);toast('Добавлено в музыку профиля')}catch(e){toast(e.message,1)}}
 const totalTxt=s=>{s=Math.round(s||0);if(!s)return '';const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?h+' ч '+m+' мин':Math.max(1,m)+' мин'};
 
@@ -1050,10 +1125,10 @@ function editDlg(t){return new Promise(res=>{
   bg.onclick=e=>{const b=e.target.closest('[data-x]');if(!b&&e.target!==bg)return;const ok=b&&b.dataset.x==='1',r=ok?{title:$('#pmT',bg).value.trim(),artist:$('#pmA',bg).value.trim()}:null;bg.remove();res(r)};
   document.body.appendChild(bg)})}
 
-/* выбор трека из EXG Music: поиск, любимое, тренды; тап по строке — предпрослушивание, «+» — в профиль */
+/* выбор трека из BAZAR WAVE: поиск, любимое, тренды; тап по строке — предпрослушивание, «+» — в профиль */
 function pickExg(have,onAdd){
   const bg=document.createElement('div');bg.className='sheet-bg pm-pk';
-  bg.innerHTML=`<div class="sheet pm-sheet"><div class="sh-m">Добавить из EXG Music</div><div class="mu-search" style="margin:0 6px">${IC.search}<input class="inp" type="search" placeholder="Трек, исполнитель, жанр" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div class="mu-tabs" style="padding:12px 6px 4px"><button class="tab on" data-t="likes">Любимое</button><button class="tab" data-t="trend">Русское</button><button class="tab" data-t="world">Зарубежное</button></div><div class="pm-pkl"></div></div>`;
+  bg.innerHTML=`<div class="sheet pm-sheet"><div class="sh-m">Добавить из BAZAR WAVE</div><div class="mu-search" style="margin:0 6px">${IC.search}<input class="inp" type="search" placeholder="Трек, исполнитель, жанр" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"></div><div class="mu-tabs" style="padding:12px 6px 4px"><button class="tab on" data-t="likes">Любимое</button><button class="tab" data-t="trend">Русское</button><button class="tab" data-t="world">Зарубежное</button></div><div class="pm-pkl"></div></div>`;
   document.body.appendChild(bg);
   const box=$('.pm-pkl',bg),inp=$('input',bg),tabs=$('.mu-tabs',bg);let tab=likes.some(x=>!x.src)?'likes':'trend',seq=0,timer=0,arr=[];
   const rowA=(t,i)=>`<div class="mu-row${cur()&&cur().id===t.id?' cur':''}" data-i="${i}" data-id="${esc(t.id)}">${cover(t)}<span class="mu-ti"><b>${esc(t.t)}</b><small>${esc(t.a)}</small></span><span class="mu-dur">${t.d?fmt(t.d):''}</span><button class="mu-lk pm-plus${have.has(t.id)?' done':''}" data-add="1" aria-label="Добавить в профиль">${have.has(t.id)?IC.check:IC.plus}</button></div>`;
@@ -1063,7 +1138,7 @@ function pickExg(have,onAdd){
     if(q.length===1)return;
     if(q){box.innerHTML=skel(6);try{const l=await searchAll(q,25);if(my===seq)show(l,'Ничего не нашлось по запросу «'+esc(q)+'»')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Поиск не удался. Проверьте интернет</div>'}return}
     $$('.tab',tabs).forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
-    if(tab==='likes'){show(likes.filter(x=>!x.src),'Отмечайте треки сердечком в EXG Music — они появятся здесь. Или найдите трек через поиск');return}
+    if(tab==='likes'){show(likes.filter(x=>!x.src),'Отмечайте треки сердечком в BAZAR WAVE — они появятся здесь. Или найдите трек через поиск');return}
     box.innerHTML=skel(6);try{const l=await ymOr({k:'chart',c:tab==='world'?'world':'russia'});if(my===seq)show(l,'Здесь пока пусто')}catch(e){if(my===seq)box.innerHTML='<div class="empty" style="padding:28px 12px">Не удалось загрузить музыку</div>'}}
   $$('.tab',tabs).forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw()});
   inp.oninput=()=>{clearTimeout(timer);timer=setTimeout(draw,450)};
@@ -1084,7 +1159,7 @@ function profile(box,list,o){
   const rowP=(t,i)=>`<div class="mu-row${cur()&&cur().id===t.id?' cur':''}" data-i="${i}" data-id="${esc(t.id)}">${cover(t)}<span class="mu-ti"><b>${esc(t.t)}</b><small>${esc(t.a)}</small></span><span class="mu-dur">${t.d?fmt(t.d):''}</span>${own?`<button class="mu-lk" data-mg="1" aria-label="Ещё">${IC.more}</button>`:`<button class="mu-lk${isLiked(t.id)?' on':''}" data-lk="1" aria-label="Нравится">${IC.heart}</button>`}</div>`;
   async function addMenu(){
     if(arr.length>=max){toast('В профиле может быть не больше '+max+' треков — удалите лишние',1);return}
-    const c=await sheet([{ic:'file',t:'Из файлов',k:'f'},{ic:'music',t:'Из EXG Music',k:'m'}],'Добавить музыку');if(!c)return;
+    const c=await sheet([{ic:'file',t:'Из файлов',k:'f'},{ic:'music',t:'Из BAZAR WAVE',k:'m'}],'Добавить музыку');if(!c)return;
     if(c.k==='f')pickFiles('audio/*,.mp3,.m4a,.aac,.ogg,.oga,.opus,.wav,.flac,.weba',addFiles);
     else pickExg(new Set(arr.map(t=>t.id)),async t=>{const r=await pmAdd(t);apply(r)})}
   async function addFiles(fs){
@@ -1117,7 +1192,7 @@ function profile(box,list,o){
     if(!arr.length){
       box._pmArr=[];
       if(!own){box.innerHTML='';return}
-      box.innerHTML=`<div class="pm pm-empty glass"><span class="pm-ic">${MI.note}</span><div class="pm-ht"><b>Музыка в профиле</b><small>Добавьте любимые треки — из файлов или из EXG Music</small></div><button class="btn sm" data-pm="add">${IC.plus}Добавить</button></div>`;
+      box.innerHTML=`<div class="pm pm-empty glass"><span class="pm-ic">${MI.note}</span><div class="pm-ht"><b>Музыка в профиле</b><small>Добавьте любимые треки — из файлов или из BAZAR WAVE</small></div><button class="btn sm" data-pm="add">${IC.plus}Добавить</button></div>`;
       $('[data-pm=add]',box).onclick=addMenu;return}
     const tot=totalTxt(arr.reduce((s,t)=>s+(t.d||0),0));
     box.innerHTML=`<section class="pm pm-live glass"><div class="pm-bg"></div>
@@ -1152,7 +1227,7 @@ function pmSync(){
       const cv=$('.pm-disc .mu-cv',sec);if(cv)cv.outerHTML=cover(t);
       $('.pm-meta b',sec).textContent=t.t;$('.pm-meta small',sec).textContent=t.a;
       const bg=$('.pm-bg',sec),h=hue(t.id);
-      bg.style.backgroundImage=t.img?`url("${t.img.replace(/"/g,'%22')}")`:`linear-gradient(135deg,hsl(${h} 50% 30%),hsl(${(h+60)%360} 50% 12%))`;
+      bg.style.backgroundImage=t.img?`url("${t.img.replace(/"/g,'%22')}")`:`linear-gradient(135deg,hsl(0 0% 20%),hsl(0 0% 8%))`;
       const pr=$('.pm-prog i',sec);if(pr)pr.style.width='0'}
     const pp=$('.pm-pp',sec),html=playing?MI.pause:MI.play;if(pp&&pp._h!==html){pp._h=html;pp.innerHTML=html}
     const al=$('[data-pm=all]',sec);if(al){const h=(playing?MI.pause+'Пауза':MI.play+(on?'Продолжить':'Слушать'));if(al._h!==h){al._h=h;al.innerHTML=h}}})}

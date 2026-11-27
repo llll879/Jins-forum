@@ -1,4 +1,4 @@
-/* ===== EXG Music ===== */
+/* ===== BAZAR WAVE ===== */
 #app.mu-on #view{padding-bottom:calc(158px + var(--safe-b))}
 #app.mu-on.mu-nonav #view{padding-bottom:calc(86px + var(--safe-b))}
 .mu{padding:0 0 8px}
@@ -9,16 +9,16 @@
 .mu-top h2 b{color:var(--acc);font-weight:700}
 .mu-top small{display:block;color:var(--dim);font-size:12.5px;margin-top:2px}
 .mu-search{position:relative;margin:10px 14px 0}
-.mu-search svg.i{position:absolute;left:15px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:#7e7a96;pointer-events:none}
+.mu-search svg.i{position:absolute;left:15px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:#8a8a8e;pointer-events:none}
 .mu-search input{padding-left:44px;padding-right:44px;height:48px;border-radius:24px}
-.mu-search .mu-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:none;color:#8f8aa6;display:grid;place-items:center}
+.mu-search .mu-x{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:none;color:#8a8a8e;display:grid;place-items:center}
 .mu-search .mu-x[hidden]{display:none}
 .mu-search .mu-x svg{width:18px;height:18px}
 .mu-tabs{display:flex;gap:8px;padding:14px 14px 4px;overflow-x:auto;scrollbar-width:none}
 .mu-tabs::-webkit-scrollbar{display:none}
 .mu-chips{display:flex;gap:8px;padding:6px 14px 2px;overflow-x:auto;scrollbar-width:none}
 .mu-chips::-webkit-scrollbar{display:none}
-.mu-chip{flex:none;height:32px;padding:0 14px;border-radius:16px;border:1px solid var(--line);background:var(--card);color:#c9c4e0;font-size:13px;font-weight:600}
+.mu-chip{flex:none;height:32px;padding:0 14px;border-radius:16px;border:1px solid var(--line);background:var(--card);color:#cfcfcf;font-size:13px;font-weight:600}
 .mu-chip.on{background:var(--acc-soft);border-color:var(--acc);color:#fff}
 @keyframes muBar{0%,100%{height:25%}50%{height:100%}}
 .mu-h{display:flex;align-items:center;gap:10px;margin:20px 16px 6px}
@@ -41,9 +41,9 @@ body.mu-playing .mu-row.cur .mu-cv .eq i{animation-play-state:running}
 .mu-ti small{display:block;color:var(--dim);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mu-row.cur .mu-ti b{color:var(--acc)}
 .mu-dur{color:var(--dim);font-size:12.5px;font-variant-numeric:tabular-nums;flex:none}
-.mu-lk{width:38px;height:38px;border:0;background:none;color:#7e7a96;display:grid;place-items:center;flex:none;border-radius:50%}
+.mu-lk{width:38px;height:38px;border:0;background:none;color:#8a8a8e;display:grid;place-items:center;flex:none;border-radius:50%}
 .mu-lk svg{width:21px;height:21px}
-.mu-lk.on{color:#ff6b8a}
+.mu-lk.on{color:#fff}
 .mu-lk.on svg{fill:currentColor}
 .mu-note{color:var(--dim);font-size:12px;margin:18px 18px 0;text-align:center;line-height:1.5}
 .mu-skel{height:50px;margin:8px;border-radius:14px;background:linear-gradient(90deg,var(--card),var(--card2),var(--card));background-size:200% 100%;animation:muSk 1.2s linear infinite}
@@ -87,7 +87,7 @@ body.mu-playing .mu-row.cur .mu-cv .eq i{animation-play-state:running}
 .mu-cd.big b{font-size:37px}
 .mu-cd .cd-bt{height:54px;display:grid;place-items:center;width:100%}
 .mu-cd .cd-bt small{font-size:12.5px;line-height:1.25;color:rgba(255,255,255,.66);max-width:90%}
-.mu-cd .cd-go{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(255,255,255,.75);background:rgba(8,6,16,.5);box-shadow:0 10px 22px -10px rgba(0,0,0,.8),inset 0 0 12px rgba(255,255,255,.1);transition:transform .2s,background .2s}
+.mu-cd .cd-go{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(255,255,255,.75);background:rgba(0,0,0,.5);box-shadow:0 10px 22px -10px rgba(0,0,0,.8),inset 0 0 12px rgba(255,255,255,.1);transition:transform .2s,background .2s}
 .mu-cd .cd-go svg{width:24px;height:24px;margin-left:2px}
 .mu-cd .cd-go:active{transform:scale(.9);background:rgba(255,255,255,.2)}
 .mu-cd:not(.on) .cd-go{opacity:.55}
@@ -108,11 +108,11 @@ body.mu-playing .mu-row.cur .mu-cv .eq i{animation-play-state:running}
 .mu-offn{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;margin:24px 28px 0;color:var(--dim);font-size:14px;line-height:1.45}
 .mu-offn svg{width:34px;height:34px;color:var(--acc)}
 .mu-offn b{font-family:var(--serif);font-size:22px;font-weight:600;color:var(--txt)}
-.mf-info .mu-lk.on[data-a=dl]{color:#5ad19a}
+.mf-info .mu-lk.on[data-a=dl]{color:#fff}
 .mf-info .mu-lk[data-a=dl] .mu-aid{width:20px;height:20px}
 /* жанры и списки в духе макета */
 .mu-chips{padding:22px 14px 2px}
-.mu-chip{height:42px;padding:0 20px;border-radius:21px;font-size:15px;font-weight:600;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#e6e2f5;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.mu-chip{height:42px;padding:0 20px;border-radius:21px;font-size:15px;font-weight:600;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#e8e8e8;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
 .mu-chip.on{background:rgba(255,255,255,.1);border:1.5px solid #fff;color:#fff;box-shadow:0 0 18px -4px rgba(255,255,255,.55),inset 0 0 14px rgba(255,255,255,.1)}
 [data-theme=light] .mu-chip{color:var(--txt)}
 [data-theme=light] .mu-chip.on{border-color:var(--txt);box-shadow:none}
@@ -123,7 +123,7 @@ body.mu-playing .mu-row.cur .mu-cv .eq i{animation-play-state:running}
 .mu .mu-row{gap:14px;padding:8px}
 .mu .mu-ti b{font-size:17px}
 .mu .mu-dur{font-size:15px}
-.mu .mu-lk{width:44px;height:44px;color:#c9c4e0}
+.mu .mu-lk{width:44px;height:44px;color:#cfcfcf}
 .mu .mu-lk svg{width:26px;height:26px}
 @media (prefers-reduced-motion:reduce){.mu-cd .cd-go{transition:none}.mu-dots button{transition:none}}
 @media (max-width:360px){.mu-cd.big b{font-size:32px}.mu-cd b{font-size:22px}}
@@ -165,7 +165,7 @@ body.mu-playing .mu-row.cur .mu-cv .eq i{animation-play-state:running}
 body:not(.mu-playing) .flip:not(.on){scale:.9}
 .flip .face{position:absolute;inset:0;border-radius:22px;-webkit-backface-visibility:hidden;backface-visibility:hidden;overflow:hidden}
 .flip .fr{box-shadow:0 30px 60px -22px rgba(0,0,0,.9)}
-.flip .bk{transform:rotateY(180deg);background:rgba(10,8,18,.62);-webkit-backdrop-filter:blur(26px) saturate(1.4);backdrop-filter:blur(26px) saturate(1.4);
+.flip .bk{transform:rotateY(180deg);background:rgba(0,0,0,.62);-webkit-backdrop-filter:blur(26px) saturate(1.4);backdrop-filter:blur(26px) saturate(1.4);
   box-shadow:0 30px 60px -22px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.14);cursor:default;
   --ly-on:#fff;--ly-mid:rgba(255,255,255,.62);--ly-off:rgba(255,255,255,.4)}
 .fl-hint{position:absolute;right:10px;bottom:10px;display:flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 9px;border-radius:15px;background:rgba(0,0,0,.5);color:#fff;font-size:12.5px;font-weight:600;
@@ -188,7 +188,7 @@ body:not(.mu-playing) .flip:not(.on){scale:.9}
 .mf-ctl{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
 .mf-ctl button{width:52px;height:52px;border:0;background:none;color:var(--txt);display:grid;place-items:center;border-radius:50%}
 .mf-ctl button svg{width:28px;height:28px}
-.mf-ctl button.sm svg{width:23px;height:23px;color:#8f8aa6}
+.mf-ctl button.sm svg{width:23px;height:23px;color:#8a8a8e}
 .mf-ctl button.sm.on svg{color:var(--acc)}
 .mf-ctl button.pp{width:72px;height:72px;background:#fff;color:#14111f;box-shadow:0 16px 34px -12px rgba(0,0,0,.7)}
 .mf-ctl button.pp svg{width:32px;height:32px}
@@ -237,11 +237,11 @@ body.mu-loading .mu-spin{display:block}
 .pm-empty{display:flex;align-items:center;gap:12px;padding:14px;border-style:dashed}
 .pm-empty .btn{flex:none;gap:6px}
 .pm-empty .btn svg{width:17px;height:17px}
-/* выбор из EXG Music и диалог */
+/* выбор из BAZAR WAVE и диалог */
 .pm-sheet{display:flex;flex-direction:column;height:78%;max-height:78%;overflow:hidden}
 .pm-pkl{flex:1;min-height:0;overflow:auto;margin-top:6px}
 .mu-lk.pm-plus{background:var(--acc-soft);color:var(--acc)}
-.mu-lk.pm-plus.done{color:#5ad19a;background:rgba(90,209,154,.14)}
+.mu-lk.pm-plus.done{color:#fff;background:rgba(255,255,255,.14)}
 .pm-dlg{padding:14px 16px calc(16px + var(--safe-b))}
 .pm-dlg .inp{margin:4px 0 12px}
 .pm-dlgb{display:flex;gap:10px;margin-top:6px}
@@ -258,7 +258,7 @@ body.mu-loading .mu-spin{display:block}
   background:linear-gradient(150deg,hsl(var(--h,260) 52% 38%),hsl(calc(var(--h,260) + 55) 55% 15%));
   box-shadow:0 10px 16px -12px hsl(var(--h,260) 80% 42%/.9),inset 0 0 0 1px rgba(255,255,255,.12);transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s}
 .ar-card em{font-size:46px;position:relative;z-index:-1;margin-top:-18px}
-.ar-card::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,transparent 42%,rgba(8,6,16,.88));border-radius:inherit}
+.ar-card::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,transparent 42%,rgba(0,0,0,.88));border-radius:inherit}
 .ar-card::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:inherit;background:radial-gradient(90% 60% at 20% 0,rgba(255,255,255,.22),transparent 60%);opacity:.7}
 .ar-ov{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:10px 11px 12px;text-align:left}
 .ar-ov b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;font-family:var(--serif);font-size:15px;font-weight:600;line-height:1.18;text-shadow:0 2px 10px rgba(0,0,0,.6)}
@@ -273,7 +273,7 @@ body.mu-loading .mu-spin{display:block}
 @keyframes muSp{to{transform:rotate(360deg)}}
 
 /* ===== Тексты песен ===== */
-.ly{position:relative;--ly-on:var(--txt);--ly-mid:rgba(244,242,251,.6);--ly-off:rgba(244,242,251,.36);font-family:var(--serif)}
+.ly{position:relative;--ly-on:var(--txt);--ly-mid:rgba(255,255,255,.6);--ly-off:rgba(255,255,255,.36);font-family:var(--serif)}
 .flip .bk .ly{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:0 18px;-webkit-mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(180deg,transparent,#000 14%,#000 86%,transparent)}
 .flip .bk .ly::-webkit-scrollbar{display:none}
 .ly-in::before,.ly-in::after{content:"";display:block;height:var(--pad,120px)}
@@ -305,8 +305,8 @@ body.mu-loading .mu-spin{display:block}
 .mf-more svg{width:16px;height:16px}
 .mf-more span{display:grid;animation:muNudge 1.8s ease-in-out infinite}
 @keyframes muNudge{0%,100%{transform:translateY(-2px)}50%{transform:translateY(3px)}}
-.mf-p2{background:rgba(5,4,9,.8);min-height:100%;box-sizing:border-box;scroll-snap-align:start;padding:0 22px calc(24px + var(--safe-b));background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 70%,transparent),color-mix(in srgb,var(--bg) 86%,transparent) 160px)}
-.mf-p2h{background:rgba(5,4,9,.85);position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;margin:0 -22px;padding:calc(10px + var(--safe-t)) 18px 10px 22px;background:color-mix(in srgb,var(--bg) 62%,transparent);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);border-bottom:1px solid var(--line)}
+.mf-p2{background:rgba(0,0,0,.8);min-height:100%;box-sizing:border-box;scroll-snap-align:start;padding:0 22px calc(24px + var(--safe-b));background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 70%,transparent),color-mix(in srgb,var(--bg) 86%,transparent) 160px)}
+.mf-p2h{background:rgba(0,0,0,.85);position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;margin:0 -22px;padding:calc(10px + var(--safe-t)) 18px 10px 22px;background:color-mix(in srgb,var(--bg) 62%,transparent);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4);border-bottom:1px solid var(--line)}
 .mf-p2h .cvs .mu-cv{width:44px;height:44px;border-radius:11px}
 .mf-p2h .mu-ti b{font-size:15px}.mf-p2h .mu-ti small{font-size:12.5px}
 .mf-p2h .mb{width:40px;height:40px;border:0;background:none;color:var(--txt);display:grid;place-items:center;border-radius:50%;flex:none}
@@ -334,7 +334,7 @@ body.mu-loading .mu-spin{display:block}
 .mu-wt-w{display:flex;gap:8px;padding:10px 14px 2px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
 .mu-wt-w[hidden]{display:none}
 .mu-wt-w::-webkit-scrollbar{display:none}
-.mu-wt{flex:none;height:38px;padding:0 18px;border-radius:19px;font-size:14.5px;font-weight:600;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#e6e2f5;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);-webkit-tap-highlight-color:transparent}
+.mu-wt{flex:none;height:38px;padding:0 18px;border-radius:19px;font-size:14.5px;font-weight:600;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#e8e8e8;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);-webkit-tap-highlight-color:transparent}
 .mu-wt.on{background:rgba(255,255,255,.1);border:1.5px solid #fff;color:#fff;box-shadow:0 0 18px -4px rgba(255,255,255,.55),inset 0 0 14px rgba(255,255,255,.1)}
 [data-theme=light] .mu-wt{color:var(--txt)}
 [data-theme=light] .mu-wt.on{border-color:var(--txt);box-shadow:none}
@@ -358,7 +358,7 @@ body.mu-loading .mu-spin{display:block}
 .mu-cd{position:absolute;left:50%;top:38px;margin-left:calc(var(--cw)/-2);scroll-snap-align:none;--ch:250;--dk:0;touch-action:pan-y;
   background:linear-gradient(158deg,rgba(255,255,255,.22),rgba(255,255,255,.05) 42%,rgba(255,255,255,.1)),linear-gradient(180deg,hsl(var(--ch) 22% 27%),hsl(var(--ch) 28% 10%));
   border-color:hsla(var(--ch),60%,80%,.28)}
-.mu-cd::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:rgba(5,4,9,var(--dk))}
+.mu-cd::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:rgba(0,0,0,var(--dk))}
 .mu-cd.on{border-color:hsla(var(--ch),80%,85%,.6);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -22px 40px -22px rgba(255,255,255,.3),0 0 52px -6px hsla(var(--ch),85%,62%,.65),0 28px 36px -22px rgba(0,0,0,.95)}
 /* блик пробегает по центральной карточке */
 .mu-cd.on::before{background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.34) 50%,transparent 65%) -160% 0/250% 100% no-repeat,radial-gradient(90% 55% at 22% 0,rgba(255,255,255,.28),transparent 62%);animation:cdSheen 4.2s ease-in-out infinite}
@@ -470,7 +470,7 @@ body.mu-playing .ar-rg{animation-duration:2.2s}
 .ar-pg .mu-row.cur .mu-ti b{color:#fff}
 .ar-rc{display:none;align-items:center;gap:6px;flex:none;margin:-2px -4px -2px 0}
 .ar-rc button{width:48px;height:48px;border:0;border-radius:50%;display:grid;place-items:center;background:none;color:#fff}
-.ar-rc button:first-child{width:56px;height:56px;background:#ece8f2;color:#1a1420;box-shadow:0 8px 18px -8px rgba(0,0,0,.8)}
+.ar-rc button:first-child{width:56px;height:56px;background:#fff;color:#000;box-shadow:0 8px 18px -8px rgba(0,0,0,.8)}
 .ar-rc svg{width:24px;height:24px}
 .ar-pg .mu-row.cur .ar-rc{display:flex}
 .ar-pg .mu-row.cur .mu-dur,.ar-pg .mu-row.cur .mu-lk{display:none}
@@ -487,7 +487,7 @@ body.mu-playing .ar-rg{animation-duration:2.2s}
 .au-h small{display:block;color:var(--dim);font-size:12.5px;line-height:1.35;margin-top:2px}
 .au-r{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;font-size:14.5px}
 .au-n{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.au-n button{height:32px;min-width:44px;padding:0 10px;border-radius:16px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:#e6e2f5;font-size:13px;font-weight:600}
+.au-n button{height:32px;min-width:44px;padding:0 10px;border-radius:16px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:#e8e8e8;font-size:13px;font-weight:600}
 .au-n button.on{background:rgba(255,255,255,.14);border-color:#fff;color:#fff}
 .au-sw{position:relative;flex:none;width:50px;height:30px;border-radius:15px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);transition:background .25s,border-color .25s;padding:0}
 .au-sw::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5);transition:transform .25s cubic-bezier(.3,1.3,.5,1)}
@@ -496,3 +496,108 @@ body.mu-playing .ar-rg{animation-duration:2.2s}
 .au-f{display:flex;gap:8px;margin-top:14px}
 .au-f .btn{flex:1}
 .au-s{display:block;margin-top:10px;color:var(--dim);font-size:12.5px;text-align:center}
+
+/* ===== BAZAR: монохромная гамма (чёрный / белый / серый) вместо цветных оттенков обложек ===== */
+.mu,.ar-pg,.mu.ar-col{--as:0% !important}
+.mu.ar-col,.ar-pg{--acc:#fff;--acc-soft:rgba(255,255,255,.14)}
+.mu::before,.mu-glow{display:none!important}
+.mu-top .mu-logo{background:var(--tile);border:1px solid var(--line);box-shadow:none;color:var(--txt)}
+.mu-top h2{font-family:inherit;font-weight:800;letter-spacing:-.3px}
+.mu-top h2 b{color:var(--dim)}
+.mu-cd,.mu-cd.wv{background:linear-gradient(160deg,#1d1d1d,#0a0a0a);border-color:rgba(255,255,255,.18)}
+.mu-cd.on,.mu-cd.wv.wvon,.mu-cd[data-k=wave].wvon{border-color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.35),0 28px 36px -22px #000}
+.mu-cd.on::before{background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.14) 50%,transparent 65%) -160% 0/250% 100% no-repeat}
+.ar-card{background:linear-gradient(150deg,#262626,#0a0a0a)!important;border:1px solid var(--line)}
+.ar-pi{background:linear-gradient(135deg,#262626,#0b0b0b)}
+.ar-fr{background:linear-gradient(150deg,rgba(255,255,255,.1),rgba(255,255,255,.02));border-color:rgba(255,255,255,.28);box-shadow:0 30px 50px -26px #000}
+.ar-fr::before{background:conic-gradient(from 20deg,transparent 0 40%,rgba(255,255,255,.5) 62%,#fff 74%,rgba(255,255,255,.6) 84%,transparent 96%)}
+.ar-name{color:#fff;text-shadow:none}
+.ar-kick,.ar-chip{color:#fff;background:transparent;border-color:var(--line2);box-shadow:none}
+.ar-act .btn{background:transparent;border-color:var(--line2);box-shadow:none;color:#fff}
+.ar-act .ar-play{background:#fff;color:#000;border-color:#fff;box-shadow:none}
+.ar-act .ar-play::after{display:none}
+.ar-pg .mu-row{background:var(--bg);border-color:var(--line);box-shadow:none}
+.ar-pg .mu-row.cur{background:var(--card2);border-color:var(--line2);box-shadow:none}
+.ar-pg .mu-row.cur .ar-n{color:#fff}
+.ar-pg .mu-h h3::before{box-shadow:none}
+.ar-pg .ar-n{font-family:inherit;font-style:normal}
+.ar-rg{border-color:rgba(255,255,255,.3)}
+.mu-au{background:var(--bg);box-shadow:none}
+.mu-wt{background:transparent;color:var(--dim)}
+.mu-wt.on{background:#fff;color:#000;border-color:#fff;box-shadow:none}
+.mu-chip.on{background:#fff;color:#000;border-color:#fff}
+.au-n button.on{background:#fff;color:#000;border-color:#fff}
+.au-sw.on{background:#fff}.au-sw.on::after{background:#000}
+.mu-spinb{background:var(--bg);box-shadow:none}
+.mu-mark{background:#fff;filter:none}
+#muFull .bgc{filter:blur(46px) saturate(0) brightness(.42)}
+.mf-p2,.mf-p2h{background:rgba(0,0,0,.88)}
+.mf-top .sleep.on i{color:#000;background:#fff}
+.mf-ctl button.pp,.mf-ctl .pp{background:#fff;color:#000}
+.cd-eqb i{background:#fff;box-shadow:none}
+.mu-cv .eq i,.pm-eq u{background:#fff}
+.pm-ic{background:var(--tile);box-shadow:none}
+[data-theme=light] #muFull .bgc{filter:blur(46px) saturate(0) brightness(1.1) opacity(.5)}
+
+/* ===== BAZAR: шапка-вордмарк, «Сейчас играет» с волнами и стилизованный барабан ===== */
+.mu-top{gap:10px;padding:calc(26px + var(--safe-t)) 18px 6px 16px;align-items:center}
+.mu-top .ib.round{width:44px;height:44px;background:transparent;border:1px solid var(--line2);box-shadow:none}
+.mu-wm{display:flex;flex-direction:column;gap:5px;margin-left:6px;font-size:19px;line-height:1;color:var(--txt)}
+.mu-wm b{display:block;font-weight:300;letter-spacing:.62em;margin-right:-.62em;text-transform:uppercase;white-space:nowrap}
+.mu-top .ib#muSb{width:44px;height:44px}.mu-top .ib#muSb svg{width:28px;height:28px}
+.mu-top .mu-logo{width:48px;height:48px;border-radius:50%;background:radial-gradient(circle at 32% 28%,#3a3a3a,#0c0c0c 70%);border:1px solid var(--line2)}
+.mu-top .mu-logo i.wave{width:28px;height:21px}
+.mu-top h2,.mu-top small{display:none}
+.ar-rd i.wave,.btn i.wave{width:22px;height:16px}
+
+/* «Сейчас играет» */
+.mu-np{position:relative;padding:0 0 4px}
+.mu-np[hidden]{display:none}
+.np-wv{display:block;width:100%;height:200px;margin:0 0 8px}
+.np-card{display:flex;align-items:center;gap:16px;margin:0 20px}
+.np-cv .mu-cv{width:74px;height:74px;border-radius:20px;border:1px solid var(--line2)}
+.np-cv .mu-cv .eq,.np-cv .mu-cv>svg{display:none}
+.np-ti{flex:1;min-width:0}
+.np-ti b{display:block;font-size:23px;font-weight:400;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-ti small{display:block;margin-top:5px;font-size:13.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-ti small .mu-ar{color:inherit}
+.np-eq{display:flex;align-items:center;gap:3px;height:24px;flex:none}
+.np-eq i{width:2px;border-radius:1px;background:#fff;height:30%;transition:height .25s}
+.np-pl .np-eq i{animation:muBar .9s ease-in-out infinite}
+.np-eq i:nth-child(2){animation-delay:-.2s}.np-eq i:nth-child(3){animation-delay:-.45s}.np-eq i:nth-child(4){animation-delay:-.7s}.np-eq i:nth-child(5){animation-delay:-.35s}
+.np-i{width:44px;height:44px;border:0;background:none;color:#fff;display:grid;place-items:center;flex:none;border-radius:50%}
+.np-i svg{width:26px;height:26px}
+.np-bar{margin:18px 22px 0}
+.np-bar input[type=range]{--p:0%;-webkit-appearance:none;appearance:none;width:100%;height:20px;margin:0;background:transparent;cursor:pointer}
+.np-bar input[type=range]::-webkit-slider-runnable-track{height:2px;border-radius:1px;background:linear-gradient(90deg,#fff var(--p),rgba(255,255,255,.26) var(--p))}
+.np-bar input[type=range]::-moz-range-track{height:2px;border-radius:1px;background:rgba(255,255,255,.26)}
+.np-bar input[type=range]::-moz-range-progress{height:2px;background:#fff}
+.np-bar input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#fff;margin-top:-5.5px;border:0}
+.np-bar input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#fff;border:0}
+.np-t{display:flex;justify-content:space-between;margin-top:2px;font-size:13.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.np-ctl{display:flex;align-items:center;justify-content:space-between;margin:12px 26px 6px}
+.np-ctl button{width:52px;height:52px;border:0;background:none;color:#fff;display:grid;place-items:center;border-radius:50%}
+.np-ctl button svg{width:30px;height:30px}
+.np-ctl button.sm{color:var(--dim)}.np-ctl button.sm svg{width:28px;height:28px}
+.np-ctl button.sm.on{color:#fff}
+.np-ctl button.pp{width:84px;height:84px;border:1px solid var(--line2);background:transparent}
+.np-ctl button.pp svg{width:34px;height:34px}
+.np-ctl button:active{transform:scale(.92)}
+.mu.np-on .mu-fx{display:none}
+#app.mu-npv #muMini{display:none}
+
+/* барабан в стиле BAZAR: чёрные карточки, тонкие рамки, белая кнопка пуска */
+.mu-cd,.mu-cd.wv{border-radius:34px;background:#000;border:1px solid rgba(255,255,255,.2);box-shadow:none}
+.mu-cd::before,.mu-cd.on::before{display:none}
+.mu-cd.on,.mu-cd.wv.wvon{background:#050505;border-color:rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 24px 40px -26px rgba(255,255,255,.4)}
+.mu-cd .cd-ic{height:40px}.mu-cd .cd-ic svg{width:34px;height:34px;stroke-width:1.5;filter:none}
+.mu-cd b{font-family:inherit;font-weight:800;letter-spacing:-.4px;text-shadow:none}
+.mu-cd .cd-go{width:56px;height:56px;border:0;background:#fff;color:#000;box-shadow:none}
+.mu-cd .cd-go svg{width:24px;height:24px}
+.mu-cd:not(.on) .cd-go{opacity:.35}
+.mu-cd.on .cd-go::before,.mu-cd.on .cd-go::after{border-color:rgba(255,255,255,.45)}
+.mu-cd .cd-bt small{color:var(--dim)}
+.mu-pod{background:none;box-shadow:none;border:1px solid rgba(255,255,255,.3)}
+.mu-pod::before{border-color:rgba(255,255,255,.2)}.mu-pod::after{border-color:rgba(255,255,255,.1)}
+.mu-dots button{background:rgba(255,255,255,.22);box-shadow:none}.mu-dots button.on{box-shadow:none}
+.mu-spinb{width:48px;height:48px;border:1px solid var(--line2);background:#000}
