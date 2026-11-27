@@ -81,7 +81,7 @@ const CS=(()=>{
     st.setProperty('--cs-r',c.rad+'px');st.setProperty('--cs-rt',(c.tail?Math.min(6,c.rad):c.rad)+'px');
     st.setProperty('--cs-fs',c.fs+'px');st.setProperty('--cs-gap',c.gap+'px');
     if(c.out.c||c.out.st!=='grad'){
-      const base=c.out.c||'#6d64b6',light=lum(base)>.5,own=c.out.st==='glass'||c.out.st==='outline';
+      const base=c.out.c||'#f2f2f2',light=lum(base)>.5,own=c.out.st==='glass'||c.out.st==='outline';
       node.setAttribute('data-cs-out',c.out.st);st.setProperty('--cs-me-c',base);
       st.setProperty('--cs-me-ink',own?'var(--txt)':light?'#15131c':'#fff');
       st.setProperty('--cs-me-tint',own?'rgba(127,127,127,.18)':light?'rgba(0,0,0,.1)':'rgba(255,255,255,.2)')}

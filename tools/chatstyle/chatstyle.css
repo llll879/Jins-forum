@@ -81,7 +81,7 @@
 .cs-tile.col{background:conic-gradient(#ff5c6c,#ffb454,#e3e86a,#4cd6a0,#4aa8ff,#b06cff,#ff6fae,#ff5c6c)}
 .cs-sw{flex:none;position:relative;width:38px;height:38px;border-radius:50%;border:3px solid transparent;outline:1px solid var(--line2);outline-offset:-1px;cursor:pointer;padding:0;display:grid;place-items:center;color:var(--dim);font-size:10px;font-weight:700;background-clip:padding-box;overflow:hidden}
 .cs-sw.on{border-color:var(--txt);outline-color:transparent}
-.cs-sw.auto{background:linear-gradient(180deg,#7d74c2,#5d559c)}
+.cs-sw.auto{background:linear-gradient(180deg,#f2f2f2,#d0d0d0)}
 .cs-sw.auto.inc{background:var(--glass),var(--solid)}
 .cs-sw.col{background:conic-gradient(#ff5c6c,#ffb454,#e3e86a,#4cd6a0,#4aa8ff,#b06cff,#ff6fae,#ff5c6c)}
 .cs-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
