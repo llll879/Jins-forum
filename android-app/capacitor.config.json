@@ -1,8 +1,8 @@
 {
   "appId": "com.exg.forum",
-  "appName": "EXG FORUM",
+  "appName": "BAZAR",
   "webDir": "www",
-  "backgroundColor": "#050409",
+  "backgroundColor": "#000000",
   "server": {
     "androidScheme": "https"
   },
