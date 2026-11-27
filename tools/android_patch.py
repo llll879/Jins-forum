@@ -438,7 +438,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-/** Фоновая служба плеера EXG Music: уведомление с обложкой и кнопками, экран блокировки, гарнитура/Bluetooth.
+/** Фоновая служба плеера BAZAR WAVE: уведомление с обложкой и кнопками, экран блокировки, гарнитура/Bluetooth.
  *  Звук играет в WebView (music.js); служба держит процесс живым и пересылает нажатия обратно в JS. */
 public class MusicService extends Service {
     static MusicService inst;
@@ -477,11 +477,11 @@ public class MusicService extends Service {
         super.onCreate();
         inst = this;
         if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel ch = new NotificationChannel(CH, "Плеер EXG Music", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel ch = new NotificationChannel(CH, "Плеер BAZAR WAVE", NotificationManager.IMPORTANCE_LOW);
             ch.setShowBadge(false);
             ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).createNotificationChannel(ch);
         }
-        session = new MediaSession(this, "EXG Music");
+        session = new MediaSession(this, "BAZAR WAVE");
         session.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS | MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
         session.setCallback(new MediaSession.Callback() {
             @Override public void onPlay() { MainActivity.toWeb("play"); }
@@ -574,7 +574,7 @@ public class MusicService extends Service {
         MediaMetadata.Builder mb = new MediaMetadata.Builder()
             .putString(MediaMetadata.METADATA_KEY_TITLE, title)
             .putString(MediaMetadata.METADATA_KEY_ARTIST, artist)
-            .putString(MediaMetadata.METADATA_KEY_ALBUM, "EXG Music");
+            .putString(MediaMetadata.METADATA_KEY_ALBUM, "BAZAR WAVE");
         if (dur > 0) mb.putLong(MediaMetadata.METADATA_KEY_DURATION, dur);
         if (art != null) mb.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, art);
         session.setMetadata(mb.build());
@@ -812,8 +812,8 @@ final class Push {
         }
         NotificationCompat.Builder b = new NotificationCompat.Builder(c, CH_MSG)
             .setSmallIcon(R.drawable.ic_stat_exg)
-            .setColor(0xFF8B6CFF)
-            .setContentTitle(title == null || title.isEmpty() ? "KMBP FORUM" : title)
+            .setColor(0xFFFFFFFF)
+            .setContentTitle(title == null || title.isEmpty() ? "BAZAR" : title)
             .setContentText(body)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -950,7 +950,7 @@ public class IncomingCallActivity extends Activity {
         b.setBackground(oval(color));
         b.setOnClickListener(l);
         col.addView(b, new LinearLayout.LayoutParams(dp(76), dp(76)));
-        TextView t = text(label, 14, 0xFFCFCBE6, false);
+        TextView t = text(label, 14, 0xFFDDDDDD, false);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
         lp.topMargin = dp(10);
         col.addView(t, lp);
@@ -977,13 +977,13 @@ public class IncomingCallActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setBackgroundColor(0xFF050409);
+        root.setBackgroundColor(0xFF000000);
         root.setPadding(dp(24), dp(90), dp(24), dp(70));
 
-        root.addView(text("KMBP FORUM · " + (video ? "видеозвонок" : "звонок"), 14, 0xFFA8A3C0, false));
+        root.addView(text("BAZAR · " + (video ? "видеозвонок" : "звонок"), 14, 0xFFA0A0A0, false));
         String ini = name.trim().isEmpty() ? "?" : name.trim().substring(0, 1).toUpperCase();
         TextView av = text(ini, 48, Color.WHITE, true);
-        av.setBackground(oval(0xFF6C4DFF));
+        av.setBackground(oval(0xFF2A2A2A));
         LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(dp(130), dp(130));
         ap.topMargin = dp(40);
         root.addView(av, ap);
@@ -991,7 +991,7 @@ public class IncomingCallActivity extends Activity {
         LinearLayout.LayoutParams np = new LinearLayout.LayoutParams(-1, -2);
         np.topMargin = dp(28);
         root.addView(nm, np);
-        TextView st = text(video ? "Входящий видеозвонок…" : "Входящий звонок…", 16, 0xFFA8A3C0, false);
+        TextView st = text(video ? "Входящий видеозвонок…" : "Входящий звонок…", 16, 0xFFA0A0A0, false);
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, -2);
         sp.topMargin = dp(8);
         root.addView(st, sp);
