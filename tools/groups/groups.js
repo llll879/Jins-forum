@@ -43,7 +43,91 @@ const gSub=d=>{const t=d.typing||[];return d.recording==='video'?'записыв
 const chatX=(peer,G)=>{const me=S.me?S.me.id:0;return G?
   {g:1,list:l=>'/groups/messages?id='+peer+'&limit='+l,ep:k=>'/groups/msg/'+k,body:o=>({gid:peer,...o}),send:'/groups/send',idf:'id',typing:o=>post_('/groups/typing',{id:peer,...o}),dk:'draft_'+me+'_g'+peer}:
   {g:0,list:l=>'/messages?peer='+peer+'&limit='+l,ep:k=>'/messages/'+k,body:o=>o,send:'/messages',idf:'peer',typing:o=>post_('/typing',{peer,...o}),dk:'draft_'+me+'_'+peer}};
-function insertAtCaret(ta,t){const a=ta.selectionStart==null?ta.value.length:ta.selectionStart,b=ta.selectionEnd==null?a:ta.selectionEnd;ta.value=ta.value.slice(0,a)+t+ta.value.slice(b);const p=a+t.length;try{ta.setSelectionRange(p,p)}catch(e){}ta.dispatchEvent(new Event('input',{bubbles:true}));ta.focus()}
+function insertAtCaret(ta,t){
+  if(ta.insertText){ta.insertText(t);return}
+  const a=ta.selectionStart==null?ta.value.length:ta.selectionStart,b=ta.selectionEnd==null?a:ta.selectionEnd;ta.value=ta.value.slice(0,a)+t+ta.value.slice(b);const p=a+t.length;try{ta.setSelectionRange(p,p)}catch(e){}ta.dispatchEvent(new Event('input',{bubbles:true}));ta.focus()}
+
+/* ----- поле ввода сообщения -----
+   Ведёт себя как <textarea> (value, selectionStart/End, setSelectionRange, focus, события input/keydown),
+   но эмодзи из паков, которые в тексте хранятся токеном :em123:, показываются картинками, а не буквами.
+   Наружу текст всегда отдаётся в «токенной» форме — отправка, черновики, упоминания работают как раньше. */
+function emField(div,max){
+  const EMT=/:em(\d{1,9}):/g,tokLen=el=>(':em'+el.dataset.em+':').length;
+  const emImg=id=>{const i=document.createElement('img'),path='/forum/api/stickers/img/'+id;
+    i.className='cem';i.alt='🙂';i.draggable=false;i.contentEditable='false';i.dataset.em=id;i.dataset.bsrc=path;
+    const u=typeof BLOBU!=='undefined'&&BLOBU.get(path);       // уже загруженная картинка — без мигания
+    if(u&&(BTYPE.get(u)||'').indexOf('video/')!==0){i.src=u;i.dataset.bdone=path}
+    return i};
+  const nodesOf=str=>{const f=document.createDocumentFragment();let k=0,m;EMT.lastIndex=0;
+    while((m=EMT.exec(str))){if(m.index>k)f.appendChild(document.createTextNode(str.slice(k,m.index)));f.appendChild(emImg(m[1]));k=m.index+m[0].length}
+    if(k<str.length)f.appendChild(document.createTextNode(str.slice(k)));return f};
+  /* DOM → текст с токенами */
+  const ser=root=>{let o='';
+    const w=n=>{
+      if(n.nodeType===3){o+=n.nodeValue;return}
+      if(n.nodeType!==1)return;
+      if(n.dataset&&n.dataset.em){o+=':em'+n.dataset.em+':';return}
+      if(n.tagName==='BR'){if(!(n.dataset&&n.dataset.s))o+='\n';return}
+      const blk=(n.tagName==='DIV'||n.tagName==='P')&&n.parentNode===root;
+      if(blk&&o&&o.slice(-1)!=='\n')o+='\n';
+      n.childNodes.forEach(w)};
+    root.childNodes.forEach(w);return o};
+  const get=()=>ser(div);
+  /* пустое поле должно быть по-настоящему пустым (иначе не покажется подсказка), а завершающий перевод строки — виден */
+  const norm=()=>{
+    div.querySelectorAll('br').forEach(b=>{if(b.dataset.s)b.remove()});
+    if(!div.querySelector('[data-em]')&&!div.textContent){div.textContent='';return}
+    if(get().slice(-1)==='\n'){const b=document.createElement('br');b.dataset.s='1';div.appendChild(b)}};
+  let last={a:0,b:0};
+  const posOf=(node,off)=>{const r=document.createRange();r.selectNodeContents(div);r.setEnd(node,off);return ser(r.cloneContents()).length};
+  const inside=sel=>sel&&sel.rangeCount&&div.contains(sel.anchorNode)&&div.contains(sel.focusNode);
+  const live=()=>{const sel=getSelection();if(!inside(sel))return null;const r=sel.getRangeAt(0);return{a:posOf(r.startContainer,r.startOffset),b:posOf(r.endContainer,r.endOffset)}};
+  const remember=()=>{const l=live();if(l)last=l};
+  const point=off=>{let n=0;
+    const w=node=>{for(let i=0;i<node.childNodes.length;i++){const c=node.childNodes[i];
+      if(c.nodeType===3){const l=c.nodeValue.length;if(off<=n+l)return[c,off-n];n+=l}
+      else if(c.nodeType===1&&c.dataset&&c.dataset.em){const l=tokLen(c);if(off<=n)return[node,i];n+=l;if(off<=n)return[node,i+1]}   // внутри токена — ставим после картинки
+      else if(c.nodeType===1&&c.tagName==='BR'){if(c.dataset&&c.dataset.s)continue;if(off<=n)return[node,i];n+=1}
+      else if(c.nodeType===1){const r=w(c);if(r)return r}}
+      return null};
+    return w(div)||[div,div.childNodes.length]};
+  const setSel=(a,b)=>{const len=get().length;a=Math.max(0,Math.min(a,len));b=b==null?a:Math.max(0,Math.min(b,len));
+    last={a,b};const sel=getSelection();if(!sel)return;
+    try{const r=document.createRange(),p=point(a),q=a===b?p:point(b);r.setStart(p[0],p[1]);r.setEnd(q[0],q[1]);sel.removeAllRanges();sel.addRange(r)}catch(e){}};
+  const range=()=>{const l=live()||last,len=get().length;return[Math.min(l.a,len),Math.min(l.b,len)]};
+  /* вставка текста (с токенами) на место выделения */
+  const ins=(str,del)=>{str=String(str||'').replace(/\r\n?/g,'\n');if(!str&&!del)return;
+    const cur=get(),[a,b]=range(),room=max?max-(cur.length-(b-a)):1e9;if(room<=0)return;
+    if(str.length>room)str=str.slice(0,room);
+    div.focus({preventScroll:true});
+    setSel(a,b);const sel=getSelection();let r=sel.rangeCount?sel.getRangeAt(0):null;
+    if(!r||!div.contains(r.startContainer)){r=document.createRange();r.selectNodeContents(div);r.collapse(false)}
+    r.deleteContents();r.insertNode(nodesOf(str));div.normalize();norm();
+    setSel(a+str.length);
+    div.dispatchEvent(new Event('input',{bubbles:true}));
+    const sc=div.scrollHeight>div.clientHeight;if(sc)div.scrollTop=div.scrollHeight};
+  div.addEventListener('beforeinput',e=>{const t=e.inputType||'';
+    if(t==='insertParagraph'||t==='insertLineBreak'){e.preventDefault();ins('\n');return}
+    if(t==='insertFromPaste'||t==='insertFromDrop'||t==='insertFromYank'){const dt=e.dataTransfer,x=dt?dt.getData('text/plain'):'';e.preventDefault();if(x)ins(x);return}
+    if(t==='insertText'&&max){const[a,b]=range();if(get().length-(b-a)+(e.data||'').length>max)e.preventDefault()}});
+  div.addEventListener('input',e=>{if(e.isComposing)return;norm();if(max&&get().length>max){const v=get().slice(0,max);div.value=v;setSel(v.length)}});
+  div.addEventListener('copy',e=>{const sel=getSelection();if(!inside(sel)||sel.isCollapsed)return;e.clipboardData.setData('text/plain',ser(sel.getRangeAt(0).cloneContents()));e.preventDefault()});
+  div.addEventListener('cut',e=>{const sel=getSelection();if(!inside(sel)||sel.isCollapsed)return;e.clipboardData.setData('text/plain',ser(sel.getRangeAt(0).cloneContents()));e.preventDefault();ins('',true)});
+  div.addEventListener('blur',remember);
+  const onSel=()=>{if(!div.isConnected){document.removeEventListener('selectionchange',onSel);return}remember()};
+  document.addEventListener('selectionchange',onSel);
+  Object.defineProperty(div,'value',{configurable:true,
+    get:get,
+    set(v){v=String(v==null?'':v);if(v===get())return;div.textContent='';div.appendChild(nodesOf(v));norm();last={a:v.length,b:v.length};
+      if(document.activeElement===div)setSel(v.length)}});
+  Object.defineProperty(div,'selectionStart',{configurable:true,get:()=>range()[0]});
+  Object.defineProperty(div,'selectionEnd',{configurable:true,get:()=>range()[1]});
+  Object.defineProperty(div,'maxLength',{configurable:true,get:()=>max||-1});
+  div.setSelectionRange=(a,b)=>setSel(a,b);
+  div.insertText=ins;
+  const nativeFocus=div.focus.bind(div);
+  div.focus=o=>{const l=last;nativeFocus(o);setSel(l.a,l.b)};      // как у textarea: курсор остаётся там, где был
+  return div}
 
 /* ----- подсказка при вводе @ ----- */
 function mentionBox(ta,form,getList){
@@ -174,7 +258,7 @@ function viewGroupNew(el,kind,board){
   ${b?`<p style="color:var(--dim)">${kind==='channel'?'Канал':'Чат'} раздела «${esc(b.name)}» — публичный, его модерируют админы.</p>`:
    `<div class="grow glass" id="gp" style="margin:18px 0 0"><span class="t"><b>Публичный</b><small>Виден в каталоге, вступить может любой. Иначе — только по ссылке-приглашению или по добавлению</small></span><i class="sw"></i></div>`}
   <div id="gnm" ${b?'':'hidden'}><label class="lbl">Ссылка (необязательно)</label>${nameField('',kind==='channel'?'имя_канала':'имя_группы')}</div>
-  <p style="color:var(--dim);font-size:13px;margin:12px 2px 0">${kind==='channel'?'В канале пишут только владелец и админы, остальные читают и ставят реакции.':'Участников можно добавить после создания.'}</p>
+  <p style="color:var(--dim);font-size:0.8125rem;margin:12px 2px 0">${kind==='channel'?'В канале пишут только владелец и админы, остальные читают и ставят реакции.':'Участников можно добавить после создания.'}</p>
   <button class="btn" id="gGo" style="width:100%;margin-top:18px">Создать</button></div>`;
   const gp=$('#gp',el),getNm=bindName($('#gnm',el),'group',0,'');
   if(gp)gp.onclick=()=>{$('.sw',gp).classList.toggle('on');$('#gnm',el).hidden=!$('.sw',gp).classList.contains('on')};
@@ -276,8 +360,8 @@ async function viewPack(el,id,via){
     <div class="ginfo-h"><small>${emo()?'Набор эмодзи':'Набор стикеров'} · ${p.n} шт. · автор ${esc(p.owner)}${p.public?'':' · закрытый'}</small></div>
     <div class="ginfo-a">${p.added?'<button class="btn ghost" id="pRm" type="button">Убрать из моих</button>':'<button class="btn" id="pAd" type="button">Добавить набор</button>'}</div>
     <div class="pk-grid ${emo()?'e':''}">${plus}${p.items.map(it=>`<div class="it" data-it="${it.id}"><img data-bsrc="/forum/api/stickers/img/${it.id}" alt="">${it.e?`<i>${esc(it.e)}</i>`:''}</div>`).join('')}</div>
-    ${p.mine&&!p.items.length?`<p style="color:var(--dim);font-size:14px;margin:16px 22px 0;text-align:center;line-height:1.45">Нажмите «+» и выберите ${emo()?'картинки — каждая станет эмодзи':'фото — оно сразу станет стикером'}. Можно выбрать несколько. Анимация тоже подходит: WebP, GIF, APNG или WebM (до ${emo()?256:1024} КБ).</p>`:''}
-    ${emo()?'<p style="color:var(--dim);font-size:13px;margin:14px 18px 0">Эмодзи из набора вставляются в текст сообщения кнопкой 🙂 рядом с полем ввода.</p>':''}
+    ${p.mine&&!p.items.length?`<p style="color:var(--dim);font-size:0.875rem;margin:16px 22px 0;text-align:center;line-height:1.45">Нажмите «+» и выберите ${emo()?'картинки — каждая станет эмодзи':'фото — оно сразу станет стикером'}. Можно выбрать несколько. Анимация тоже подходит: WebP, GIF, APNG или WebM (до ${emo()?256:1024} КБ).</p>`:''}
+    ${emo()?'<p style="color:var(--dim);font-size:0.8125rem;margin:14px 18px 0">Эмодзи из набора вставляются в текст сообщения кнопкой 🙂 рядом с полем ввода.</p>':''}
     ${p.username?`<div class="grow glass" id="pCode" style="margin-top:16px"><span class="t"><b>Ссылка на набор</b><small class="codebox">exg/${esc(p.username)}</small></span><span style="color:var(--acc);font-weight:600">Копировать</span></div>`:''}
     ${p.mine?`<div class="sec">Управление</div><div class="grow glass" id="pPub"><span class="t"><b>Публичный</b><small>Виден в каталоге и поиске. Закрытый открывается только по ссылке</small></span><i class="sw ${p.public?'on':''}"></i></div>
       <div style="padding:10px 16px 30px;display:flex;flex-direction:column;gap:10px"><button class="btn ghost" id="pRen" type="button">${sm('pencil',19)}Переименовать</button><button class="btn ghost" id="pLn" type="button">${sm('link',19)}Изменить ссылку</button><button class="btn bad" id="pDel" type="button">Удалить набор</button></div>`:''}`;
