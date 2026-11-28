@@ -18,13 +18,13 @@
 .ke-c{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.35);padding:0;cursor:pointer;transition:transform .15s}
 .ke-c.on{border-color:#fff;transform:scale(1.22)}
 .ke-rg{width:min(320px,80%);accent-color:var(--acc,#8b7cff)}
-.ke-r,.ke-rs{height:36px;padding:0 14px;border-radius:18px;border:0;background:rgba(255,255,255,.12);color:#fff;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.ke-r,.ke-rs{min-height:36px;padding:0 14px;border-radius:18px;border:0;background:rgba(255,255,255,.12);color:#fff;font:inherit;font-size:0.875rem;font-weight:600;cursor:pointer}
 .ke-r.on{background:var(--acc,#8b7cff)}
 .ke-tabs{display:flex;border-top:1px solid rgba(255,255,255,.1);padding:4px 8px calc(6px + var(--safe-b,0px))}
-.ke-tabs button{flex:1;border:0;background:transparent;color:rgba(255,255,255,.6);display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0;font:inherit;font-size:12px;font-weight:600;cursor:pointer;border-radius:12px}
+.ke-tabs button{flex:1;border:0;background:transparent;color:rgba(255,255,255,.6);display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0;font:inherit;font-size:0.75rem;font-weight:600;cursor:pointer;border-radius:12px}
 .ke-tabs button.on{color:#fff;background:rgba(255,255,255,.1)}
 .ke-txt{position:absolute;left:12px;right:12px;bottom:12px;display:flex;gap:8px;background:rgba(20,22,28,.96);padding:8px;border-radius:14px;z-index:5}
-.ke-txt input{flex:1;min-width:0;height:40px;border-radius:10px;border:0;background:rgba(255,255,255,.12);color:#fff;padding:0 12px;font-size:16px;outline:none}
+.ke-txt input{flex:1;min-width:0;min-height:40px;border-radius:10px;border:0;background:rgba(255,255,255,.12);color:#fff;padding:0 12px;font-size:1rem;outline:none}
 .ke-txt button{border:0;border-radius:10px;background:var(--acc,#8b7cff);color:#fff;padding:0 16px;font-weight:700;cursor:pointer}
 /* рамка обрезки */
 .ke-crop{position:absolute;inset:0;touch-action:none;z-index:3}
@@ -49,9 +49,9 @@
 .ke-ph{position:absolute;top:-6px;bottom:-6px;width:3px;margin-left:-1px;background:#fff;border-radius:2px;pointer-events:none;box-shadow:0 0 4px rgba(0,0,0,.6)}
 .ke-trow{display:flex;align-items:center;gap:12px;padding:8px 14px}
 .ke-pl{width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;display:grid;place-items:center;padding:0;cursor:pointer}
-.ke-tt{font-variant-numeric:tabular-nums;font-size:14px;opacity:.9}
+.ke-tt{font-variant-numeric:tabular-nums;font-size:0.875rem;opacity:.9}
 .ke-prog{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.78);display:grid;place-items:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .ke-pc{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
-.ke-pc b{font-size:17px}.ke-pc span{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}.ke-pc small{opacity:.65}
-.ke-pcx{margin-top:6px;height:40px;padding:0 24px;border-radius:20px;border:0;background:rgba(255,255,255,.16);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+.ke-pc b{font-size:1.0625rem}.ke-pc span{font-size:min(1.75rem,8.62vw);font-weight:700;font-variant-numeric:tabular-nums}.ke-pc small{opacity:.65}
+.ke-pcx{margin-top:6px;min-height:40px;padding:0 24px;border-radius:20px;border:0;background:rgba(255,255,255,.16);color:#fff;font:inherit;font-weight:600;cursor:pointer}
 @media (max-height:560px){.ke-pn{min-height:70px}}
