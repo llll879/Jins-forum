@@ -1,7 +1,9 @@
 /* ===== Оформление чатов (обои, пузыри, текст) =====
    Настройки хранятся на устройстве: localStorage (параметры) + IndexedDB (своё фото-обои).
    Приоритет: настройки этого чата → настройки «для всех чатов» → стандартный вид.
-   API: CS.attach(chatNode,key) → ctx;  CS.open(ctx);  CS.open({}) — настройки для всех чатов. */
+   Исключение — каналы: оформление канала общее. Его задаёт админ (кнопка с палитрой), хранится на сервере и приходит
+   всем подписчикам вместе с сообщениями; у подписчиков вид канала всегда такой, как поставил админ.
+   API: CS.attach(chatNode,key) → ctx;  ctx.sync(стиль,версия) — стиль канала с сервера;  CS.open(ctx);  CS.open({}) — настройки для всех чатов. */
 const CS=(()=>{
   const uid=()=>S.me?S.me.id:0;
   const kAll=()=>'cs_'+uid()+'_all',kChat=k=>'cs_'+uid()+'_'+k;
@@ -72,7 +74,7 @@ const CS=(()=>{
 
   /* ----- применить настройки к узлу (чат или превью) ----- */
   const VARS=['--cs-r','--cs-rt','--cs-fs','--cs-gap','--cs-me-c','--cs-me-ink','--cs-me-tint','--cs-in-c'];
-  function apply(node,c){
+  function apply(node,c,gid){
     const st=node.style;VARS.forEach(v=>st.removeProperty(v));
     let wp=node.querySelector(':scope>.cs-wp');
     ['data-cs','data-cs-wp','data-cs-out','data-cs-in'].forEach(a=>node.removeAttribute(a));
@@ -96,6 +98,8 @@ const CS=(()=>{
     b.removeAttribute('data-p');delete b.dataset.k;b.style.backgroundImage='';b.style.backgroundColor='';
     if(w.t==='color')b.style.backgroundColor=w.v;
     else if(w.t==='p'){const pr=PRE[w.v];if(pr.img)b.dataset.p=w.v;else{b.style.backgroundImage=pr.bg;if(pr.c)b.style.backgroundColor=pr.c}}
+    else if(w.t==='img'&&String(w.v).indexOf('srv:')===0){      // фото-обои канала лежат на сервере
+      if(gid){const key=w.v+'@'+gid;b.dataset.k=key;blobOf('/forum/api/groups/wallpaper/'+gid+'?v='+encodeURIComponent(String(w.v).slice(4))).then(u=>{if(b.dataset.k===key&&u)b.style.backgroundImage='url("'+u+'")'}).catch(()=>{})}}
     else if(w.t==='img'){const [k,rev]=String(w.v).split(':');b.dataset.k=w.v;imgUrl(k,rev).then(u=>{if(b.dataset.k===w.v&&u)b.style.backgroundImage='url("'+u+'")'})}
     p.style.backgroundImage=w.pat!=='none'&&PATS[w.pat]?patUrl(w.pat):''}
 
@@ -105,18 +109,19 @@ const CS=(()=>{
   /* ----- панель настроек ----- */
   function open(ctx){
     ctx=ctx||{};if(document.querySelector('.cs-bg'))return;
-    let scope=ctx.key?'chat':'all',cfg,prev;
+    const sh=!!(ctx.gid&&ctx.admin);      // админ канала: оформление общее для всех подписчиков
+    let scope=sh?'chan':ctx.key?'chat':'all',cfg,prev,svT=0,svP=null;
     const keyOf=()=>scope==='chat'?kChat(ctx.key):kAll();
-    const start=()=>clone(scope==='chat'?(load(kChat(ctx.key))||load(kAll())||DEF):(load(kAll())||DEF));
+    const start=()=>clone(sh?(ctx.sh||DEF):scope==='chat'?(load(kChat(ctx.key))||load(kAll())||DEF):(load(kAll())||DEF));
     cfg=start();
     const sw=(path,val,cls,style)=>`<button type="button" class="cs-sw ${cls||''}" data-k="${path}" data-v="${val}" ${style?`style="background:${style}"`:''} aria-label="${val||'По умолчанию'}"></button>`;
     const sl=(path,label,a,b,unit)=>`<div class="cs-sl" data-sl="${path}"><span>${label}</span><input type="range" min="${a}" max="${b}" step="1" data-r="${path}"><b></b></div>`;
     const bg=document.createElement('div');bg.className='cs-bg';
     bg.innerHTML=`<div class="cs-panel" role="dialog" aria-label="Оформление чата"><div class="cs-grip"></div>
-      <div class="cs-top"><h3>Оформление</h3><button class="btn sm" type="button" id="csOk">Готово</button></div>
-      ${ctx.key?`<div class="cs-scope"><button class="tab" type="button" data-scope="chat">Этот чат</button><button class="tab" type="button" data-scope="all">Все чаты</button></div>`:''}
+      <div class="cs-top"><h3>${sh?'Оформление канала':'Оформление'}</h3><button class="btn sm" type="button" id="csOk">Готово</button></div>
+      ${ctx.key&&!sh?`<div class="cs-scope"><button class="tab" type="button" data-scope="chat">Этот чат</button><button class="tab" type="button" data-scope="all">Все чаты</button></div>`:''}
       <p class="cs-hint" id="csHint"></p>
-      <div class="cs-prev" id="csPrev"><div class="cday">Сегодня</div><div class="msg">Привет! Как тебе новый вид?<small>12:30</small></div><div class="msg me">Выглядит круто ✨<small>12:31 ✓✓</small></div></div>
+      <div class="cs-prev" id="csPrev"><div class="cday">Сегодня</div>${sh?`<div class="msg">Новый пост в канале<small>12:30</small></div><div class="msg">Так его увидят все подписчики ✨<small>12:31</small></div>`:`<div class="msg">Привет! Как тебе новый вид?<small>12:30</small></div><div class="msg me">Выглядит круто ✨<small>12:31 ✓✓</small></div>`}</div>
 
       <span class="cs-sec">Обои</span>
       <div class="cs-row">
@@ -132,11 +137,11 @@ const CS=(()=>{
         ${sl('wp.pop','Яркость узора',5,50)}
       </div>
 
-      <span class="cs-sec">Мои сообщения</span>
+      ${sh?'':`<span class="cs-sec">Мои сообщения</span>
       <div class="cs-chips">${[['grad','Градиент'],['solid','Сплошной'],['glass','Стекло'],['outline','Контур']].map(([k,n])=>`<button class="tab" type="button" data-k="out.st" data-v="${k}">${n}</button>`).join('')}</div>
-      <div class="cs-wrap">${sw('out.c','','auto')}${OUTC.map(c=>sw('out.c',c,'',c)).join('')}<label class="cs-sw col" data-list="out.c"><input type="color" data-ck="out.c" value="#6d64b6" aria-label="Свой цвет"></label></div>
+      <div class="cs-wrap">${sw('out.c','','auto')}${OUTC.map(c=>sw('out.c',c,'',c)).join('')}<label class="cs-sw col" data-list="out.c"><input type="color" data-ck="out.c" value="#6d64b6" aria-label="Свой цвет"></label></div>`}
 
-      <span class="cs-sec">Входящие</span>
+      <span class="cs-sec">${sh?'Сообщения канала':'Входящие'}</span>
       <div class="cs-wrap">${sw('inc.c','','auto inc')}${INC.map(c=>sw('inc.c',c,'',c)).join('')}<label class="cs-sw col" data-list="inc.c"><input type="color" data-ck="inc.c" value="#6d64b6" aria-label="Свой цвет"></label></div>
 
       <span class="cs-sec">Форма и текст</span>
@@ -160,10 +165,17 @@ const CS=(()=>{
       $('[data-sl="wp.pop"]',panel).hidden=cfg.wp.pat==='none';
       $('[data-sl="wp.blur"]',panel).hidden=$('[data-sl="wp.dim"]',panel).hidden=cfg.wp.t==='none';
       $$('[data-scope]',panel).forEach(b=>b.classList.toggle('on',b.dataset.scope===scope));
-      $('#csHint',panel).textContent=ctx.key?(scope==='chat'?'Только для этого диалога.':'Для всех чатов, где не задано своё оформление.'):'Для всех чатов. Отдельный чат можно оформить по кнопке с палитрой в его шапке.';
-      apply(prev,cfg);
-      if(ctx.node)apply(ctx.node,eff(ctx.key))}
+      $('#csHint',panel).textContent=sh?'Оформление увидят все подписчики канала — таким, как вы его поставите.':ctx.key?(scope==='chat'?'Только для этого диалога.':'Для всех чатов, где не задано своё оформление.'):'Для всех чатов. Отдельный чат можно оформить по кнопке с палитрой в его шапке.';
+      apply(prev,cfg,ctx.gid);
+      if(ctx.node)apply(ctx.node,sh?cfg:eff(ctx.key),ctx.gid)}
+    /* канал: сохраняем на сервер (с небольшой задержкой, пока двигают ползунки) */
+    async function saveSh(){svT=0;const snap=clone(cfg);
+      try{const r=await api('/groups/style',{method:'POST',body:{id:ctx.gid,style:isDef(snap)?null:snap}});
+        if(r.rev>(ctx.rev||0)){ctx.rev=r.rev;ctx.sh=r.style?merge(r.style):null}}
+      catch(er){toast(er.message||'Не удалось сохранить оформление',1)}}
+    const flush=()=>{if(svT){clearTimeout(svT);svP=saveSh()}return svP};
     function persist(){
+      if(sh){svT&&clearTimeout(svT);svT=setTimeout(()=>{svP=saveSh()},450);paint();return}
       const k=keyOf();
       if(scope==='all'&&isDef(cfg))ls.del(k);else ls.set(k,JSON.stringify(cfg));
       paint()}
@@ -184,22 +196,32 @@ const CS=(()=>{
       if(e.target.id==='csWc'){cfg.wp.t='color';cfg.wp.v=e.target.value;persist()}});
     $('#csFile',panel).onchange=async e=>{
       const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
+      if(sh){try{toast('Загрузка обоев…');const b=await fit(f),fd=new FormData();fd.append('id',ctx.gid);fd.append('file',b,'wallpaper.jpg');
+          const r=await api('/groups/wallpaper',{method:'POST',form:fd});
+          if(r.rev>(ctx.rev||0))ctx.rev=r.rev;       // чтобы опрос чата не откатил вид до сохранения
+          cfg.wp.t='img';cfg.wp.v='srv:'+r.wp_rev;if(!cfg.wp.dim)cfg.wp.dim=25;persist()}
+        catch(er){toast(er.message||'Не удалось загрузить фото',1)}return}
       try{
         const b=await fit(f),k=keyOf(),ok=await putImg(k,b);
         cfg.wp.t='img';cfg.wp.v=k+':'+Date.now();if(!cfg.wp.dim)cfg.wp.dim=25;persist();
         if(!ok)toast('Фото применено, но после перезагрузки пропадёт: хранилище браузера недоступно',1)}
       catch(er){toast(er.message||'Не удалось загрузить фото',1)}};
     $('#csReset',panel).onclick=()=>{
+      if(sh){svT&&clearTimeout(svT);svT=0;cfg=clone(DEF);paint();saveSh();toast('Оформление канала сброшено');return}
       const k=keyOf();ls.del(k);delImg(k);cfg=start();if(scope==='all')cfg=clone(DEF);paint();toast('Оформление сброшено')};
 
-    const close=()=>{window.removeEventListener('hashchange',close);bg.remove()};
+    const close=()=>{window.removeEventListener('hashchange',close);if(sh)flush();bg.remove()};
     $('#csOk',panel).onclick=close;bg.onclick=e=>{if(e.target===bg)close()};
     window.addEventListener('hashchange',close);
     paint();
     const on=$('.cs-row .cs-tile.on',panel);if(on){const row=on.parentNode;row.scrollLeft=Math.max(0,on.offsetLeft-row.clientWidth/2+on.offsetWidth/2)}}
 
   /* привязать оформление к открытому чату; key: 'd<peer>' или 'g<id>' */
-  function attach(node,key){const ctx={node,key};apply(node,eff(key));return ctx}
+  function attach(node,key){
+    const ctx={node,key,gid:0,admin:false,sh:null,rev:-1};apply(node,eff(key));
+    /* стиль канала с сервера: применяем, только если версия новее (устаревший ответ не откатывает правку) */
+    ctx.sync=(st,rev)=>{if(rev<=ctx.rev)return;ctx.rev=rev;ctx.sh=st?merge(st):null;apply(node,ctx.sh||eff(key),ctx.gid)};
+    return ctx}
 
   return{attach,open,icon:ICON}
 })();

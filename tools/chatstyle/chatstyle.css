@@ -25,8 +25,8 @@
 [data-cs-wp] .cday{background:color-mix(in srgb,var(--bg) 62%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:var(--txt)}
 [data-cs-wp] .cempty{color:var(--txt);text-shadow:0 1px 8px color-mix(in srgb,var(--bg) 90%,transparent)}
 /* поле ввода и скрепка читаются на любом фоне */
-[data-cs-wp] .cform textarea{background:color-mix(in srgb,var(--solid) 82%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
-[data-cs-wp] .cform textarea::placeholder{color:var(--dim)}
+[data-cs-wp] .cform textarea,[data-cs-wp] .cform .mtx{background:color-mix(in srgb,var(--solid) 82%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+[data-cs-wp] .cform textarea::placeholder,[data-cs-wp] .cform .mtx:empty::before{color:var(--dim)}
 [data-cs-wp] .cform .attb{color:var(--txt)}
 /* входящие поверх картинки — плотнее, чтобы текст читался на любом фоне */
 [data-cs-wp] .msg:not(.me){background:color-mix(in srgb,var(--solid) 84%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -65,11 +65,11 @@
 .cs-panel::-webkit-scrollbar{display:none}
 .cs-grip{width:38px;height:4px;border-radius:2px;background:var(--line2);margin:2px auto 10px}
 .cs-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.cs-top h3{flex:1;margin:0;font-family:var(--serif);font-size:20px;font-weight:600}
-.cs-top .btn{height:36px;padding:0 18px;font-size:14px}
+.cs-top h3{flex:1;margin:0;font-family:var(--serif);font-size:1.25rem;font-weight:600}
+.cs-top .btn{min-height:36px;padding:0 18px;font-size:0.875rem}
 .cs-scope{display:flex;gap:8px;margin-bottom:12px}
 .cs-scope .tab{flex:1;padding:0 8px}
-.cs-sec{display:block;font-size:13px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--dim);margin:20px 2px 9px}
+.cs-sec{display:block;font-size:0.8125rem;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--dim);margin:20px 2px 9px}
 .cs-row{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 6px;margin:0 -16px;padding-left:16px;padding-right:16px;scrollbar-width:none}
 .cs-row::-webkit-scrollbar{display:none}
 .cs-wrap{display:flex;gap:8px;flex-wrap:wrap}
@@ -85,16 +85,16 @@
 .cs-sw.auto.inc{background:var(--glass),var(--solid)}
 .cs-sw.col{background:conic-gradient(#ff5c6c,#ffb454,#e3e86a,#4cd6a0,#4aa8ff,#b06cff,#ff6fae,#ff5c6c)}
 .cs-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.cs-chips .tab{height:32px;padding:0 14px;font-size:13px}
+.cs-chips .tab{min-height:32px;padding:0 14px;font-size:0.8125rem}
 .cs-sl{display:flex;align-items:center;gap:12px;margin:12px 0 0}
-.cs-sl>span{flex:none;width:112px;font-size:14px;color:var(--txt)}
+.cs-sl>span{flex:none;width:112px;font-size:0.875rem;color:var(--txt)}
 .cs-tile[data-wp=none]{color:var(--txt);text-shadow:none}
-.cs-sl>b{flex:none;width:40px;text-align:right;font-size:12.5px;font-weight:600;color:var(--dim);font-variant-numeric:tabular-nums}
+.cs-sl>b{flex:none;width:40px;text-align:right;font-size:0.7812rem;font-weight:600;color:var(--dim);font-variant-numeric:tabular-nums}
 .cs-sl input[type=range]{flex:1;min-width:0;height:28px;accent-color:var(--acc);background:transparent}
 .cs-sl[hidden]{display:none}
 .cs-foot{display:flex;gap:10px;margin-top:22px}
 .cs-foot .btn{flex:1}
-.cs-hint{margin:-4px 2px 12px;font-size:12.5px;line-height:1.35;color:var(--dim)}
+.cs-hint{margin:-4px 2px 12px;font-size:0.7812rem;line-height:1.35;color:var(--dim)}
 .cs-prev .msg{font-size:inherit}
 
 /* кнопка в шапке не должна съедать заголовок на узких экранах */
