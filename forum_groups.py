@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 import re
 import secrets
 import time
@@ -28,6 +29,7 @@ from aiohttp import web
 
 import forum as F
 import forum_names as N
+from forum_style import clean_style, style_of
 from forum import FErr, J, api, ghost, jbody, to_int, users_map
 
 P = F.P
@@ -58,6 +60,12 @@ CREATE TABLE IF NOT EXISTS forum_group_rx(
 CREATE TABLE IF NOT EXISTS forum_group_mentions(
     msg_id BIGINT NOT NULL REFERENCES forum_group_msgs(id) ON DELETE CASCADE, user_id BIGINT NOT NULL, group_id INT NOT NULL, PRIMARY KEY(msg_id, user_id));
 CREATE INDEX IF NOT EXISTS forum_group_mentions_idx ON forum_group_mentions(user_id, group_id);
+-- общее оформление канала (обои, цвета сообщений): одно на всех подписчиков
+ALTER TABLE forum_groups ADD COLUMN IF NOT EXISTS style TEXT;
+ALTER TABLE forum_groups ADD COLUMN IF NOT EXISTS style_rev INT NOT NULL DEFAULT 0;
+ALTER TABLE forum_groups ADD COLUMN IF NOT EXISTS wp_data BYTEA;
+ALTER TABLE forum_groups ADD COLUMN IF NOT EXISTS wp_mime TEXT;
+ALTER TABLE forum_groups ADD COLUMN IF NOT EXISTS wp_rev INT NOT NULL DEFAULT 0;
 ALTER TABLE forum_notifs ADD COLUMN IF NOT EXISTS group_id INT;
 ALTER TABLE forum_notifs ADD COLUMN IF NOT EXISTS msg_id BIGINT;
 CREATE TABLE IF NOT EXISTS forum_stickerpacks(
@@ -92,7 +100,7 @@ def bm():
 
 
 # ============================================================================ доступ
-GSQL = ("SELECT id,kind,title,descr,owner_id,board_id,is_public,invite,created_at,(avatar_data IS NOT NULL) av FROM forum_groups")
+GSQL = ("SELECT id,kind,title,descr,owner_id,board_id,is_public,invite,created_at,(avatar_data IS NOT NULL) av,style,style_rev,(wp_data IS NOT NULL) has_wp,wp_rev FROM forum_groups")
 
 
 class Ctx:
@@ -484,6 +492,61 @@ async def a_gavatar(request):
                         headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"})
 
 
+# ============================================================================ общее оформление канала
+async def _channel_admin(request, gid):
+    c = await ctx(request["fuid"], gid, "admin")
+    if not c.channel:
+        raise FErr(400, "not_channel", "Общее оформление есть только у каналов")
+    return c
+
+
+@api
+async def a_gstyle_set(request):
+    """Админ канала задаёт оформление для всех подписчиков. style = null — вернуть стандартный вид."""
+    d = await jbody(request)
+    gid = to_int(d.get("id"))
+    await _channel_admin(request, gid)
+    raw = d.get("style")
+    if raw is None:
+        r = await P().fetchrow(
+            "UPDATE forum_groups SET style=NULL,wp_data=NULL,wp_mime=NULL,wp_rev=wp_rev+1,style_rev=style_rev+1 WHERE id=$1 RETURNING style_rev,wp_rev", gid)
+        return J({"ok": True, "rev": r["style_rev"], "wp_rev": r["wp_rev"], "style": None})
+    if not isinstance(raw, dict):
+        raise FErr(400, "bad_style", "Некорректное оформление")
+    cur = await P().fetchrow("SELECT (wp_data IS NOT NULL) has_wp,wp_rev FROM forum_groups WHERE id=$1", gid)
+    st = clean_style(raw, bool(cur["has_wp"]), cur["wp_rev"])
+    r = await P().fetchrow("UPDATE forum_groups SET style=$2,style_rev=style_rev+1 WHERE id=$1 RETURNING style_rev", gid, json.dumps(st, ensure_ascii=False))
+    return J({"ok": True, "rev": r["style_rev"], "wp_rev": cur["wp_rev"], "style": st})
+
+
+@api
+async def a_gwallpaper_set(request):
+    """Фото-обои канала (одни на всех подписчиков). remove — убрать фото."""
+    form = await request.post()
+    gid = to_int(form.get("id"))
+    await _channel_admin(request, gid)
+    if form.get("remove"):
+        r = await P().fetchrow("UPDATE forum_groups SET wp_data=NULL,wp_mime=NULL,wp_rev=wp_rev+1,style_rev=style_rev+1 WHERE id=$1 RETURNING style_rev,wp_rev", gid)
+        return J({"ok": True, "rev": r["style_rev"], "wp_rev": r["wp_rev"]})
+    f = form.get("file")
+    if f is None or not hasattr(f, "file"):
+        raise FErr(400, "no_file", "Файл не выбран")
+    data = f.file.read()
+    mime = _img_mime(data)
+    if not data or len(data) > F.IMG_MAX or mime not in ("image/jpeg", "image/png", "image/webp"):
+        raise FErr(400, "bad_image", "Нужна картинка до 4 МБ (JPEG, PNG, WebP)")
+    r = await P().fetchrow("UPDATE forum_groups SET wp_data=$2,wp_mime=$3,wp_rev=wp_rev+1,style_rev=style_rev+1 WHERE id=$1 RETURNING style_rev,wp_rev", gid, data, mime)
+    return J({"ok": True, "rev": r["style_rev"], "wp_rev": r["wp_rev"]})
+
+
+async def a_gwallpaper(request):
+    r = await P().fetchrow("SELECT wp_data,wp_mime FROM forum_groups WHERE id=$1 AND NOT deleted AND kind='channel'", to_int(request.match_info.get("gid")))
+    if not r or not r["wp_data"]:
+        raise web.HTTPNotFound()
+    return web.Response(body=bytes(r["wp_data"]), content_type=r["wp_mime"] or "image/jpeg",
+                        headers={"Cache-Control": "public, max-age=3600", "X-Content-Type-Options": "nosniff"})
+
+
 @api
 async def a_gadd(request):
     me = request["fuid"]
@@ -652,7 +715,8 @@ async def a_gmessages(request):
     g = c.g
     return J({"group": {"id": gid, "kind": g["kind"], "title": g["title"], "descr": g["descr"], "av": bool(g["av"]), "members": n,
                         "member": c.member, "admin": c.admin, "can_post": c.can_post, "public": bool(g["is_public"]), "board": g["board_id"],
-                        "muted": bool(c.m and c.m["muted"])},
+                        "muted": bool(c.m and c.m["muted"]),
+                        "style": style_of(g), "style_rev": g["style_rev"] or 0},
               "users": {u: short_user(um[u]) for u in um}, "pins": pins, "typing": [tum[u]["name"].split(" ")[0] for u in typing[:3] if u in tum],
               "recording": rec, "messages": [one(r) for r in rows]})
 
@@ -1239,6 +1303,9 @@ def install(r, A):
     r.add_post(A + "/groups/update", a_gupdate)
     r.add_post(A + "/groups/avatar", a_gavatar_set)
     r.add_get(A + "/groups/avatar/{gid}", a_gavatar)
+    r.add_post(A + "/groups/style", a_gstyle_set)
+    r.add_post(A + "/groups/wallpaper", a_gwallpaper_set)
+    r.add_get(A + "/groups/wallpaper/{gid}", a_gwallpaper)
     r.add_post(A + "/groups/add", a_gadd)
     r.add_post(A + "/groups/kick", a_gkick)
     r.add_post(A + "/groups/role", a_grole)

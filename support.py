@@ -5,7 +5,7 @@
 Как устроено
   • Поддержка — это «виртуальный собеседник» с id SUPPORT_ID. Для него есть строка в users, поэтому он живёт в обычных чатах
     мини-аппа (direct_messages) и всегда закреплён первым в списке «Чаты» (ensure_chat / порядок в api_chats).
-  • Его профиль (имя, описание, аватар, баннер) берётся из проекта «Поддержка KMBP», который автоматически создаётся у владельца
+  • Его профиль (имя, описание, аватар, баннер) берётся из проекта «Поддержка BAZAR», который автоматически создаётся у владельца
     (3-й аккаунт в переключателе). Владелец переключается на него и правит как любой проект — sync_profile() копирует в users.
   • Сначала отвечает ИИ (Gemini). Он устойчив к 503/429: повторы с паузой, запасные модели, автомат на 20 с, а если ИИ лежит —
     локальный поиск по базе знаний. База знаний = описание бота + README + живые данные (темы, тексты бота).
@@ -34,7 +34,7 @@ except Exception:  # pragma: no cover
 log = logging.getLogger("jins.support")
 
 SUPPORT_ID = -777                 # виртуальный пользователь «Поддержка» (настоящие id в Telegram положительные)
-SUPPORT_NAME = "Поддержка KMBP"
+SUPPORT_NAME = "Поддержка BAZAR"
 bm = None                         # модуль bot.py
 
 
@@ -590,6 +590,8 @@ async def ensure_identity():
     await P().execute(
         "INSERT INTO users(user_id,first_name) VALUES($1,$2) ON CONFLICT (user_id) DO NOTHING", SUPPORT_ID, SUPPORT_NAME)
     pid = int(await bm.get_setting("support_project_id") or 0)
+    if pid:      # переименование старого названия «Поддержка KMBP» в уже созданных базах
+        await P().execute("UPDATE projects SET name=$2 WHERE id=$1 AND name IN ('Поддержка KMBP','Поддержка')", pid, SUPPORT_NAME)
     if not pid or not await P().fetchval("SELECT 1 FROM projects WHERE id=$1", pid):
         pid = await P().fetchval(
             "INSERT INTO projects(owner_id,kind,name,description,created_by) VALUES($1,'bot',$2,$3,$1) RETURNING id",

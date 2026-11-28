@@ -12,9 +12,10 @@
 |---|---|
 | `main.py` | точка входа: подключение к БД, запуск веб-сервера форума |
 | `forum.py`, `forum_groups.py`, `forum_gifs.py`, `forum_names.py` | сам форум (API `/forum/api/*`, группы, GIF, ссылки `exg/имя`) |
+| `forum_style.py` | проверка общего оформления канала (чистые функции, тесты — `tests/test_channel_style.py`) |
 | `forum.html` | клиент форума (собран из `forum.src.html`) |
 | `forum_calls.py` | звонки: личные и групповые, аудио/видео (WebRTC; сервер только передаёт сигналы) |
-| `tools/chatstyle/` | оформление чатов: обои, цвета и форма пузырей, размер текста (`chatstyle.js` + `chatstyle.css`, подключаются в `forum.src.html` через `{{inc:…}}`) |
+| `tools/chatstyle/` | оформление чатов: обои, цвета и форма пузырей, размер текста (`chatstyle.js` + `chatstyle.css`, подключаются в `forum.src.html` через `{{inc:…}}`). У каналов оформление **общее**: его ставит админ, оно хранится на сервере (`forum_groups.style`, фото-обои — `wp_data`) и одинаково у всех подписчиков |
 | `tools/music/` | раздел «BAZAR WAVE» (`music.js` + `music.css`): карточки-«рулетка» (Моя волна, Караоке 2007, Ностальгия 2010-х, Зарубежное, Любимое, История, Поиск), тренды, мини- и полноэкранный плеер; подключается в `forum.src.html` через `{{inc:…}}` |
 | `tools/desktop/` | версия для компьютера (от 1100px): меню слева, лента по центру, правая панель, чаты в два окна (`desktop.css`; разметка и JS — `shell()`, `railFill()`, `lpaneMount()` в `forum.src.html`). Телефонная вёрстка не затронута |
 | `tools/build_forum.py` | сборка `forum.html` из `forum.src.html` + `forum_assets/` (после правок клиента: `python tools/build_forum.py`) |
