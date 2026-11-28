@@ -36,6 +36,8 @@ from datetime import datetime, timezone
 import aiohttp
 from aiohttp import web
 
+import forum_sc
+
 try:
     from aiogram import F, Router
     from aiogram.types import Message
@@ -2172,15 +2174,15 @@ async def a_music_artist(request):
     hist.append(now)
     _mu_rate[me] = hist
     aid = request.query.get("id", "")
-    m = re.fullmatch(r"(y)([0-9]{1,12})", aid)
-    if not m or not YM_TOKEN:
+    m = re.fullmatch(r"([ys])([0-9]{1,12})", aid)
+    if not m or (m.group(1) == "y" and not YM_TOKEN):
         raise FErr(400, "bad_input", "Исполнитель недоступен")
     ck = "artist?" + aid
     hit = _mu_cache.get(ck)
     if hit and now - hit[0] < 600:
         return web.Response(text=hit[1], content_type="application/json", charset="utf-8")
     try:
-        data = await _ym_artist(m.group(2))
+        data = await (forum_sc.artist(m.group(2)) if m.group(1) == "s" else _ym_artist(m.group(2)))
         text = json.dumps(data, ensure_ascii=False)
     except Exception as e:
         log.warning("music artist failed: %s", e)
@@ -2204,6 +2206,21 @@ async def a_music_get(request):
     if len(_mu_rate) > 3000:
         _mu_rate.clear()
     q = request.query
+    if q.get("src") == "sc":
+        lim = q.get("limit", "30")
+        lim = min(int(lim), 50) if lim.isdigit() else 30
+        ck = "sc?" + urlencode(sorted((k, v) for k, v in q.items() if k in ("k", "q")) + [("limit", lim)])
+        hit = _mu_cache.get(ck)
+        if hit and now - hit[0] < 600:
+            return web.Response(text=hit[1], content_type="application/json", charset="utf-8")
+        try:
+            tr = await (forum_sc.search_tracks(q.get("q", "")[:100], lim) if q.get("k") == "search" else forum_sc.chart("top", limit=lim))
+            text = json.dumps({"data": tr}, ensure_ascii=False)
+        except Exception as e:
+            log.warning("sc get failed: %s", e)
+            raise FErr(502, "music_unavailable", "SoundCloud сейчас недоступен")
+        _mu_cache[ck] = (time.monotonic(), text)
+        return web.Response(text=text, content_type="application/json", charset="utf-8")
     if q.get("src") == "ym":
         if not YM_TOKEN:
             raise FErr(503, "music_unavailable", "Яндекс Музыка не подключена")
@@ -2514,6 +2531,21 @@ async def a_music_search(request):
     q = re.sub(r"\s+", " ", request.query.get("q", "")).strip()[:100]
     if len(q) < 2:
         raise FErr(400, "bad_input", "Слишком короткий запрос")
+    if request.query.get("src") == "sc":
+        ck = "sc:" + q.lower()
+        hit = _mu_cache.get(ck)
+        if hit and now - hit[0] < 600:
+            return web.Response(text=hit[1], content_type="application/json", charset="utf-8")
+        try:
+            tr, ar = await asyncio.gather(forum_sc.search_tracks(q, 20), forum_sc.search_artists(q, 6), return_exceptions=True)
+        except Exception as e:
+            raise FErr(502, "music_unavailable", "SoundCloud сейчас недоступен")
+        if isinstance(tr, Exception):
+            log.warning("sc search failed: %s", tr)
+            raise FErr(502, "music_unavailable", "SoundCloud сейчас недоступен")
+        text = json.dumps({"artists": ar if isinstance(ar, list) else [], "tracks": tr, "fixed": "", "ai": False}, ensure_ascii=False)
+        _mu_cache[ck] = (time.monotonic(), text)
+        return web.Response(text=text, content_type="application/json", charset="utf-8")
     if not YM_TOKEN:
         raise FErr(503, "music_unavailable", "Музыка не настроена")
     use_ai = request.query.get("ai") == "1"
@@ -2679,7 +2711,7 @@ async def a_music_lyrics(request):
 async def a_music_stream(request):
     """Запасной путь: редирект на файл трека (если прямой адрес из списка не открылся). Нужны только цифры id."""
     tid = request.query.get("id") or ""
-    if not re.fullmatch(r"y[0-9]{1,12}", tid) or not YM_TOKEN:
+    if not re.fullmatch(r"[ys][0-9]{1,12}", tid) or (tid[0] == "y" and not YM_TOKEN):
         raise FErr(400, "bad_input", "Неверный трек")
     now = time.monotonic()
     ip = request.remote or "?"
@@ -2691,6 +2723,16 @@ async def a_music_stream(request):
     hit = _mu_loc.get(tid)
     if hit and now - hit[0] < 300:
         raise web.HTTPFound(hit[1])
+    if tid[0] == "s":
+        loc = ""
+        try:
+            loc = await forum_sc.stream_url(tid[1:])
+        except Exception as e:
+            log.warning("sc stream failed: %s", e)
+        if not str(loc).startswith("https://"):
+            raise FErr(502, "music_unavailable", "Трек сейчас недоступен")
+        _mu_loc[tid] = (now, loc)
+        raise web.HTTPFound(loc)
     if tid[0] == "y":
         loc = ""
         try:
@@ -2709,7 +2751,7 @@ async def a_music_stream(request):
         raise web.HTTPFound(loc)
 
 
-_IMG_HOSTS = re.compile(r"https://(avatars\.(mds\.)?yandex\.net|[a-z0-9-]+\.mds\.yandex\.net)/[A-Za-z0-9_\-./%]+")
+_IMG_HOSTS = re.compile(r"https://(avatars\.(mds\.)?yandex\.net|[a-z0-9-]+\.mds\.yandex\.net|i1\.sndcdn\.com)/[A-Za-z0-9_\-./%]+")
 _mu_img = {}
 
 

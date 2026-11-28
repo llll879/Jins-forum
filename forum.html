@@ -4550,7 +4550,7 @@ let redraw=null,subsFn=null,netFn=null;
 const cache=new Map();
 const jget=(k,d)=>{try{const v=ls.get(k);return v?JSON.parse(v):d}catch(e){return d}};
 /* треки старой библиотеки (нецифровые id без файла) больше не играют — не тащим их из сохранённого */
-const okT=x=>x&&(x.src||/^y\d+$/.test(String(x.id)));
+const okT=x=>x&&(x.src||/^[ys]\d+$/.test(String(x.id)));
 let likes=jget('mu_likes',[]).filter(okT),hist=jget('mu_hist',[]).filter(okT);
 const isLiked=id=>likes.some(x=>x.id===id);
 const cur=()=>Q[qi]||null;
@@ -4720,7 +4720,7 @@ const markWave=()=>{const id=wave&&waveSel?waveSel.id:'',my=!!(wave&&!waveSel);
     const g=$('.cd-go',b);if(g){const h=on&&!A.paused?MI.pause:MI.play;if(g._h!==h){g._h=h;g.innerHTML=h}}})};
 const ymOr=p=>tracks(Object.assign({src:'ym',limit:30},p));
 /* умный поиск: сервер сам чинит раскладку/транслит, берёт подсказки Яндекса; ai=1 — ещё и Gemini (при его сбое просто пусто) */
-const searchApi=(q,ai)=>api('/music/search?q='+encodeURIComponent(q)+(ai?'&ai=1':'')).then(d=>({artists:d.artists||[],tracks:(d.tracks||[]).map(norm),fixed:d.fixed||''}));
+const searchApi=(q,ai,src)=>api('/music/search?q='+encodeURIComponent(q)+(ai?'&ai=1':'')+(src?'&src='+src:'')).then(d=>({artists:d.artists||[],tracks:(d.tracks||[]).map(norm),fixed:d.fixed||''}));
 const searchAll=async(q,n)=>(await searchApi(q)).tracks.slice(0,n);
 /* карточка исполнителя: портрет с именем поверх; без фото — цветной градиент и первая буква */
 const ini=n=>(String(n||'').trim().match(/[\p{L}\p{N}]/u)||['♪'])[0].toUpperCase();
@@ -5192,6 +5192,15 @@ function view(el){
       <div id="muAi"><div class="mu-ai"><span class="mu-aid"></span>Умный поиск ищет ещё…</div></div>`;
     const sl=$('.ar-sim',body);if(sl)sl.onclick=e=>{const c=e.target.closest('[data-ar]');if(c)openArtist(c.dataset.ar)};
     const lb=$('#muLs',body);if(lb){lb.innerHTML=listHtml(d.tracks);wire(lb,d.tracks)}
+    /* SoundCloud: отдельный блок, приходит параллельно (если недоступен — блока просто нет) */
+    const scb=document.createElement('div');scb.id='muSc';body.insertBefore(scb,$('#muAi',body));
+    searchApi(q,0,'sc').then(r=>{if(my!==seq||!scb.isConnected)return;
+      const hv=new Set(d.tracks.map(x=>x.id)),tr=(r.tracks||[]).filter(x=>!hv.has(x.id)).slice(0,12);
+      if(!tr.length&&!(r.artists||[]).length)return;
+      const nn=$('#muNone',body);if(nn)nn.remove();
+      scb.innerHTML=`<div class="mu-h"><h3>SoundCloud</h3></div>${(r.artists||[]).length?cards(r.artists):''}${tr.length?'<div id="muScL"></div>':''}`;
+      const c3=$('.ar-sim',scb);if(c3)c3.onclick=e=>{const c=e.target.closest('[data-ar]');if(c)openArtist(c.dataset.ar)};
+      const l3=$('#muScL',scb);if(l3){l3.innerHTML=listHtml(tr);wire(l3,tr)}}).catch(()=>{});
     /* второй этап: ИИ (может быть недоступен/перегружен — тогда блок тихо исчезает) */
     const ai=$('#muAi',body);
     try{
