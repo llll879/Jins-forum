@@ -975,13 +975,24 @@ function view(el){
      поэтому ритм считается от времени воспроизведения: у каждого трека свой темп, удар привязан к позиции A.currentTime ---- */
   const npEl=$('#muNp',el),npWv=$('#npWv',el),npg=npWv.getContext('2d'),npRg=$('input[type=range]',npEl),muEl2=$('.mu',el);
   const npOn=()=>!!cur()&&!st.npOff;
-  let npW=0,npH=0,npDpr=1,npE=0,npPh=0,npT=performance.now(),npId=null,npWas=null,npRaf=0,npSeen=false;
-  function npApply(){
-    const art=!!st.artist,on=npOn()&&!art;
+  let npW=0,npH=0,npDpr=1,npE=0,npPh=0,npT=performance.now(),npId=null,npWas=null,npRaf=0,npSeen=false,npTo=false;
+  let npTr=0,npBoost=0;
+  function npFinish(on,anim){
+    const art=!!st.artist;
     npEl.hidden=!on;rlw.hidden=art||on;dots.hidden=art||mode!=='s'||on;
     muEl2.classList.toggle('np-on',on);const ap=$('#app');if(ap)ap.classList.toggle('mu-npv',on);
     if(npWas===true&&!on&&!art)requestAnimationFrame(()=>{if(measure())fit()});
+    if(anim&&on){npBoost=1;npEl.classList.remove('np-in');void npEl.offsetWidth;npEl.classList.add('np-in');setTimeout(()=>npEl.classList.remove('np-in'),1600)}
+    else if(anim&&!on&&!art){rlw.classList.remove('rl-in');void rlw.offsetWidth;rlw.classList.add('rl-in');setTimeout(()=>rlw.classList.remove('rl-in'),900)}
     npWas=on}
+  /* смена барабана на «Сейчас играет»: барабан уезжает и растворяется, из центра расходится кольцо, ленты разворачиваются, обложка и кнопки выезжают по очереди */
+  function npApply(){
+    const art=!!st.artist,on=npOn()&&!art;
+    if(npTr){if(on===npTo)return;clearTimeout(npTr);npTr=0;rlw.classList.remove('rl-out');dots.classList.remove('rl-out')}
+    const anim=!REDUCE&&npWas!==null&&npWas!==on&&!art&&npEl.isConnected;
+    if(anim&&on){npTo=true;rlw.classList.add('rl-out');dots.classList.add('rl-out');
+      npTr=setTimeout(()=>{npTr=0;rlw.classList.remove('rl-out');dots.classList.remove('rl-out');npFinish(true,true)},330);return}
+    npFinish(on,anim)}
   function npSync(){
     if(!npEl.isConnected){if(npSeen){npFn=null;npPr=null;const ap=$('#app');if(ap)ap.classList.remove('mu-npv')}return}
     npSeen=true;
@@ -1034,10 +1045,11 @@ function view(el){
     if(play){const bpm=npBpm(cur()),bt=(A.currentTime||0)*bpm/60,f=bt%1,f2=(bt*2)%1;
       tgt=.22+.6*Math.exp(-f*4.2)+.22*Math.exp(-f2*8)+.16*(.5+.5*Math.sin(bt*.37)*Math.sin(bt*.11+1))}
     npE+=(tgt-npE)*Math.min(1,dt*(tgt>npE?18:5));
-    if(!REDUCE)npPh+=dt*(.35+npE*1.5);
+    npBoost*=Math.exp(-dt*2.1);const bo=Math.min(1.3,npE+npBoost*.9);
+    if(!REDUCE)npPh+=dt*(.35+bo*1.5+npBoost*2);
     const g=npg;g.setTransform(npDpr,0,0,npDpr,0,0);g.clearRect(0,0,npW,npH);g.globalCompositeOperation='lighter';
     const base=npH*.2;
-    for(let r=0;r<3;r++)npRibbon(r,base*(.62+.22*r)*(.5+npE*1.1),(.6+npE*.8)*(r===1?1:.8));
+    for(let r=0;r<3;r++)npRibbon(r,base*(.62+.22*r)*(.5+bo*1.1),(.6+bo*.8)*(r===1?1:.8));
     g.globalCompositeOperation='source-over'}
   npRaf=requestAnimationFrame(npLoop);
   /* связь вернулась — сами повторяем то, что не загрузилось (экран при этом не меняется) */

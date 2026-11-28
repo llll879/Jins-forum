@@ -601,3 +601,27 @@ body.mu-playing .ar-rg{animation-duration:2.2s}
 .mu-pod::before{border-color:rgba(255,255,255,.2)}.mu-pod::after{border-color:rgba(255,255,255,.1)}
 .mu-dots button{background:rgba(255,255,255,.22);box-shadow:none}.mu-dots button.on{box-shadow:none}
 .mu-spinb{width:48px;height:48px;border:1px solid var(--line2);background:#000}
+
+/* ===== переход барабан → «Сейчас играет» (и обратно) ===== */
+.mu-np{overflow:hidden}
+.mu-rl-w.rl-out,.mu-dots.rl-out{animation:rlOut .33s cubic-bezier(.55,0,.85,.35) forwards;pointer-events:none}
+.mu-rl-w.rl-in{animation:rlIn .75s cubic-bezier(.2,.9,.25,1) both}
+.mu-np.np-in::before,.mu-np.np-in::after{content:"";position:absolute;left:50%;top:100px;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;border:1.5px solid rgba(255,255,255,.75);pointer-events:none;animation:npRing 1.15s cubic-bezier(.1,.6,.3,1) both}
+.mu-np.np-in::after{border-color:rgba(255,255,255,.4);animation-delay:.14s}
+.mu-np.np-in .np-wv{animation:npWave 1.05s cubic-bezier(.2,.85,.25,1) both}
+.mu-np.np-in .np-cv{animation:npPop .85s .12s cubic-bezier(.3,1.45,.5,1) both}
+.mu-np.np-in .np-ti{animation:npUp .7s .2s cubic-bezier(.2,.9,.25,1) both}
+.mu-np.np-in .np-eq,.mu-np.np-in .np-i{animation:npUp .7s .3s cubic-bezier(.2,.9,.25,1) both}
+.mu-np.np-in .np-bar{animation:npUp .7s .34s cubic-bezier(.2,.9,.25,1) both}
+.mu-np.np-in .np-ctl button{animation:npPopS .7s cubic-bezier(.3,1.4,.5,1) both}
+.mu-np.np-in .np-ctl button:nth-child(1){animation-delay:.42s}.mu-np.np-in .np-ctl button:nth-child(2){animation-delay:.48s}
+.mu-np.np-in .np-ctl button:nth-child(3){animation-delay:.38s}
+.mu-np.np-in .np-ctl button:nth-child(4){animation-delay:.48s}.mu-np.np-in .np-ctl button:nth-child(5){animation-delay:.54s}
+@keyframes rlOut{to{opacity:0;transform:translateY(-16px) scale(.8);filter:blur(7px)}}
+@keyframes rlIn{from{opacity:0;transform:translateY(26px) scale(.86);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
+@keyframes npRing{from{transform:scale(1);opacity:.9}to{transform:scale(22);opacity:0}}
+@keyframes npWave{from{opacity:0;transform:scale(.88,.15);filter:blur(10px)}55%{opacity:1}to{opacity:1;transform:none;filter:none}}
+@keyframes npPop{from{opacity:0;transform:scale(.4) rotate(-14deg)}to{opacity:1;transform:none}}
+@keyframes npPopS{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:none}}
+@keyframes npUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.mu-np.np-in *,.mu-np.np-in::before,.mu-np.np-in::after,.mu-rl-w.rl-in{animation:none!important}}
