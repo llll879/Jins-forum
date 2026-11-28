@@ -2075,7 +2075,7 @@ def _ym_norm(tracks):
             title = (t.title or "") + (f" ({t.version})" if getattr(t, "version", None) else "")
             cu = getattr(t, "cover_uri", None) or ""
             first = next((a for a in (t.artists or []) if a.id), None)
-            out.append({"id": "y" + tid, "ai": ("y" + str(first.id)) if first else "", "t": title[:200], "a": ", ".join(a.name for a in (t.artists or []) if a.name)[:200],
+            out.append({"id": "y" + tid, "ai": ("y" + str(first.id)) if first else "", "ax": [["y" + str(a.id), a.name] for a in (t.artists or []) if a.id and a.name][:8], "t": title[:200], "a": ", ".join(a.name for a in (t.artists or []) if a.name)[:200],
                         "img": "https://" + cu.replace("%%", "300x300") if cu else "",
                         "d": max(0, int((getattr(t, "duration_ms", 0) or 0) // 1000)), "u": ""})
         except Exception:
@@ -2131,7 +2131,11 @@ async def _ym_artist(aid):
     img = _ym_img(getattr(cov, "uri", None) or getattr(a, "og_image", None))
     sub = []
     rt = getattr(a, "ratings", None)
-    if rt and getattr(rt, "month", None):
+    st_ = getattr(bi, "stats", None) or getattr(a, "stats", None)
+    lml = getattr(st_, "last_month_listeners", None) if st_ else None
+    if lml:                      # настоящие «слушатели за месяц» (как на сайте Яндекс Музыки)
+        sub.append(f"{_num_ru(lml)} слушателей в месяц")
+    elif rt and getattr(rt, "month", None):
         sub.append(f"{_num_ru(rt.month)} слушателей в месяц")
     elif getattr(a, "likes_count", None):
         sub.append(f"{_num_ru(a.likes_count)} лайков")
